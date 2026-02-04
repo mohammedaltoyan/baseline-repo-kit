@@ -1,5 +1,7 @@
 # Normalize line endings across platforms (prevents CI churn).
 * text=auto
+.gitattributes text eol=lf
+.gitignore text eol=lf
 *.js text eol=lf
 *.cjs text eol=lf
 *.mjs text eol=lf

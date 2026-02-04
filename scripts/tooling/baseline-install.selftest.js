@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 const assert = require('assert');
-const { isExcludedPath, normalizeMode } = require('./baseline-install');
+const { isExcludedPath, allowedByMode, normalizeMode } = require('./baseline-install');
 
 function run() {
   // Plan artifacts should never be installed into target repos.
@@ -20,6 +20,10 @@ function run() {
   assert.strictEqual(isExcludedPath('.env'), true);
   assert.strictEqual(isExcludedPath('.env.example'), false);
 
+  // Toolchain SSOT should be installed in overlay mode.
+  assert.strictEqual(allowedByMode('.nvmrc', 'overlay'), true);
+  assert.strictEqual(allowedByMode('.nvmrc', 'init'), true);
+
   // Mode normalization.
   assert.strictEqual(normalizeMode(''), 'overlay');
   assert.strictEqual(normalizeMode('overlay'), 'overlay');
@@ -34,4 +38,3 @@ if (require.main === module) {
 }
 
 module.exports = { run };
-

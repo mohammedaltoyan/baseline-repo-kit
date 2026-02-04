@@ -13,17 +13,9 @@
 /* eslint-disable no-console */
 const fs = require('fs');
 const path = require('path');
+const { readJsonSafe } = require('../utils/json');
 
 const root = process.cwd();
-
-function readJsonSafe(filePath) {
-  try {
-    const raw = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(raw.replace(/^\uFEFF/, ''));
-  } catch {
-    return null;
-  }
-}
 
 function parseCsv(value) {
   return String(value || '')

@@ -7,6 +7,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { stripBom } = require('../utils/json');
 
 const root = process.cwd();
 const plansDir = path.join(root, 'docs', 'ops', 'plans');
@@ -139,7 +140,7 @@ for (const f of files) {
 // Validate FOCUS.json JSON when present
 const focusBody = read(focusPath);
 if (focusBody) {
-  try { JSON.parse(focusBody.replace(/^\uFEFF/, '')); } catch (e) { die(`Invalid JSON in FOCUS.json: ${e.message}`); }
+  try { JSON.parse(stripBom(focusBody)); } catch (e) { die(`Invalid JSON in FOCUS.json: ${e.message}`); }
 }
 
 console.log(`[plan-lint] OK ? plans: ${files.length}, active: ${activePlans.length}, queued: ${0}`);

@@ -19,6 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const { parseFlagArgs } = require('../utils/cli-args');
 const { isTruthy } = require('../utils/is-truthy');
+const { readJson, writeJson } = require('../utils/json');
 
 function die(msg) {
   console.error(`[baseline-install] ${msg}`);
@@ -34,16 +35,6 @@ function normalizeMode(raw) {
 
 function normalizeRel(p) {
   return String(p || '').replace(/\\/g, '/');
-}
-
-function readJson(filePath) {
-  const raw = fs.readFileSync(filePath, 'utf8');
-  return JSON.parse(raw.replace(/^\uFEFF/, ''));
-}
-
-function writeJson(filePath, value) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(value, null, 2) + '\n', 'utf8');
 }
 
 function ensureDir(dirPath, dryRun) {

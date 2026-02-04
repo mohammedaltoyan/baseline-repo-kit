@@ -2,17 +2,9 @@
 /* eslint-disable no-console */
 const fs = require('fs');
 const path = require('path');
+const { readJsonSafe } = require('../utils/json');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
-
-function readJsonSafe(filePath) {
-  try {
-    const raw = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(raw.replace(/^\uFEFF/, ''));
-  } catch (_) {
-    return null;
-  }
-}
 
 function toBool(value, defaultValue) {
   if (typeof value === 'boolean') return value;
@@ -192,4 +184,3 @@ try {
   console.error('[prune-evidence] failed:', err && err.message ? err.message : err);
   process.exit(1);
 }
-

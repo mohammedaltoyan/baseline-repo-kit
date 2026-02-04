@@ -15,6 +15,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { readJson, writeJson: writeJsonFile } = require('../utils/json');
 
 function die(msg) {
   console.error(`[deep-verify] ${msg}`);
@@ -33,16 +34,6 @@ function run(cmd, args, opts = {}) {
   const res = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: needsShell });
   if (res.error) die(`${label} error: ${res.error.message}`);
   if (res.status !== 0) die(`${label} failed (exit ${res.status})`);
-}
-
-function writeJson(filePath, obj) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(obj, null, 2) + '\n', 'utf8');
-}
-
-function readJson(filePath) {
-  const raw = fs.readFileSync(filePath, 'utf8');
-  return JSON.parse(raw.replace(/^\uFEFF/, ''));
 }
 
 function walkFiles(rootDir) {
@@ -90,11 +81,18 @@ function assertNoInstalledArtifacts(targetRoot) {
 
 function installBaseline({ sourceRoot, targetRoot, mode, overwrite, method }) {
   const m = String(method || 'node').trim().toLowerCase();
-  const labelSuffix = `${mode}${overwrite ? ', overwrite' : ''}${m === 'npm' ? ', via npm' : ''}`;
+  const viaNpm = m === 'npm' || m === 'npm-positional' || m === 'npm-flag';
+  const labelSuffix = `${mode}${overwrite ? ', overwrite' : ''}${viaNpm ? ', via npm' : ''}${m === 'npm-flag' ? ' (flags)' : ''}`;
 
-  if (m === 'npm') {
+  if (m === 'npm' || m === 'npm-positional') {
     const args = ['run', 'baseline:install', '--', targetRoot, mode];
     if (overwrite) args.push('overwrite');
+    run(npmCmd(), args, { cwd: sourceRoot, label: `baseline-install (${labelSuffix})` });
+    return;
+  }
+  if (m === 'npm-flag') {
+    const args = ['run', 'baseline:install', '--', '--to', targetRoot, '--mode', mode];
+    if (overwrite) args.push('--overwrite');
     run(npmCmd(), args, { cwd: sourceRoot, label: `baseline-install (${labelSuffix})` });
     return;
   }
@@ -155,7 +153,7 @@ function main() {
   try {
     // Scenario A: init mode into an empty repo
     const initTarget = path.join(tmpRoot, 'target-init');
-    installBaseline({ sourceRoot, targetRoot: initTarget, mode: 'init', overwrite: false, method: 'npm' });
+    installBaseline({ sourceRoot, targetRoot: initTarget, mode: 'init', overwrite: false, method: 'npm-flag' });
     assertNoInstalledArtifacts(initTarget);
     assertInstalledPackageJson({ sourceRoot, targetRoot: initTarget });
     assertInstalledToolchain({ sourceRoot, targetRoot: initTarget });
@@ -164,7 +162,7 @@ function main() {
     // Scenario B: overlay into a minimal Node repo (no conflicting scripts)
     const overlayClean = path.join(tmpRoot, 'target-overlay-clean');
     fs.mkdirSync(overlayClean, { recursive: true });
-    writeJson(path.join(overlayClean, 'package.json'), {
+    writeJsonFile(path.join(overlayClean, 'package.json'), {
       name: 'target-overlay-clean',
       version: '0.0.0',
       private: true,
@@ -180,7 +178,7 @@ function main() {
     // Scenario C: overlay with overwrite into a repo that has conflicting scripts/deps
     const overlayOverwrite = path.join(tmpRoot, 'target-overlay-overwrite');
     fs.mkdirSync(overlayOverwrite, { recursive: true });
-    writeJson(path.join(overlayOverwrite, 'package.json'), {
+    writeJsonFile(path.join(overlayOverwrite, 'package.json'), {
       name: 'target-overlay-overwrite',
       version: '0.0.0',
       private: true,

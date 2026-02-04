@@ -9,19 +9,11 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { readJsonSafe } = require('../utils/json');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const errors = [];
 const warnings = [];
-
-function readJsonSafe(filePath) {
-  try {
-    const raw = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(raw.replace(/^\uFEFF/, ''));
-  } catch (_) {
-    return null;
-  }
-}
 
 function toBool(value, defaultValue) {
   if (typeof value === 'boolean') return value;

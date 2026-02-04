@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { isTruthy } = require('../utils/is-truthy');
+const { readJsonSafe } = require('../utils/json');
 
 function die(msg) {
   console.error(`[pr-ready] ${msg}`);
@@ -57,17 +58,9 @@ function parseArgs(argvIn) {
   return out;
 }
 
-function readJson(filePath) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
 function resolvePlanFromFocus() {
   const focusPath = path.join(process.cwd(), 'docs', 'ops', 'plans', 'FOCUS.json');
-  const focus = readJson(focusPath);
+  const focus = readJsonSafe(focusPath);
   const owners = Array.isArray(focus && focus.owners) ? focus.owners : [];
   if (owners.length === 1) return String(owners[0].plan_id || '').trim();
   return '';

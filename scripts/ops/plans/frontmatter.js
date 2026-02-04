@@ -1,4 +1,5 @@
 'use strict';
+const { stripBom } = require('../../utils/json');
 
 function escapeRegExp(str) {
   return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -11,7 +12,7 @@ function splitLines(body) {
 function findFrontmatterRange(lines) {
   const arr = Array.isArray(lines) ? lines : [];
   if (!arr.length) return null;
-  const first = String(arr[0] || '').replace(/^\uFEFF/, '').trim();
+  const first = stripBom(String(arr[0] || '')).trim();
   if (first !== '---') return null;
   for (let i = 1; i < arr.length; i++) {
     if (String(arr[i] || '').trim() === '---') return { start: 0, end: i };
@@ -111,4 +112,3 @@ module.exports = {
   readFrontmatterTopLevel,
   updateFrontmatter,
 };
-
