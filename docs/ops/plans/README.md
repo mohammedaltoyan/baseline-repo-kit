@@ -15,7 +15,7 @@ Canonical plans live under `docs/ops/plans/` and are required for non-trivial wo
 - Create: `npm run plans:new -- <slug> "<title>" '@owner' in_progress`
 - Focus: `npm run plans:focus -- '@owner' PLAN-YYYYMM-<slug> Sxx`
 - Advance step: `npm run plans:advance -- PLAN-YYYYMM-<slug> Sxx`
-- Verify: `npm run plans:verify` (runs `npm test`)
+- Verify: `npm run plans:verify` (runs `npm test`; optional: `VERIFY_DEEP=1` to include `npm run test:deep`)
 - Gate tests: `npm run plans:gate -- --plan PLAN-YYYYMM-<slug>` (checks off S99)
 - Archive: `npm run plans:archive -- PLAN-YYYYMM-<slug> done`
 - Regenerate dashboard: `npm run plans:index`

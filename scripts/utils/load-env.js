@@ -24,9 +24,9 @@ function preferIpv4First() {
  * Order of precedence:
  *   1. Value already in process.env (never overridden)
  *   2. Explicit ENV_FILE path via process.env.ENV_FILE
- *   3. config/env/.env.local
- *   4. config/env/.env
- *   5. config/env/.env.cloud (optional)
+ *   3. config/env/.env.cloud (optional)
+ *   4. config/env/.env.local
+ *   5. config/env/.env
  *   6. .env in repo root (optional)
  */
 function loadEnv() {
@@ -68,9 +68,9 @@ function loadEnv() {
 
   // Default resolution order prefers local overlays. First-wins semantics (override:false).
   const candidates = [
+    path.join(envDir, '.env.cloud'),
     path.join(envDir, '.env.local'),
     path.join(envDir, '.env'),
-    path.join(envDir, '.env.cloud'),
     path.join(repoRoot, '.env')
   ];
 

@@ -178,7 +178,13 @@ function mergePackageJson({ sourceRoot, targetRoot, overwrite, dryRun, verbose, 
   const srcScripts = srcJson.scripts && typeof srcJson.scripts === 'object' ? srcJson.scripts : {};
   for (const [k, v] of Object.entries(srcScripts)) {
     if (Object.prototype.hasOwnProperty.call(dstJson.scripts, k)) {
-      if (dstJson.scripts[k] !== v) changes.scriptsConflicts += 1;
+      if (dstJson.scripts[k] === v) continue;
+      if (overwrite) {
+        dstJson.scripts[k] = v;
+        changes.scriptsOverwritten = (changes.scriptsOverwritten || 0) + 1;
+      } else {
+        changes.scriptsConflicts += 1;
+      }
       continue;
     }
     dstJson.scripts[k] = v;
@@ -189,16 +195,45 @@ function mergePackageJson({ sourceRoot, targetRoot, overwrite, dryRun, verbose, 
   const srcDeps = srcJson.dependencies && typeof srcJson.dependencies === 'object' ? srcJson.dependencies : {};
   for (const [k, v] of Object.entries(srcDeps)) {
     if (Object.prototype.hasOwnProperty.call(dstJson.dependencies, k)) {
-      if (dstJson.dependencies[k] !== v) changes.depsConflicts += 1;
+      if (dstJson.dependencies[k] === v) continue;
+      if (overwrite) {
+        dstJson.dependencies[k] = v;
+        changes.depsOverwritten = (changes.depsOverwritten || 0) + 1;
+      } else {
+        changes.depsConflicts += 1;
+      }
       continue;
     }
     dstJson.dependencies[k] = v;
     changes.depsAdded += 1;
   }
 
+  // Optional: merge devDependencies when present in the baseline.
+  dstJson.devDependencies =
+    dstJson.devDependencies && typeof dstJson.devDependencies === 'object' ? dstJson.devDependencies : {};
+  const srcDev = srcJson.devDependencies && typeof srcJson.devDependencies === 'object' ? srcJson.devDependencies : {};
+  for (const [k, v] of Object.entries(srcDev)) {
+    if (Object.prototype.hasOwnProperty.call(dstJson.devDependencies, k)) {
+      if (dstJson.devDependencies[k] === v) continue;
+      if (overwrite) {
+        dstJson.devDependencies[k] = v;
+        changes.devDepsOverwritten = (changes.devDepsOverwritten || 0) + 1;
+      } else {
+        changes.devDepsConflicts = (changes.devDepsConflicts || 0) + 1;
+      }
+      continue;
+    }
+    dstJson.devDependencies[k] = v;
+    changes.devDepsAdded = (changes.devDepsAdded || 0) + 1;
+  }
+
   const changed =
     changes.scriptsAdded > 0 ||
-    changes.depsAdded > 0;
+    changes.depsAdded > 0 ||
+    (changes.scriptsOverwritten || 0) > 0 ||
+    (changes.depsOverwritten || 0) > 0 ||
+    (changes.devDepsAdded || 0) > 0 ||
+    (changes.devDepsOverwritten || 0) > 0;
 
   if (!changed) {
     if (verbose) console.log('[baseline-install] package.json: no merge changes needed');
@@ -209,8 +244,12 @@ function mergePackageJson({ sourceRoot, targetRoot, overwrite, dryRun, verbose, 
   if (verbose) {
     console.log(
       `[baseline-install] package.json merged: +${changes.scriptsAdded} scripts, +${changes.depsAdded} deps` +
-      (changes.scriptsConflicts || changes.depsConflicts
-        ? ` (conflicts: scripts=${changes.scriptsConflicts}, deps=${changes.depsConflicts})`
+      ((changes.devDepsAdded || 0) ? `, +${changes.devDepsAdded} devDeps` : '') +
+      ((changes.scriptsOverwritten || 0) ? `, ~${changes.scriptsOverwritten} scripts` : '') +
+      ((changes.depsOverwritten || 0) ? `, ~${changes.depsOverwritten} deps` : '') +
+      ((changes.devDepsOverwritten || 0) ? `, ~${changes.devDepsOverwritten} devDeps` : '') +
+      (changes.scriptsConflicts || changes.depsConflicts || changes.devDepsConflicts
+        ? ` (conflicts: scripts=${changes.scriptsConflicts}, deps=${changes.depsConflicts}, devDeps=${changes.devDepsConflicts || 0})`
         : '')
     );
   }

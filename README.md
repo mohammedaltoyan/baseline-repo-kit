@@ -23,3 +23,4 @@ Reusable, project-agnostic baseline: planning system + docs templates + repo gua
 4. Run baseline gates:
    - `npm install`
    - `npm test`
+   - Optional (deeper): `npm run test:deep`

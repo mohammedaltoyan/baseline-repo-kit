@@ -9,6 +9,7 @@
  * Default behavior:
  * - Runs `npm test` (baseline lint gates).
  * - Optionally runs the change guard when `VERIFY_CHANGE_GUARD=1`.
+ * - Optionally runs deep verification when `VERIFY_DEEP=1`.
  */
 /* eslint-disable no-console */
 const path = require('path');
@@ -51,10 +52,13 @@ function main() {
     }
   }
 
+  if (isTruthy(process.env.VERIFY_DEEP)) {
+    run(npmCmd(), ['run', 'test:deep'], 'deep verification (npm run test:deep)');
+  }
+
   console.log('[plan-verify] OK');
 }
 
 if (require.main === module) {
   main();
 }
-

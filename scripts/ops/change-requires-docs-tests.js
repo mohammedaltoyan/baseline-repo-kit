@@ -38,6 +38,7 @@ function getChangedFiles() {
 function isTestFile(p) {
   return (
     /^tests\//.test(p) ||
+    /\.selftest\./.test(p) ||
     /\.test\./.test(p)
   );
 }
