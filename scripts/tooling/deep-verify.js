@@ -135,6 +135,18 @@ function assertInstalledPackageJson({ sourceRoot, targetRoot }) {
   );
 }
 
+function assertInstalledToolchain({ sourceRoot, targetRoot }) {
+  const baselinePath = path.join(sourceRoot, '.nvmrc');
+  const targetPath = path.join(targetRoot, '.nvmrc');
+
+  if (!fs.existsSync(baselinePath)) return;
+  assert.ok(fs.existsSync(targetPath), '[deep-verify] expected target repo to include .nvmrc');
+
+  const baseline = String(fs.readFileSync(baselinePath, 'utf8') || '').trim();
+  const target = String(fs.readFileSync(targetPath, 'utf8') || '').trim();
+  assert.strictEqual(target, baseline, '[deep-verify] expected target .nvmrc to match baseline');
+}
+
 function main() {
   const sourceRoot = path.resolve(__dirname, '..', '..');
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'baseline-kit-deep-verify-'));
@@ -146,6 +158,7 @@ function main() {
     installBaseline({ sourceRoot, targetRoot: initTarget, mode: 'init', overwrite: false, method: 'npm' });
     assertNoInstalledArtifacts(initTarget);
     assertInstalledPackageJson({ sourceRoot, targetRoot: initTarget });
+    assertInstalledToolchain({ sourceRoot, targetRoot: initTarget });
     runNpmTest({ targetRoot: initTarget, useCi: true });
 
     // Scenario B: overlay into a minimal Node repo (no conflicting scripts)
@@ -161,6 +174,7 @@ function main() {
     installBaseline({ sourceRoot, targetRoot: overlayClean, mode: 'overlay', overwrite: false, method: 'npm' });
     assertNoInstalledArtifacts(overlayClean);
     assertInstalledPackageJson({ sourceRoot, targetRoot: overlayClean });
+    assertInstalledToolchain({ sourceRoot, targetRoot: overlayClean });
     runNpmTest({ targetRoot: overlayClean, useCi: false });
 
     // Scenario C: overlay with overwrite into a repo that has conflicting scripts/deps
@@ -180,6 +194,7 @@ function main() {
     installBaseline({ sourceRoot, targetRoot: overlayOverwrite, mode: 'overlay', overwrite: true, method: 'npm' });
     assertNoInstalledArtifacts(overlayOverwrite);
     assertInstalledPackageJson({ sourceRoot, targetRoot: overlayOverwrite });
+    assertInstalledToolchain({ sourceRoot, targetRoot: overlayOverwrite });
     runNpmTest({ targetRoot: overlayOverwrite, useCi: false });
 
     console.log('[deep-verify] OK');

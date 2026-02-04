@@ -2,10 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const dns = require('dns');
 const dotenv = require('dotenv');
-
-function isTruthy(value) {
-  return /^(1|true|yes)$/i.test(String(value || '').trim());
-}
+const { isTruthy } = require('./is-truthy');
 
 function logInfo(message) {
   if (!isTruthy(process.env.LOAD_ENV_VERBOSE)) return;

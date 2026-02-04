@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { isTruthy } = require('../utils/is-truthy');
 
 function die(msg) {
   console.error(`[plan-gate] ${msg}`);
@@ -38,10 +39,6 @@ function parseArgs(argv) {
     out.positionals.push(a);
   }
   return out;
-}
-
-function isTruthy(value) {
-  return /^(1|true|yes)$/i.test(String(value || '').trim());
 }
 
 function runNode(relPath, label) {
@@ -96,4 +93,3 @@ function main() {
 if (require.main === module) {
   main();
 }
-

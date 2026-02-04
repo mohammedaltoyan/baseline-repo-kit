@@ -14,6 +14,7 @@
 /* eslint-disable no-console */
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { isTruthy } = require('../utils/is-truthy');
 
 function die(msg) {
   console.error(`[plan-verify] ${msg}`);
@@ -30,10 +31,6 @@ function run(cmd, args, label) {
   const res = spawnSync(cmd, args, { stdio: 'inherit', shell: needsShell });
   if (res.error) die(`${label} error: ${res.error.message}`);
   if (res.status !== 0) die(`${label} failed (exit ${res.status})`);
-}
-
-function isTruthy(value) {
-  return /^(1|true|yes)$/i.test(String(value || '').trim());
 }
 
 function isGitWorkTree() {

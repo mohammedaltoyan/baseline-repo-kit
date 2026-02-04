@@ -6,7 +6,7 @@
  *
  * Usage:
  *   npm run baseline:install -- <path> [overlay|init] [overwrite] [dry-run] [verbose]
- *   npm run baseline:install -- -- --to <path> [--mode overlay|init] [--overwrite] [--dry-run] [--verbose]
+ *   npm run baseline:install -- --to <path> [--mode overlay|init] [--overwrite] [--dry-run] [--verbose]
  *
  * Modes:
  * - overlay (default): copy baseline folders/files without overwriting project identity
@@ -18,14 +18,11 @@
 const fs = require('fs');
 const path = require('path');
 const { parseFlagArgs } = require('../utils/cli-args');
+const { isTruthy } = require('../utils/is-truthy');
 
 function die(msg) {
   console.error(`[baseline-install] ${msg}`);
   process.exit(1);
-}
-
-function isTruthy(v) {
-  return /^(1|true|yes)$/i.test(String(v || '').trim());
 }
 
 function normalizeMode(raw) {
@@ -106,6 +103,7 @@ function allowedByMode(relPosix, mode) {
   const allowedRootFiles = new Set([
     'AGENTS.md',
     'README_BASELINE.md',
+    '.nvmrc',
     '.gitignore',
     '.gitattributes',
   ]);

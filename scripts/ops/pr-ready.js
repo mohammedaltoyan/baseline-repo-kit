@@ -15,14 +15,11 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { isTruthy } = require('../utils/is-truthy');
 
 function die(msg) {
   console.error(`[pr-ready] ${msg}`);
   process.exit(1);
-}
-
-function isTruthy(v) {
-  return /^(1|true|yes)$/i.test(String(v || '').trim());
 }
 
 function parseArgs(argvIn) {

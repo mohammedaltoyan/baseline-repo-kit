@@ -108,7 +108,7 @@ Planning discipline:
 - `npm run pr:ready` runs baseline gates before opening a PR (and can optionally enforce clean/up-to-date branches).
 - Optional installer to overlay this kit onto another repo:
   - Safe positional form: `npm run baseline:install -- <target-path> [overlay|init] [overwrite] [dry-run] [verbose]`
-  - Flag form (requires an extra `--` with modern npm): `npm run baseline:install -- -- --to <path> --mode overlay --dry-run`
+  - Flag form (safe with modern npm): `npm run baseline:install -- --to <path> --mode overlay --dry-run`
 
 ## Commit & Pull Request Guidelines (Recommended)
 
