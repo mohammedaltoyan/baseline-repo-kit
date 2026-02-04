@@ -14,7 +14,7 @@ Reusable, project-agnostic baseline: planning system + docs templates + repo gua
 
 1. Copy this repo into your new project (or use it as a template).
    - Optional: install into an existing repo:
-     - `npm run baseline:install -- --to <path-to-repo> --mode overlay`
+     - `npm run baseline:install -- <path-to-repo> overlay`
 2. Update project identity:
    - `package.json` name/description
    - `docs/product/*` templates

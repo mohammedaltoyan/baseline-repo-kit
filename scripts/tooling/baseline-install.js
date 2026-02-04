@@ -5,7 +5,8 @@
  * Copies this baseline kit into a target repository folder.
  *
  * Usage:
- *   npm run baseline:install -- --to <path> [--mode overlay|init] [--overwrite] [--dry-run]
+ *   npm run baseline:install -- <path> [overlay|init] [overwrite] [dry-run] [verbose]
+ *   npm run baseline:install -- -- --to <path> [--mode overlay|init] [--overwrite] [--dry-run] [--verbose]
  *
  * Modes:
  * - overlay (default): copy baseline folders/files without overwriting project identity
@@ -59,6 +60,9 @@ function isExcludedPath(relPosix) {
 
   // Keep the directory contract docs, but never copy generated artifacts.
   if (rel === 'docs/ops/plans/review/README.md') return false;
+  if (rel === 'docs/ops/plans/archive/README.md') return false;
+  if (rel === 'docs/ops/plans/README.md') return false;
+  if (rel === 'docs/ops/plans/TEMPLATE.md') return false;
 
   const parts = rel.split('/').filter(Boolean);
   if (parts[0] === '.git') return true;
@@ -68,9 +72,17 @@ function isExcludedPath(relPosix) {
   if (rel === 'docs/ops/plans/FOCUS.json') return true;
   if (rel === 'docs/ops/plans/INDEX.md') return true;
   if (rel === 'docs/ops/plans/review' || rel.startsWith('docs/ops/plans/review/')) return true;
+  // Never copy plan instances from the baseline kit into target repos.
+  // Targets should create their own plan(s) via `npm run plans:new`.
+  if (/^docs\/ops\/plans\/(?:archive\/)?PLAN-\d{6}-[A-Za-z0-9_.-]+\.md$/i.test(rel)) return true;
+  if (rel === 'docs/ops/plans/archive/duplicates' || rel.startsWith('docs/ops/plans/archive/duplicates/')) return true;
 
   // Never copy real env secret files; examples are fine.
-  if (rel === '.env' || rel.startsWith('.env.')) return true;
+  if (rel === '.env') return true;
+  if (rel.startsWith('.env.')) {
+    if (rel.endsWith('.example')) return false;
+    return true;
+  }
   if (rel.startsWith('config/env/')) {
     const base = path.posix.basename(rel);
     if (base.startsWith('.env') && !base.endsWith('.example') && base !== 'README.md') return true;
@@ -208,17 +220,31 @@ function mergePackageJson({ sourceRoot, targetRoot, overwrite, dryRun, verbose, 
 
 function main() {
   const args = parseFlagArgs(process.argv.slice(2));
+  const positionals = Array.isArray(args._) ? args._.map((v) => String(v || '').trim()).filter(Boolean) : [];
   const targetRaw = String(args.to || args.t || args._[0] || '').trim();
   if (!targetRaw) {
-    die('Missing target. Usage: baseline:install -- --to <path> [--mode overlay|init] [--overwrite] [--dry-run]');
+    die('Missing target. Usage: baseline:install -- <path> [overlay|init] [overwrite] [dry-run] [verbose]');
   }
 
-  const mode = normalizeMode(args.mode);
-  if (!mode) die(`Invalid --mode ${String(args.mode || '').trim()}; expected overlay|init`);
+  let mode = 'overlay';
+  const modeFlag = String(args.mode || '').trim();
+  if (modeFlag) {
+    mode = normalizeMode(modeFlag);
+    if (!mode) die(`Invalid --mode ${modeFlag}; expected overlay|init`);
+  } else {
+    const posModeCandidate = String(positionals[1] || '').trim();
+    const posMode = normalizeMode(posModeCandidate);
+    if (posModeCandidate && posMode) mode = posMode;
+  }
 
-  const overwrite = isTruthy(args.overwrite);
-  const dryRun = isTruthy(args['dry-run'] || args.dryRun);
-  const verbose = isTruthy(args.verbose);
+  const posFlags = positionals.slice(1).map((p) => String(p || '').trim().toLowerCase()).filter(Boolean);
+  const overwrite = isTruthy(args.overwrite) || posFlags.includes('overwrite');
+  const dryRun =
+    isTruthy(args['dry-run'] || args.dryRun) ||
+    posFlags.includes('dry-run') ||
+    posFlags.includes('dryrun') ||
+    posFlags.includes('dry_run');
+  const verbose = isTruthy(args.verbose) || posFlags.includes('verbose');
 
   const sourceRoot = path.resolve(__dirname, '..', '..');
   const targetRoot = path.resolve(process.cwd(), targetRaw);
@@ -277,4 +303,12 @@ function main() {
   );
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  isExcludedPath,
+  allowedByMode,
+  normalizeMode,
+};

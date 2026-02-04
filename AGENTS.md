@@ -18,14 +18,14 @@ Anything project-, tenant-, vendor-, or environment-specific belongs in the targ
 - No customer/project names, IDs, domains, or URLs in baseline source.
 - No vendor scaffolds, SDK-specific wiring, or product schemas.
 - Keep docs as templates and runbooks; keep automation reusable across repos.
-- If a rule cannot be made generic, move it to the target project’s own docs/config.
+- If a rule cannot be made generic, move it to the target project's own docs/config.
 
 ## Configuration Overrides / Scope Ladder (If Applicable; Must When Multi-Tenant)
 
 If your system has multiple override scopes (multi-tenant, multi-client, multi-sender, etc.):
 
 - Define a single canonical precedence ladder (example: Global < Tenant < Client < Sender < Source/Resource).
-- Resolve effective settings only via a central resolver function/module (never “pick a scope” ad-hoc).
+- Resolve effective settings only via a central resolver function/module (never "pick a scope" ad-hoc).
 - Log resolution decisions (evaluated scopes + chosen source) in a canonical decision log so behavior is explainable.
 - Add tests that assert precedence and verify resolution logs exist for critical decisions.
 
@@ -44,7 +44,7 @@ If your system has multiple override scopes (multi-tenant, multi-client, multi-s
 - If GitHub Merge Queue is enabled:
   - Do not re-queue repeatedly. Queue once and wait for completion in order.
   - Do not push new commits while queued (it invalidates the queue run). If changes are required, update the branch, then queue once.
-  - Do not “spam” update/queue actions; let the queue proceed and only intervene when a run completes/fails.
+- Do not "spam" update/queue actions; let the queue proceed and only intervene when a run completes/fails.
 
 ## Mandatory Plan Gate (No Edits Without a Plan) (Must)
 
@@ -99,7 +99,7 @@ Planning discipline:
 - Keep baseline artifacts generic: no vendor SDK scaffolds, no product schemas, no one-off demos.
 - Keep repo root clean; prefer `scripts/`, `config/`, `docs/`, `.github/` for baseline tooling and templates.
 - Do not track generated artifacts (logs, caches, exports, `node_modules`, secret env files).
-- Keep “generated dashboards” generated: do not hand-edit; regenerate via commands.
+- Keep "generated dashboards" generated: do not hand-edit; regenerate via commands.
 
 ## Build, Test, and Development Commands (Baseline)
 
@@ -136,5 +136,5 @@ Planning discipline:
 - Source of truth: `docs/ops/plans/README.md` and canonical plans under `docs/ops/plans/`.
 - Canonical plans are required for non-trivial work; PRs must reference `Plan:` and `Step:`.
 - Use only commands for plan lifecycle changes (create/advance/focus/gate/archive/index).
-- S98 (Objectives Gate) is a deliberate check: record “Objectives Evidence:” in the plan.
+- S98 (Objectives Gate) is a deliberate check: record "Objectives Evidence:" in the plan.
 - S99 (Tests Gate) requires recording evidence of passing suites and relevant verification.
