@@ -2,7 +2,7 @@
 plan_id: PLAN-202602-fix-objectives-lint
 title: Fix objectives lint for tmp artifacts
 owner: @owner
-status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
+status: done # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
 current_step: S97
 updated: 2026-02-04
 priority: P2 # P0|P1|P2|P3
@@ -25,7 +25,7 @@ Checklist
 - [x] S04 - Implementation (deliver via one or more small PRs; list the key deliverables)
 - [x] S05 - Docs updated (update guides/runbooks/AGENTS as needed; avoid duplicating SSOT policy text)
 - [x] S95 - Testing coverage design and execution (unit + integration/E2E; perf/load if applicable; evidence recorded)
-- [ ] S97 - CI evidence recorded (CI run URL added)
+- [x] S97 - CI evidence recorded (CI run URL added)
 
 Phase Map (fill during S02)
 - Add phase steps as needed (recommended: S10, S20, S30, ...) where each phase is a mergeable PR (or a small PR series).
