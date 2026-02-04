@@ -3,7 +3,7 @@ plan_id: PLAN-202602-fix-objectives-lint
 title: Fix objectives lint for tmp artifacts
 owner: @owner
 status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
-current_step: S05
+current_step: S97
 updated: 2026-02-04
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
@@ -12,8 +12,8 @@ links:
 ---
 
 At-a-Glance
-- Now: S99 - Tests Gate complete (CI evidence pending)
-- Next: S05 - Docs updated (if needed) / plan complete (requires CI evidence)
+- Now: S97 - CI evidence recorded (CI run URL added)
+- Next: plan complete (requires CI evidence)
 - Blockers: CI run URL for S99 (when available)
 - ETA: 2026-02-04
 
@@ -23,8 +23,9 @@ Checklist
 - [x] S02 - Requirements captured (include PR slicing plan: phase map + mergeable increments; feature flags if needed)
 - [x] S03 - Design validation (flows, failure messaging, CI behavior; overrides explicitly defined or none)
 - [x] S04 - Implementation (deliver via one or more small PRs; list the key deliverables)
-- [ ] S05 - Docs updated (update guides/runbooks/AGENTS as needed; avoid duplicating SSOT policy text)
+- [x] S05 - Docs updated (update guides/runbooks/AGENTS as needed; avoid duplicating SSOT policy text)
 - [x] S95 - Testing coverage design and execution (unit + integration/E2E; perf/load if applicable; evidence recorded)
+- [ ] S97 - CI evidence recorded (CI run URL added)
 
 Phase Map (fill during S02)
 - Add phase steps as needed (recommended: S10, S20, S30, ...) where each phase is a mergeable PR (or a small PR series).
@@ -41,5 +42,6 @@ Decisions & Notes
 - Objectives Evidence: auto-verified at 2026-02-04T19:37:18.416Z (commit 97e1c1d3a8785c4bdefd1a45b8e30fc4dfdf993a)
 - 2026-02-04 - Fix objectives lint: ignore root-level temp artefacts (`tmp/`, `temp/`, `tmp-*`, `temp-*`) and skip scanning nested copies of `scripts/ops/objectives-lint.js` to prevent self-flag false positives.
 - 2026-02-04 - Local Evidence: `npm test`, `npm run plans:verify`, `npm run pr:ready -- --plan PLAN-202602-fix-objectives-lint` (all passing).
+- 2026-02-04 - Track env template: allow `config/env/.env.cloud.example` (template) to be committed while keeping `config/env/.env.cloud.*` ignored.
 - PR: <link(s) to PR(s) if applicable>
 - CI Evidence: <pending; add CI run URL(s) for S99>

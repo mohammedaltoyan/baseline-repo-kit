@@ -7,6 +7,7 @@ config/env/.env.local
 config/env/.env.*.local
 config/env/.env.cloud
 config/env/.env.cloud.*
+!config/env/.env.cloud.example
 
 # Misc secret dumps
 secrets/
