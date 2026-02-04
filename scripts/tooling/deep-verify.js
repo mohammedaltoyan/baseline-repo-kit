@@ -10,6 +10,7 @@
  * Designed to be generic and safe to run locally or in CI.
  */
 /* eslint-disable no-console */
+const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -37,6 +38,11 @@ function run(cmd, args, opts = {}) {
 function writeJson(filePath, obj) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(obj, null, 2) + '\n', 'utf8');
+}
+
+function readJson(filePath) {
+  const raw = fs.readFileSync(filePath, 'utf8');
+  return JSON.parse(raw.replace(/^\uFEFF/, ''));
 }
 
 function walkFiles(rootDir) {
@@ -82,16 +88,20 @@ function assertNoInstalledArtifacts(targetRoot) {
   }
 }
 
-function installBaseline({ sourceRoot, targetRoot, mode, overwrite }) {
-  const args = [
-    path.join(sourceRoot, 'scripts', 'tooling', 'baseline-install.js'),
-    '--to',
-    targetRoot,
-    '--mode',
-    mode,
-  ];
+function installBaseline({ sourceRoot, targetRoot, mode, overwrite, method }) {
+  const m = String(method || 'node').trim().toLowerCase();
+  const labelSuffix = `${mode}${overwrite ? ', overwrite' : ''}${m === 'npm' ? ', via npm' : ''}`;
+
+  if (m === 'npm') {
+    const args = ['run', 'baseline:install', '--', targetRoot, mode];
+    if (overwrite) args.push('overwrite');
+    run(npmCmd(), args, { cwd: sourceRoot, label: `baseline-install (${labelSuffix})` });
+    return;
+  }
+
+  const args = [path.join(sourceRoot, 'scripts', 'tooling', 'baseline-install.js'), '--to', targetRoot, '--mode', mode];
   if (overwrite) args.push('--overwrite');
-  run(process.execPath, args, { cwd: sourceRoot, label: `baseline-install (${mode}${overwrite ? ', overwrite' : ''})` });
+  run(process.execPath, args, { cwd: sourceRoot, label: `baseline-install (${labelSuffix})` });
 }
 
 function runNpmTest({ targetRoot, useCi }) {
@@ -103,6 +113,28 @@ function runNpmTest({ targetRoot, useCi }) {
   run(npmCmd(), ['test'], { cwd: targetRoot, label: 'npm test' });
 }
 
+function assertInstalledPackageJson({ sourceRoot, targetRoot }) {
+  const baselinePkg = readJson(path.join(sourceRoot, 'package.json'));
+  const targetPkg = readJson(path.join(targetRoot, 'package.json'));
+
+  const baselineTest = String(baselinePkg?.scripts?.test || '').trim();
+  assert.ok(baselineTest, '[deep-verify] baseline package.json is missing scripts.test');
+
+  assert.strictEqual(
+    String(targetPkg?.scripts?.test || '').trim(),
+    baselineTest,
+    '[deep-verify] expected target package.json scripts.test to match baseline'
+  );
+
+  const baselineDotenv = String(baselinePkg?.dependencies?.dotenv || '').trim();
+  assert.ok(baselineDotenv, '[deep-verify] baseline package.json is missing dependencies.dotenv');
+  assert.strictEqual(
+    String(targetPkg?.dependencies?.dotenv || '').trim(),
+    baselineDotenv,
+    '[deep-verify] expected target package.json dependencies.dotenv to match baseline'
+  );
+}
+
 function main() {
   const sourceRoot = path.resolve(__dirname, '..', '..');
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'baseline-kit-deep-verify-'));
@@ -111,8 +143,9 @@ function main() {
   try {
     // Scenario A: init mode into an empty repo
     const initTarget = path.join(tmpRoot, 'target-init');
-    installBaseline({ sourceRoot, targetRoot: initTarget, mode: 'init', overwrite: false });
+    installBaseline({ sourceRoot, targetRoot: initTarget, mode: 'init', overwrite: false, method: 'npm' });
     assertNoInstalledArtifacts(initTarget);
+    assertInstalledPackageJson({ sourceRoot, targetRoot: initTarget });
     runNpmTest({ targetRoot: initTarget, useCi: true });
 
     // Scenario B: overlay into a minimal Node repo (no conflicting scripts)
@@ -125,8 +158,9 @@ function main() {
       scripts: {},
       dependencies: {},
     });
-    installBaseline({ sourceRoot, targetRoot: overlayClean, mode: 'overlay', overwrite: false });
+    installBaseline({ sourceRoot, targetRoot: overlayClean, mode: 'overlay', overwrite: false, method: 'npm' });
     assertNoInstalledArtifacts(overlayClean);
+    assertInstalledPackageJson({ sourceRoot, targetRoot: overlayClean });
     runNpmTest({ targetRoot: overlayClean, useCi: false });
 
     // Scenario C: overlay with overwrite into a repo that has conflicting scripts/deps
@@ -143,8 +177,9 @@ function main() {
         dotenv: '^0.0.0',
       },
     });
-    installBaseline({ sourceRoot, targetRoot: overlayOverwrite, mode: 'overlay', overwrite: true });
+    installBaseline({ sourceRoot, targetRoot: overlayOverwrite, mode: 'overlay', overwrite: true, method: 'npm' });
     assertNoInstalledArtifacts(overlayOverwrite);
+    assertInstalledPackageJson({ sourceRoot, targetRoot: overlayOverwrite });
     runNpmTest({ targetRoot: overlayOverwrite, useCi: false });
 
     console.log('[deep-verify] OK');
@@ -156,4 +191,3 @@ function main() {
 if (require.main === module) {
   main();
 }
-

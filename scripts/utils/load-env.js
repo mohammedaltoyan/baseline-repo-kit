@@ -7,6 +7,12 @@ function isTruthy(value) {
   return /^(1|true|yes)$/i.test(String(value || '').trim());
 }
 
+function logInfo(message) {
+  if (!isTruthy(process.env.LOAD_ENV_VERBOSE)) return;
+  // Keep logs opt-in so baseline tests stay quiet by default.
+  console.log(message);
+}
+
 function preferIpv4First() {
   // CI runners sometimes have unreliable IPv6 egress to external hosts.
   // Prefer IPv4 in CI to reduce transient ENETUNREACH failures.
@@ -46,7 +52,7 @@ function loadEnv() {
         ? explicitFile
         : path.join(repoRoot, explicitFile);
       if (fs.existsSync(resolved)) {
-        console.log(`[load-env] Using explicit ENV_FILE=${resolved}`);
+        logInfo(`[load-env] Using explicit ENV_FILE=${resolved}`);
         // Precedence rule: values already set in process.env must win.
         // This lets callers override specific keys (e.g. EDGE_REQUIRE_DB_JWT)
         // without editing local secret files.
