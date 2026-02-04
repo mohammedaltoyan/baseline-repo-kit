@@ -1,0 +1,45 @@
+{
+  "name": "guidelines-baseline-kit",
+  "version": "1.0.0",
+  "description": "Reusable baseline kit: docs + ops tooling + repo guardrails (project-agnostic)",
+  "scripts": {
+    "test": "npm run lint:plans && npm run lint:objectives && npm run lint:structure",
+    "lint:structure": "node scripts/tooling/check-structure.js",
+    "lint:objectives": "node scripts/ops/objectives-lint.js",
+    "lint:objectives:enforce": "OBJECTIVES_ENFORCE_RLS_MISSING=1 node scripts/ops/objectives-lint.js",
+    "lint:plans": "node scripts/ops/plan-lint.js",
+
+    "docs:clean": "node scripts/tooling/docs-clean.js",
+    "baseline:install": "node scripts/tooling/baseline-install.js",
+
+    "plans:verify": "node scripts/ops/plan-verify.js",
+    "plans:index": "node scripts/ops/plan-index.js",
+    "plans:focus": "node scripts/ops/plan-focus.js",
+    "plans:new": "node scripts/ops/plans/flow.js new",
+    "plans:advance": "node scripts/ops/plans/flow.js advance",
+    "plans:complete": "node scripts/ops/plans/flow.js complete",
+    "plans:archive": "node scripts/ops/plans/flow.js archive",
+    "plans:archive:backlog": "node scripts/ops/plan-archive-backlog.js",
+    "plans:summarize": "node scripts/ops/plan-summarize.js",
+    "plans:objectives:gate:auto": "node scripts/ops/plan-objectives-auto.js",
+    "plans:gate": "node scripts/ops/plan-gate.js",
+    "plans:gate:full": "node scripts/ops/plan-gate-full.js",
+    "plans:require:complete": "node scripts/ops/plan-require-complete.js",
+
+    "pr:ready": "node scripts/ops/pr-ready.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "baseline",
+    "starter-kit",
+    "ci",
+    "ops",
+    "planning",
+    "lint"
+  ]
+}

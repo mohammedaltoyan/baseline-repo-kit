@@ -1,0 +1,59 @@
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+config/env/.env
+config/env/.env.local
+config/env/.env.*.local
+config/env/.env.cloud
+config/env/.env.cloud.*
+
+# Misc secret dumps
+secrets/
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+tmp-*
+temp/
+temp-*
+*.tmp
+*.bak
+*.old
+*.orig
+*.rej
+*_bak.*
+
+# Generated plan review artifacts (keep README tracked)
+docs/ops/plans/review/**
+!docs/ops/plans/review/README.md
+
+# Plan dashboards are generated per-repo/per-owner; keep them untracked by default.
+docs/ops/plans/FOCUS.json
+docs/ops/plans/INDEX.md
+
+# Plan test fixtures (generated dynamically by unit tests)
+docs/ops/plans/PLAN-2099*/
+docs/ops/plans/review/PLAN-2099*/
+

@@ -1,0 +1,12 @@
+# CODEOWNERS (template) - replace with your org/team handles.
+
+# Plans and planning scripts
+# /docs/ops/plans/**     @your-org/planning-owners
+# /scripts/ops/**        @your-org/planning-owners
+
+# CI and repo policy
+# /.github/**            @your-org/ci-owners
+
+# Docs
+# /docs/**               @your-org/docs-owners
+

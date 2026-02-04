@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "forbidden_paths": [
+    {
+      "path": "docs/product/Exmaples",
+      "message": "Remove docs/product/Exmaples; use docs/product/examples."
+    }
+  ],
+  "forbidden_tracked_path_regexes": [
+    {
+      "id": "backup_ext",
+      "regex": "\\.(bak|old|orig|rej)$",
+      "message": "Backup/patch artefacts must not be tracked; delete or move them under tmp/ and keep them untracked."
+    },
+    {
+      "id": "backup_suffix",
+      "regex": "_bak\\.[^/]+$",
+      "message": "Backup-suffixed artefacts (*_bak.*) must not be tracked; delete them or rename to a real versioned asset."
+    },
+    {
+      "id": "tooling_apps_only_package_json",
+      "regex": "^tooling/(?!apps/).*/package\\.json$",
+      "message": "Standalone tooling apps must live under tooling/apps/ (no package.json outside tooling/apps/)."
+    }
+  ],
+  "scripts_root_allowed_files": ["README.md"],
+  "scripts_root_message": "scripts/ root must contain only README.md; move ad-hoc scripts into an appropriate scripts/ subfolder.",
+  "evidence": {
+    "dir": "docs/ops/evidence",
+    "canonical_date_format": "YYYY-MM-DD",
+    "forbid_duplicate_day_buckets": true,
+    "forbid_compact_buckets": true,
+    "forbid_new_compact_buckets": true,
+    "forbid_redundant_artifact_zips": true,
+    "retention": {
+      "enabled": true,
+      "max_actions": 50,
+      "buckets": [
+        {
+          "bucket": "CI",
+          "max_entries": 60
+        },
+        {
+          "bucket": "Weekly",
+          "max_entries": 26
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+plans:
+  - changed-files:
+      - any-glob-to-any-file: 'docs/ops/plans/**'
+ops:
+  - changed-files:
+      - any-glob-to-any-file: 'scripts/ops/**'
+tooling:
+  - changed-files:
+      - any-glob-to-any-file: 'scripts/tooling/**'
+      - any-glob-to-any-file: 'config/**'
+ci:
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'
+docs:
+  - changed-files:
+      - any-glob-to-any-file: 'docs/**'
