@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js >= 18
+- Node.js >= 22 (see `.nvmrc`)
 - Git (recommended)
 
 ## Environment
@@ -16,4 +16,3 @@
 
 - `npm install`
 - `npm test`
-
