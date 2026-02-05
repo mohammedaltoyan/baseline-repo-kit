@@ -5,7 +5,7 @@ This repo ships a labeler workflow (`.github/workflows/labeler.yml`) that applie
 ## Bootstrap (recommended)
 
 Labels must exist before the labeler can apply them. This repo ships a manual bootstrap workflow:
-- Run: **Actions → "Bootstrap Labels" → Run workflow**
+- Run: **Actions  ->  "Bootstrap Labels"  ->  Run workflow**
 
 This creates the baseline labels used by `.github/labeler.yml` if they are missing.
 
