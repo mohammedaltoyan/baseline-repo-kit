@@ -4,6 +4,7 @@
  *
  * Optional deeper verification for the baseline kit:
  * - Installs the baseline into fresh temp repos (init + overlay)
+ * - Runs the baseline bootstrap locally to validate end-to-end behavior (git + env scaffold + idempotence)
  * - Runs dependency install and `npm test` in the installed copies
  * - Asserts excluded artifacts are not installed (plans, dashboards, secrets)
  *
@@ -31,9 +32,21 @@ function run(cmd, args, opts = {}) {
   const label = opts.label || `${cmd} ${args.join(' ')}`;
   console.log(`[deep-verify] ${label}`);
   const needsShell = process.platform === 'win32' && (cmd === 'npm' || /\.cmd$/i.test(cmd));
-  const res = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: needsShell });
+  const env = opts.env || process.env;
+  const res = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: needsShell, env });
   if (res.error) die(`${label} error: ${res.error.message}`);
   if (res.status !== 0) die(`${label} failed (exit ${res.status})`);
+}
+
+function capture(cmd, args, opts = {}) {
+  const cwd = opts.cwd || process.cwd();
+  const label = opts.label || `${cmd} ${args.join(' ')}`;
+  const needsShell = process.platform === 'win32' && (cmd === 'npm' || /\.cmd$/i.test(cmd));
+  const env = opts.env || process.env;
+  const res = spawnSync(cmd, args, { cwd, shell: needsShell, env, encoding: 'utf8' });
+  if (res.error) die(`${label} error: ${res.error.message}`);
+  if (res.status !== 0) die(`${label} failed (exit ${res.status})\n${String(res.stderr || '').trim()}`);
+  return { stdout: String(res.stdout || ''), stderr: String(res.stderr || '') };
 }
 
 function walkFiles(rootDir) {
@@ -79,6 +92,16 @@ function assertNoInstalledArtifacts(targetRoot) {
   }
 }
 
+function withGitIdentityEnv(baseEnv) {
+  const env = { ...(baseEnv || process.env) };
+  // Ensure `git commit` works in bootstrap E2E scenarios even when user.name/email is not configured.
+  env.GIT_AUTHOR_NAME = env.GIT_AUTHOR_NAME || 'baseline-kit';
+  env.GIT_AUTHOR_EMAIL = env.GIT_AUTHOR_EMAIL || 'baseline-kit@example.invalid';
+  env.GIT_COMMITTER_NAME = env.GIT_COMMITTER_NAME || env.GIT_AUTHOR_NAME;
+  env.GIT_COMMITTER_EMAIL = env.GIT_COMMITTER_EMAIL || env.GIT_AUTHOR_EMAIL;
+  return env;
+}
+
 function installBaseline({ sourceRoot, targetRoot, mode, overwrite, method }) {
   const m = String(method || 'node').trim().toLowerCase();
   const viaNpm = m === 'npm' || m === 'npm-positional' || m === 'npm-flag';
@@ -100,6 +123,15 @@ function installBaseline({ sourceRoot, targetRoot, mode, overwrite, method }) {
   const args = [path.join(sourceRoot, 'scripts', 'tooling', 'baseline-install.js'), '--to', targetRoot, '--mode', mode];
   if (overwrite) args.push('--overwrite');
   run(process.execPath, args, { cwd: sourceRoot, label: `baseline-install (${labelSuffix})` });
+}
+
+function bootstrapBaseline({ sourceRoot, targetRoot, args = [], labelSuffix = '' }) {
+  const a = Array.isArray(args) ? args : [];
+  run(
+    npmCmd(),
+    ['run', 'baseline:bootstrap', '--', '--to', targetRoot, ...a],
+    { cwd: sourceRoot, label: `baseline-bootstrap (${labelSuffix || 'local'})`, env: withGitIdentityEnv(process.env) }
+  );
 }
 
 function runNpmTest({ targetRoot, useCi }) {
@@ -193,6 +225,36 @@ function assertInstalledBranchPolicyConfig({ sourceRoot, targetRoot }) {
   );
 }
 
+function assertBootstrappedRepo({ targetRoot }) {
+  assert.ok(fs.existsSync(path.join(targetRoot, '.git')), '[deep-verify] expected bootstrapped repo to have .git');
+
+  const policy = readJson(path.join(targetRoot, 'config', 'policy', 'branch-policy.json'));
+  const integration = String(policy?.integration_branch || '').trim() || 'dev';
+  const production = String(policy?.production_branch || '').trim() || 'main';
+
+  // Assert branch refs exist.
+  capture('git', ['show-ref', '--verify', `refs/heads/${production}`], { cwd: targetRoot, label: `git show-ref ${production}` });
+  capture('git', ['show-ref', '--verify', `refs/heads/${integration}`], { cwd: targetRoot, label: `git show-ref ${integration}` });
+
+  // Assert HEAD is on integration branch.
+  const head = capture('git', ['branch', '--show-current'], { cwd: targetRoot, label: 'git branch --show-current' }).stdout.trim();
+  assert.strictEqual(head, integration, `[deep-verify] expected HEAD to be on integration branch (${integration}); got ${head || '<empty>'}`);
+
+  // Assert env scaffold exists but is not tracked.
+  const envLocal = path.join(targetRoot, 'config', 'env', '.env.local');
+  assert.ok(fs.existsSync(envLocal), '[deep-verify] expected bootstrap to create config/env/.env.local');
+  const tracked = capture('git', ['ls-files', '--', 'config/env/.env.local'], { cwd: targetRoot, label: 'git ls-files config/env/.env.local' }).stdout.trim();
+  assert.strictEqual(tracked, '', '[deep-verify] expected config/env/.env.local to be untracked');
+
+  // Assert worktree is clean (ignores ignored files).
+  const porcelain = capture('git', ['status', '--porcelain'], { cwd: targetRoot, label: 'git status --porcelain' }).stdout.trim();
+  assert.strictEqual(porcelain, '', `[deep-verify] expected clean worktree; got:\n${porcelain}`);
+
+  // Assert at least one commit exists.
+  const sha = capture('git', ['rev-parse', 'HEAD'], { cwd: targetRoot, label: 'git rev-parse HEAD' }).stdout.trim();
+  assert.ok(sha && /^[0-9a-f]{7,40}$/i.test(sha), `[deep-verify] expected HEAD sha; got ${sha || '<empty>'}`);
+}
+
 function main() {
   const sourceRoot = path.resolve(__dirname, '..', '..');
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'baseline-kit-deep-verify-'));
@@ -251,6 +313,20 @@ function main() {
     assertInstalledMonorepoScaffold({ targetRoot: overlayOverwrite });
     assertInstalledBranchPolicyConfig({ sourceRoot, targetRoot: overlayOverwrite });
     runNpmTest({ targetRoot: overlayOverwrite, useCi: false });
+
+    // Scenario D: baseline bootstrap (local-only) end-to-end: git + env scaffold + idempotence.
+    const bootstrapLocal = path.join(tmpRoot, 'target-bootstrap-local');
+    bootstrapBaseline({ sourceRoot, targetRoot: bootstrapLocal, args: [], labelSuffix: 'local-only (init)' });
+    assertBootstrappedRepo({ targetRoot: bootstrapLocal });
+
+    // Re-run with an explicit update mode to assert idempotence and overlay path.
+    bootstrapBaseline({
+      sourceRoot,
+      targetRoot: bootstrapLocal,
+      args: ['--mode', 'overlay', '--overwrite'],
+      labelSuffix: 'local-only (overlay overwrite)',
+    });
+    assertBootstrappedRepo({ targetRoot: bootstrapLocal });
 
     console.log('[deep-verify] OK');
   } finally {

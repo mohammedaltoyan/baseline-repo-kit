@@ -16,7 +16,10 @@ This baseline kit ships process + lightweight repo gates. It does not include ap
 
 ## Deeper verification (optional)
 
-- `npm run test:deep` installs the baseline into temp repos (init + overlay) and runs `npm test` in the installed copies.
+- `npm run test:deep` runs end-to-end verification in temp repos:
+  - installs the baseline (init + overlay)
+  - runs `npm test` in the installed copies
+  - runs `baseline:bootstrap` locally (no GitHub) to validate git init/branches, env scaffolding, and idempotence
 
 ## Plan verification and gates
 

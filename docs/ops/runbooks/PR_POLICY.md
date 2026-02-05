@@ -55,7 +55,7 @@ Hotfix backport note (required for `hotfix/*` -> `main`):
 
 - `npm test`
 - Optional: `npm run docs:clean` (report-only) or `DOCS_CLEAN_WRITE=1 npm run docs:clean` (apply)
-- Optional (deeper): `npm run test:deep` (installs baseline into temp repos and runs gates)
+- Optional (deeper): `npm run test:deep` (E2E: installs baseline into temp repos, runs `npm test`, and runs local bootstrap)
 - Optional: `npm run pr:ready -- PLAN-YYYYMM-<slug> require-clean`
 
 ## Plan gates

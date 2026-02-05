@@ -16,5 +16,5 @@
 
 - `npm install`
 - `npm test`
-- Optional (deeper): `npm run test:deep`
+- Optional (deeper): `npm run test:deep` (E2E install + local bootstrap smoke)
 - Optional (docs hygiene): `npm run docs:clean`
