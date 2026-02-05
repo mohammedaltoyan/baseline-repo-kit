@@ -7,6 +7,8 @@ This baseline kit ships process + lightweight repo gates. It does not include ap
 - `npm test` runs baseline guardrails:
   - plan lint (`npm run lint:plans`)
   - PR policy selftest (`npm run lint:pr-policy`)
+  - branch policy selftest (`npm run lint:branch-policy`)
+  - docs hygiene lint (`npm run lint:docs`)
   - objectives lint (`npm run lint:objectives`)
   - structure lint (`npm run lint:structure`)
   - installer selftest (`npm run lint:installer`)

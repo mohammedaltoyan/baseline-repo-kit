@@ -179,6 +179,20 @@ function assertInstalledMonorepoScaffold({ targetRoot }) {
   }
 }
 
+function assertInstalledBranchPolicyConfig({ sourceRoot, targetRoot }) {
+  const rel = path.join('config', 'policy', 'branch-policy.json');
+  const baselinePath = path.join(sourceRoot, rel);
+  if (!fs.existsSync(baselinePath)) return;
+
+  const targetPath = path.join(targetRoot, rel);
+  assert.ok(fs.existsSync(targetPath), `[deep-verify] expected target repo to include ${rel}`);
+  assert.strictEqual(
+    String(fs.readFileSync(targetPath, 'utf8') || ''),
+    String(fs.readFileSync(baselinePath, 'utf8') || ''),
+    `[deep-verify] expected target ${rel} to match baseline`
+  );
+}
+
 function main() {
   const sourceRoot = path.resolve(__dirname, '..', '..');
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'baseline-kit-deep-verify-'));
@@ -193,6 +207,7 @@ function main() {
     assertInstalledToolchain({ sourceRoot, targetRoot: initTarget });
     assertInstalledRootPolicies({ sourceRoot, targetRoot: initTarget });
     assertInstalledMonorepoScaffold({ targetRoot: initTarget });
+    assertInstalledBranchPolicyConfig({ sourceRoot, targetRoot: initTarget });
     runNpmTest({ targetRoot: initTarget, useCi: true });
 
     // Scenario B: overlay into a minimal Node repo (no conflicting scripts)
@@ -211,6 +226,7 @@ function main() {
     assertInstalledToolchain({ sourceRoot, targetRoot: overlayClean });
     assertInstalledRootPolicies({ sourceRoot, targetRoot: overlayClean });
     assertInstalledMonorepoScaffold({ targetRoot: overlayClean });
+    assertInstalledBranchPolicyConfig({ sourceRoot, targetRoot: overlayClean });
     runNpmTest({ targetRoot: overlayClean, useCi: false });
 
     // Scenario C: overlay with overwrite into a repo that has conflicting scripts/deps
@@ -233,6 +249,7 @@ function main() {
     assertInstalledToolchain({ sourceRoot, targetRoot: overlayOverwrite });
     assertInstalledRootPolicies({ sourceRoot, targetRoot: overlayOverwrite });
     assertInstalledMonorepoScaffold({ targetRoot: overlayOverwrite });
+    assertInstalledBranchPolicyConfig({ sourceRoot, targetRoot: overlayOverwrite });
     runNpmTest({ targetRoot: overlayOverwrite, useCi: false });
 
     console.log('[deep-verify] OK');

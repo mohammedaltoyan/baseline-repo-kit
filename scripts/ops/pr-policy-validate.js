@@ -16,6 +16,7 @@
 /* eslint-disable no-console */
 const fs = require('fs');
 const path = require('path');
+const { loadBranchPolicyConfig, validateBranchPolicy } = require('./branch-policy');
 const { validatePrPolicy } = require('./pr-policy');
 const { extractPlanIds, extractStep } = require('./plans/pr-meta');
 
@@ -143,6 +144,8 @@ async function resolvePrContexts() {
     return [{
       prNumber: parseInt(String(evt.pull_request.number || '').trim(), 10) || 0,
       prBody: String(evt.pull_request.body || ''),
+      baseRef: String(evt.pull_request.base && evt.pull_request.base.ref || ''),
+      headRef: String(evt.pull_request.head && evt.pull_request.head.ref || ''),
       changedFiles: null,
     }];
   }
@@ -159,13 +162,19 @@ async function resolvePrContexts() {
     for (const prNumber of prNumbers) {
       // eslint-disable-next-line no-await-in-loop
       const pr = await fetchPr({ owner, repo, prNumber, token });
-      contexts.push({ prNumber, prBody: String(pr && pr.body || ''), changedFiles: null });
+      contexts.push({
+        prNumber,
+        prBody: String(pr && pr.body || ''),
+        baseRef: String(pr && pr.base && pr.base.ref || ''),
+        headRef: String(pr && pr.head && pr.head.ref || ''),
+        changedFiles: null,
+      });
     }
     return contexts;
   }
 
   if (fromEnv) {
-    return [{ prNumber: 0, prBody: fromEnv, changedFiles: null }];
+    return [{ prNumber: 0, prBody: fromEnv, baseRef: '', headRef: '', changedFiles: null }];
   }
 
   die('Missing PR body. Run in GitHub Actions (pull_request/merge_group) or set PR_BODY.');
@@ -188,6 +197,7 @@ async function hydrateChangedFiles(context) {
 
 async function main() {
   const args = parseArgs();
+  const branchPolicy = loadBranchPolicyConfig(process.cwd());
 
   const contexts = await resolvePrContexts();
   for (const ctx of contexts) {
@@ -209,9 +219,15 @@ async function main() {
       enforcePlanOnlyStep: !args.skipPlanOnlyCheck,
     });
 
+    validateBranchPolicy({
+      baseRef: hydrated.baseRef,
+      headRef: hydrated.headRef,
+      prBody: body,
+      config: branchPolicy.config,
+    });
+
     console.log(`[pr-policy-validate] OK PR ${prNumber} (${planIds[0]} ${step})`);
   }
 }
 
 main().catch((e) => die(e && e.message ? e.message : String(e)));
-

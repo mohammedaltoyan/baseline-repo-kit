@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { loadBranchPolicyConfig } = require('./branch-policy');
 const { isTruthy } = require('../utils/is-truthy');
 const { readJsonSafe } = require('../utils/json');
 
@@ -87,6 +88,18 @@ function refExists(ref) {
 }
 
 function defaultRemoteHeadRef() {
+  // Prefer the configured integration branch when present (enterprise default is origin/dev).
+  try {
+    const { config } = loadBranchPolicyConfig(process.cwd());
+    const integration = String(config && config.integration_branch || '').trim();
+    if (integration) {
+      const ref = `origin/${integration}`;
+      if (refExists(ref)) return ref;
+    }
+  } catch {
+    // ignore
+  }
+
   // Prefer origin/HEAD -> origin/<default>
   const r = git(['symbolic-ref', '-q', 'refs/remotes/origin/HEAD']);
   if (r.status === 0) {
@@ -151,7 +164,7 @@ function main() {
       }
       const base = defaultRemoteHeadRef();
       if (!base) {
-        console.warn('[pr-ready] Warning: unable to detect origin/<default-branch>; skipping up-to-date check.');
+        console.warn('[pr-ready] Warning: unable to detect origin/<integration-branch>; skipping up-to-date check.');
       } else {
         const ok = isUpToDateWith(base);
         if (!ok) {

@@ -3,6 +3,11 @@
 Goal
 - Prevent merges unless required checks are green.
 
+Recommended branches (enterprise default)
+- Integration: `dev`
+- Production: `main`
+- Hotfix: `hotfix/*` (short-lived)
+
 Recommended required status checks
 - Require the baseline CI check that runs `npm test` (this repo ships `.github/workflows/ci.yml`, which appears as `CI / test` on GitHub).
 - Require the PR metadata policy check (this repo ships `.github/workflows/pr-policy.yml`, which appears as `PR Policy / validate` on GitHub).
@@ -11,6 +16,20 @@ Notes
 - GitHub required checks must match the emitted check-run names exactly; copy them from a successful PR run.
 - If you enable GitHub Merge Queue, make sure required checks also run on `merge_group` events.
 - Consider enabling "Require branches to be up to date before merging" (or enforce via Merge Queue) to reduce post-merge breakage.
+
+Branch rules (recommended)
+
+- Protect `dev` (integration):
+  - Require PRs (no direct pushes).
+  - Require required checks.
+  - Enable GitHub Merge Queue to serialize merges safely when multiple PRs are active.
+- Protect `main` (production):
+  - Require PRs (no direct pushes).
+  - Require required checks.
+  - Only accept changes via:
+    - Release PR: `dev` -> `main`
+    - Hotfix PR: `hotfix/*` -> `main` (and backport to `dev`)
+  - Enforce allowed PR source branches via CI (SSOT is `config/policy/branch-policy.json`).
 
 Optional (team policy)
 - Require approvals (e.g., `1+` once you have multiple maintainers)

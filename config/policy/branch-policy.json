@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "integration_branch": "dev",
+  "production_branch": "main",
+  "hotfix_branch_prefixes": ["hotfix/"],
+  "require_hotfix_backport_note": true,
+  "hotfix_backport_markers": ["Backport:", "Dev PR:"]
+}
+

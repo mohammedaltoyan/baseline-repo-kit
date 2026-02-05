@@ -11,8 +11,25 @@ Rule of thumb:
 
 ## CI enforcement (recommended)
 
-- Enable a PR policy check (this repo ships `.github/workflows/pr-policy.yml` which validates `Plan:` + `Step:` and enforces S00 scope).
+- Enable a PR policy check (this repo ships `.github/workflows/pr-policy.yml` which validates `Plan:` + `Step:`, enforces S00 scope, and validates PR target branches using `config/policy/branch-policy.json`).
 - If you use GitHub Merge Queue, ensure required checks also run on `merge_group` events (this repo ships `merge_group` triggers on the relevant workflows).
+
+## PR targets (enterprise default)
+
+Single integration branch model (recommended):
+- Integration branch: `dev` (configurable; SSOT is `config/policy/branch-policy.json`)
+- Production branch: `main` (configurable; SSOT is `config/policy/branch-policy.json`)
+
+Rules:
+- All feature/fix PRs target `dev`.
+- No PRs merge directly into `main` except:
+  - Release PR: `dev` -> `main`
+  - Hotfix PR: `hotfix/*` -> `main` (must include a backport note and be reflected back into `dev`)
+
+Hotfix backport note (required for `hotfix/*` -> `main`):
+- Add a line in the PR body matching one of the configured markers (SSOT is `config/policy/branch-policy.json`), for example:
+  - `Backport: <dev-pr-link>`
+  - `Dev PR: <dev-pr-link>`
 
 ## PR cadence (recommended)
 
@@ -25,7 +42,7 @@ Rule of thumb:
 - Regularly sync your branch with the base branch to reduce merge conflicts.
 - Prefer merge-based updates (avoid rewriting published history):
   - `git fetch origin`
-  - `git merge origin/<default-branch>`
+  - `git merge origin/<integration-branch>` (commonly `origin/dev`)
 
 ## Local preflight (recommended)
 

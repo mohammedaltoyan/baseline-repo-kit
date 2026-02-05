@@ -10,6 +10,10 @@ Step: Sxx
 - [ ] (Optional) `npm run test:deep`
 - [ ] Docs updated (if applicable)
 
+## Backport (required for hotfix -> main)
+- If this PR targets `main` from `hotfix/*`, include a backport reference so the fix is reflected in `dev`:
+  - `Backport: <link-or-id>` (or `Dev PR: <link-or-id>`)
+
 ## PR cadence (recommended)
 - Keep PRs small and phase-scoped (one plan step/phase per PR when possible).
 
