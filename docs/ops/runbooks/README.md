@@ -6,6 +6,7 @@ Link these from plans when relevant, but do not mix them into the plans catalog.
 Key runbooks:
 - `PR_POLICY.md` - required PR metadata and plan gates
 - `BRANCH_PROTECTION.md` - required checks + merge queue notes
+- `BASELINE_INSTALL.md` - install/update baseline into other repos
 - `WORKTREE_ISOLATION.md` - worktree/env isolation guidance
 - `SECRETS.md` - secrets handling and env overlays
 - `LABELS.md` - labeler + bootstrap workflow

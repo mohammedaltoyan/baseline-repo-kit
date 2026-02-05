@@ -44,6 +44,7 @@ Decisions & Notes
 - 2026-02-05 - Optional hotfix backport automation: enable repo var `BACKPORT_ENABLED=1` to auto-open production -> integration backport PRs after hotfix merges (ships as `.github/workflows/hotfix-backport.yml`).
 - 2026-02-05 - Strict docs hygiene: `docs-clean` is enforced via `npm test`.
 - 2026-02-05 - Optional security automation templates: Dependabot + (opt-in) CodeQL + dependency review (enable via repo var `SECURITY_ENABLED=1`).
+- 2026-02-05 - Baseline SSOT install/update workflow: installer excludes baseline plan instances and supports repeatable overlay updates (see `docs/ops/runbooks/BASELINE_INSTALL.md`).
 - Verification (local): `npm test`, `npm run test:deep`.
 - YYYY-MM-DD - <decision> (link to evidence)
 - PR: <link(s) to PR(s) if applicable>
