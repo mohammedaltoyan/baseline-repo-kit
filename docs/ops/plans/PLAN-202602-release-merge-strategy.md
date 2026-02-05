@@ -3,7 +3,7 @@ plan_id: PLAN-202602-release-merge-strategy
 title: Release merge strategy (dev->main)
 owner: @owner
 status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
-current_step: S00
+current_step: S10
 updated: 2026-02-05
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
@@ -12,8 +12,8 @@ links:
 ---
 
 At-a-Glance
-- Now: S00 - Plan preflight (scope + guardrails; no execution yet)
-- Next: S01 - Scope/guardrails locked
+- Now: S10 - PR: per-branch merge methods (integration vs production)
+- Next: S95 - Testing coverage design and execution
 - Blockers: <none or short>
 - ETA: <date>
 
@@ -24,6 +24,7 @@ Checklist
 - [ ] S03 - Design validation (flows, failure messaging, CI behavior; overrides explicitly defined or none)
 - [ ] S04 - Implementation (deliver via one or more small PRs; list the key deliverables)
 - [ ] S05 - Docs updated (update guides/runbooks/AGENTS as needed; avoid duplicating SSOT policy text)
+- [ ] S10 - PR: enforce merge methods by branch (integration squash-only; production merge-commit-only)
 - [ ] S95 - Testing coverage design and execution (unit + integration/E2E; perf/load if applicable; evidence recorded)
 
 Phase Map (fill during S02)
@@ -42,6 +43,5 @@ Decisions & Notes
 - PR: <link(s) to PR(s) if applicable>
 - CI Evidence: <CI run URL(s) for S99>
 - Objectives Evidence: <short attestation and/or links to proof>
-
 
 
