@@ -30,6 +30,7 @@ Branch rules (recommended)
     - Release PR: `dev` -> `main`
     - Hotfix PR: `hotfix/*` -> `main` (and backport to `dev`)
   - Enforce allowed PR source branches via CI (SSOT is `config/policy/branch-policy.json`).
+  - Optional: enable repo variable `BACKPORT_ENABLED=1` to automatically open a backport PR from production -> integration after a hotfix merge (ships as `.github/workflows/hotfix-backport.yml`).
 
 Optional (quality-of-life)
 - Set the repository default branch to `dev` so new PRs default to the integration branch (avoids accidental PRs to `main`).

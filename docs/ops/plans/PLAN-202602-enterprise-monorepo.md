@@ -41,6 +41,7 @@ Testing Gate (required to mark plan done)
 Decisions & Notes
 - Objectives Evidence: auto-verified at 2026-02-05T09:35:34.818Z (commit 78756016a79d62c33278185b9ff1a44944ee24d4)
 - 2026-02-05 - Branch strategy + CI enforcement: feature PRs -> `dev`; `main` only via `dev` (release) or `hotfix/*` with backport note; merge-queue compatible via `merge_group`.
+- 2026-02-05 - Optional hotfix backport automation: enable repo var `BACKPORT_ENABLED=1` to auto-open production -> integration backport PRs after hotfix merges (ships as `.github/workflows/hotfix-backport.yml`).
 - 2026-02-05 - Strict docs hygiene: `docs-clean` is enforced via `npm test`.
 - 2026-02-05 - Optional security automation templates: Dependabot + (opt-in) CodeQL + dependency review (enable via repo var `SECURITY_ENABLED=1`).
 - Verification (local): `npm test`, `npm run test:deep`.

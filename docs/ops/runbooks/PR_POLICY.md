@@ -30,6 +30,10 @@ Hotfix backport note (required for `hotfix/*` -> `main`):
 - Add a line in the PR body matching one of the configured markers (SSOT is `config/policy/branch-policy.json`), for example:
   - `Backport: <dev-pr-link>`
   - `Dev PR: <dev-pr-link>`
+- Optional automation:
+  - Enable repo variable `BACKPORT_ENABLED=1` to turn on `.github/workflows/hotfix-backport.yml`.
+  - When enabled, merging a `hotfix/*` PR into production will automatically open a backport PR from production -> integration (default: `main` -> `dev`).
+  - You may use `Backport: auto` in the hotfix PR body to satisfy the marker requirement; the workflow will comment with the created backport PR link.
 
 ## PR cadence (recommended)
 
