@@ -9,6 +9,11 @@ Rule of thumb:
 - `Step: S00` is plan-only (docs/ops/plans changes only).
 - Any code/config change should reference the current plan step/phase and include matching docs/tests as required by the plan.
 
+## CI enforcement (recommended)
+
+- Enable a PR policy check (this repo ships `.github/workflows/pr-policy.yml` which validates `Plan:` + `Step:` and enforces S00 scope).
+- If you use GitHub Merge Queue, ensure required checks also run on `merge_group` events (this repo ships `merge_group` triggers on the relevant workflows).
+
 ## PR cadence (recommended)
 
 - Prefer frequent, small PRs over long-lived branches.
