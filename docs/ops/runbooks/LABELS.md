@@ -7,7 +7,7 @@ This repo ships a labeler workflow (`.github/workflows/labeler.yml`) that applie
 Labels must exist before the labeler can apply them.
 
 Preferred (CLI): the baseline bootstrap ensures labels exist when GitHub provisioning is enabled:
-- `npm run baseline:bootstrap -- --to <repo> --mode overlay --overwrite --github`
+- `npm run baseline:bootstrap -- -- --to <repo> --mode overlay --overwrite --github`
 
 Fallback (manual): this repo ships a workflow to create missing labels:
 - Run: **Actions  ->  "Bootstrap Labels"  ->  Run workflow**

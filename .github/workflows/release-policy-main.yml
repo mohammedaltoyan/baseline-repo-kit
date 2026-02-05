@@ -1,0 +1,30 @@
+name: Release Policy (main)
+
+on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  release-main-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enforce release policy for main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAIN_REQUIRED_APPROVER_LOGINS: ${{ vars.MAIN_REQUIRED_APPROVER_LOGINS }}
+          MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK: ${{ vars.MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK }}
+        run: node scripts/ops/release-policy-main.js

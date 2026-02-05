@@ -11,7 +11,8 @@
     "recommend_merge_queue_production": false,
     "required_check_workflows": [
       ".github/workflows/ci.yml",
-      ".github/workflows/pr-policy.yml"
+      ".github/workflows/pr-policy.yml",
+      ".github/workflows/release-policy-main.yml"
     ],
     "rulesets": {
       "integration": {
@@ -56,6 +57,15 @@
     "repo_settings": {
       "delete_branch_on_merge": true
     },
+    "repo_variables": {
+      "MAIN_REQUIRED_APPROVER_LOGINS": "$repo_owner_user",
+      "MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK": "1",
+      "PRODUCTION_PROMOTION_REQUIRED": "enabled",
+      "STAGING_DEPLOY_GUARD": "enabled",
+      "PRODUCTION_DEPLOY_GUARD": "disabled",
+      "DOCS_PUBLISH_GUARD": "disabled",
+      "API_INGRESS_DEPLOY_GUARD": "disabled"
+    },
     "labels": {
       "enabled": true,
       "update_existing": false,
@@ -73,8 +83,15 @@
     "environments": {
       "enabled": true,
       "defaults": [
-        { "name": "staging", "branches": ["$integration"], "wait_timer": 0 },
-        { "name": "production", "branches": ["$production"], "wait_timer": 0 }
+        { "name": "staging", "branches": ["$integration"], "wait_timer": 0, "can_admins_bypass": true },
+        {
+          "name": "production",
+          "branches": ["$production"],
+          "wait_timer": 0,
+          "prevent_self_review": false,
+          "can_admins_bypass": true,
+          "required_reviewers": ["$repo_owner_user"]
+        }
       ]
     }
   }

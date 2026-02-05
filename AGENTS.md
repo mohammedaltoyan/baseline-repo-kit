@@ -43,7 +43,7 @@ If your system has multiple override scopes (multi-tenant, multi-client, multi-s
 - Slice work into plan phases so each PR is independently reviewable/testable (often 1 plan step/phase per PR).
 - Branch naming (recommended): include the plan id + intent so parallel work stays readable, e.g. `feat/PLAN-YYYYMM-<slug>-<short>`.
 - Branch policy SSOT: `config/policy/branch-policy.json` defines the integration + production branches and allowed PR targets/sources (default: `dev` -> `main`, hotfix via `hotfix/*`). Keep PRs targeting the integration branch except for release/hotfix.
-- Merge method policy (baseline default): integration PRs are squash-only; production PRs are merge-commit-only (prevents recurring integration -> production conflicts caused by squash releases). Enforced via GitHub rulesets provisioned by `npm run baseline:bootstrap -- --github` using `config/policy/bootstrap-policy.json`.
+- Merge method policy (baseline default): integration PRs are squash-only; production PRs are merge-commit-only (prevents recurring integration -> production conflicts caused by squash releases). Enforced via GitHub rulesets provisioned by `npm run baseline:bootstrap -- -- --to <target-path> --github` using `config/policy/bootstrap-policy.json`.
 - Optional hotfix backport automation (recommended): enable repo var `BACKPORT_ENABLED=1` to auto-open a production -> integration backport PR after a hotfix merge (ships as `.github/workflows/hotfix-backport.yml`).
 - Keep your branch up to date with the base/integration branch (merge-based; do not rewrite published history):
   - Use your repo's canonical integration branch (commonly `origin/<default-branch>`; some orgs use `origin/dev`).
@@ -136,7 +136,7 @@ When working on frontend UI/UX:
 - `npm test` runs baseline guardrails (plans + objectives + structure).
 - `npm run docs:clean` validates docs hygiene (and can optionally fix issues via env flags when supported).
 - `npm run pr:ready` runs baseline gates before opening a PR (and can optionally enforce clean/up-to-date branches).
-- One-button new repo setup (recommended): `npm run baseline:bootstrap -- --to <target-path> [--github]` (installs baseline, inits git/branches, optional GitHub provisioning, optional tests).
+- One-button new repo setup (recommended): `npm run baseline:bootstrap -- -- --to <target-path> [--github]` (installs baseline, inits git/branches, optional GitHub provisioning, optional tests).
 - Optional installer to overlay this kit onto another repo:
   - Safe positional form: `npm run baseline:install -- <target-path> [overlay|init] [overwrite] [dry-run] [verbose]`
   - Flag form (safe with modern npm): `npm run baseline:install -- --to <path> --mode overlay --dry-run`
