@@ -3,14 +3,22 @@
 This baseline kit is intended to be **copy/paste friendly** into any new repository (any stack, any domain).
 Anything project-, tenant-, vendor-, or environment-specific belongs in the target project (not here).
 
-## Core System Objectives (Must)
+## Our Objectives (Must)
 
-- SIMPLE, SCALABLE, DYNAMIC, and FAST.
-- ZERO REDUNDANCY and ZERO HARD CODING across all layers.
-- Each script is written once: reusable, parameterized, and dynamic (no copy/paste variants).
-- Workflow/row-driven where applicable: behavior is data-defined (rows/config/templates), not scattered hardcoded branches.
-- Single source of truth (SSOT): configuration, decisions, and logs live in canonical modules/tables/files (no shadow copies).
-- Optimization matters: prioritize fast feedback loops (local + CI) and good runtime performance; measure before/after for performance-sensitive work.
+- The system must be SIMPLE, SCALABLE, and DYNAMIC, with ZERO REDUNDANCY and ZERO HARD CODING across all layers.
+- Every script must be written once - complete, reusable, and fully dynamic - ensuring it never needs to be rewritten.
+- All code must be optimized for speed and high quality.
+- Everything must be thoroughly tested, including edge cases:
+  - Create or update proper quality tests for all work performed.
+  - All tests must pass, and best practices in testing must always be followed.
+- All work must strictly follow the system structure, system flow, and established system patterns to maintain consistency, clarity, and scalability across all components.
+- The system must be workflow-engine oriented and row-driven by configuration.
+- A single source of truth must exist for everything, including logs, decisions, flows, and configuration.
+- Any major or foundational information for the agent (objectives, repository policies, architectural rules, workflows, operating principles) must be reflected and kept up to date in this `AGENTS.md` file so the system becomes self-guiding over time.
+- Documentation must be created if missing and updated if existing, ensuring docs reflect the current system state, decisions, and standards. The repository must remain clean and clearly structured with no neglected, outdated, or orphaned files.
+- You are encouraged to challenge anything illogical or misaligned with these objectives. When needed, search the internet for the latest approaches and standards relevant to the task (prefer primary sources/official docs) so decisions stay up to date.
+- You must commit upon completing each phase. If untracked files are detected, take ownership, review them, and commit all of them.
+- You must frequently open pull requests, complete reviews, and merge properly. After merging, merge `origin/dev` (or your integration/base branch) into your branch to stay up to date, then proceed to the next step and phase.
 - Security by default: principle of least privilege; never commit secrets; validate access controls and denial paths.
 
 ## Generic-Only Policy (Must)
@@ -33,11 +41,16 @@ If your system has multiple override scopes (multi-tenant, multi-client, multi-s
 
 - Prefer frequent, small PRs over long-lived branches.
 - Slice work into plan phases so each PR is independently reviewable/testable (often 1 plan step/phase per PR).
-- Keep your branch up to date with the base branch (merge-based; do not rewrite published history):
-  - Before opening a PR (and before re-requesting review): `git fetch origin` then `git merge origin/<default-branch>`.
+- Branch naming (recommended): include the plan id + intent so parallel work stays readable, e.g. `feat/PLAN-YYYYMM-<slug>-<short>`.
+- Keep your branch up to date with the base/integration branch (merge-based; do not rewrite published history):
+  - Use your repo's canonical integration branch (commonly `origin/<default-branch>`; some orgs use `origin/dev`).
+  - Before opening a PR (and before re-requesting review): `git fetch origin` then `git merge origin/<integration-branch>`.
   - After each PR iteration (new commits on base branch): merge again so you are testing against the latest base.
   - After a PR merges, update your local base branch and start the next phase/PR from the updated base (or merge the updated base into your next branch).
 - Avoid destructive git operations on shared branches: no `git reset --hard`, no force-push, no rebase-after-push.
+- Prefer short-lived branches:
+  - Open PRs early (phase-scoped) and merge as soon as green + reviewed.
+  - Avoid stacking unrelated changes in a single branch; use multiple branches/worktrees instead.
 - If you use `git worktree` (recommended for parallel work):
   - One worktree per branch/PR to prevent cross-branch contamination.
   - Keep env overlays per worktree (`ENV_FILE=...`) and keep caches/build artifacts isolated when they cause nondeterminism.
@@ -81,7 +94,7 @@ Planning discipline:
 
 ## Change Management & Testing Policy (Must)
 
-- Add tests with every change when applicable; update tests when modifying existing behavior.
+- Add tests with every change when applicable; update tests when modifying existing behavior (including edge cases and failure modes).
 - Prefer deterministic tests and reproducible local/CI runs.
 - Keep evidence plan-scoped (S99): record what ran and what passed (CI links and/or artifact paths).
 - For workflow/orchestration changes, include integration/E2E scenarios that exercise the configuration-driven paths.
@@ -97,7 +110,11 @@ Planning discipline:
 ## Project Structure & Module Organization (Baseline Rules)
 
 - Keep baseline artifacts generic: no vendor SDK scaffolds, no product schemas, no one-off demos.
-- Keep repo root clean; prefer `scripts/`, `config/`, `docs/`, `.github/` for baseline tooling and templates.
+- Keep repo root clean and predictable. Baseline tooling lives under `scripts/`, `config/`, `docs/`, `.github/`, `tooling/`.
+- Monorepo (recommended default): keep backend + frontend in a single repo with clear boundaries:
+  - `apps/` - deployable units (example: `apps/backend/`, `apps/frontend/`).
+  - `packages/` - shared libraries/config (no direct app-to-app coupling; share through packages).
+  - `tooling/` - internal tooling and scripts (standalone tooling apps go under `tooling/apps/`).
 - Do not track generated artifacts (logs, caches, exports, `node_modules`, secret env files).
 - Keep "generated dashboards" generated: do not hand-edit; regenerate via commands.
 
@@ -124,6 +141,9 @@ Planning discipline:
 - Prefer additive changes; do not delete shared-contract files without explicit intent and coordination.
 - Do not edit files that another agent is actively changing unless coordinating.
 - Keep migrations append-only and contracts stable; coordinate breaking changes explicitly.
+- Avoid cross-PR coupling:
+  - Do not land changes that require a follow-up PR to "make it work".
+  - Keep each PR independently green, mergeable, and plan-scoped.
 
 ## Agent Response Style (Recommended)
 
