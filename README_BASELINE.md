@@ -7,6 +7,7 @@ Goals:
 - Remove project-specific artifacts (secrets, CI evidence logs, one-off demos).
 - Keep changes configurable and avoid hardcoding (see `AGENTS.md`).
 - Provide a monorepo-friendly default structure (`apps/`, `packages/`) without enforcing a specific stack.
+- Ship enterprise-ready GitHub governance templates (rulesets, release policy check, promotion workflow, deploy guards) as opt-in baseline controls.
 
 Use:
 - Copy into a new project repo, then customize names/domains and enable only the subsystems you need.

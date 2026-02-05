@@ -1,0 +1,177 @@
+name: Promote (Production)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref/sha to deploy (optional; defaults to production branch HEAD)"
+        required: false
+        default: ""
+      component:
+        description: "Deployment component (application|docs|api-ingress)"
+        required: false
+        default: application
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  actions: write
+  issues: read
+  pull-requests: read
+
+jobs:
+  authorize:
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch'
+        || (
+          github.event_name == 'issue_comment'
+          && startsWith(github.event.comment.body, '/approve-prod')
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      authorized: ${{ steps.resolve.outputs.authorized }}
+      workflow_ref: ${{ steps.resolve.outputs.workflow_ref }}
+      deploy_ref: ${{ steps.resolve.outputs.deploy_ref }}
+      component: ${{ steps.resolve.outputs.component }}
+      issue_number: ${{ steps.resolve.outputs.issue_number }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve promotion request
+        id: resolve
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+
+            function toString(v) {
+              return String(v == null ? '' : v).trim();
+            }
+
+            function normalizeComponent(raw) {
+              const v = toString(raw).toLowerCase();
+              if (!v) return 'application';
+              if (['app', 'application', 'service'].includes(v)) return 'application';
+              if (['docs', 'documentation', 'site'].includes(v)) return 'docs';
+              if (['api-ingress', 'api_ingress', 'ingress'].includes(v)) return 'api-ingress';
+              return v;
+            }
+
+            function loadProductionBranch() {
+              try {
+                const cfg = JSON.parse(fs.readFileSync('config/policy/branch-policy.json', 'utf8'));
+                return toString(cfg && cfg.production_branch) || 'main';
+              } catch {
+                return 'main';
+              }
+            }
+
+            async function hasMaintainerPermission(actor) {
+              const res = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: actor,
+              });
+              const level = toString(res && res.data && res.data.permission).toLowerCase();
+              return ['admin', 'maintain', 'write'].includes(level);
+            }
+
+            const actor = toString(context.actor);
+            const productionBranch = loadProductionBranch();
+            const authorized = await hasMaintainerPermission(actor);
+            if (!authorized) {
+              core.setFailed(`Actor "${actor}" is not authorized to promote production (requires write/maintain/admin).`);
+              return;
+            }
+
+            let deployRef = '';
+            let component = 'application';
+            let issueNumber = '';
+
+            if (context.eventName === 'issue_comment') {
+              const issue = context.payload.issue || {};
+              const isPrComment = !!issue.pull_request;
+              if (!isPrComment) {
+                core.setFailed('`/approve-prod` must be posted on a pull request.');
+                return;
+              }
+
+              issueNumber = toString(issue.number);
+              const body = toString(context.payload.comment && context.payload.comment.body);
+              const parts = body.split(/\s+/g).filter(Boolean);
+              component = normalizeComponent(parts[1] || 'application');
+
+              const pr = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: Number(issueNumber),
+              });
+              const baseRef = toString(pr && pr.data && pr.data.base && pr.data.base.ref);
+              if (baseRef !== productionBranch) {
+                core.setFailed(`PR #${issueNumber} targets "${baseRef}". Expected production branch "${productionBranch}".`);
+                return;
+              }
+              if (!pr.data.merged) {
+                core.setFailed(`PR #${issueNumber} is not merged. Merge it before running /approve-prod.`);
+                return;
+              }
+              deployRef = toString(pr.data.merge_commit_sha) || toString(pr.data.head && pr.data.head.sha);
+            } else {
+              deployRef = toString(core.getInput('ref'));
+              component = normalizeComponent(core.getInput('component'));
+            }
+
+            core.setOutput('authorized', 'true');
+            core.setOutput('workflow_ref', productionBranch);
+            core.setOutput('deploy_ref', deployRef);
+            core.setOutput('component', component || 'application');
+            core.setOutput('issue_number', issueNumber);
+
+  dispatch:
+    needs: [authorize]
+    if: ${{ needs.authorize.outputs.authorized == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch deployment workflow (production)
+        uses: actions/github-script@v8
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy.yml',
+              ref: '${{ needs.authorize.outputs.workflow_ref }}',
+              inputs: {
+                environment: 'production',
+                ref: '${{ needs.authorize.outputs.deploy_ref }}',
+                component: '${{ needs.authorize.outputs.component }}',
+                promotion_source: 'approved-flow',
+              },
+            });
+            core.info(
+              `Production deployment dispatched for ref=${'${{ needs.authorize.outputs.deploy_ref }}' || '${{ needs.authorize.outputs.workflow_ref }}'} ` +
+              `component=${'${{ needs.authorize.outputs.component }}'}`
+            );
+
+      - name: Comment on PR (audit trail)
+        if: ${{ needs.authorize.outputs.issue_number != '' }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issueNumber = Number('${{ needs.authorize.outputs.issue_number }}');
+            if (!issueNumber) return;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body:
+                `Production promotion approved by @${context.actor}.\n` +
+                `- Component: \`${'${{ needs.authorize.outputs.component }}'}\`\n` +
+                `- Ref: \`${'${{ needs.authorize.outputs.deploy_ref }}'}\``,
+            });

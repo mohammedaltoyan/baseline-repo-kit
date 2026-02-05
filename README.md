@@ -9,7 +9,7 @@ Reusable, project-agnostic baseline: planning system + docs templates + repo gua
 - `docs/` templates (plans, runbooks, checklists, testing evidence).
 - `scripts/` small reusable automation (plans + lint gates).
 - `config/` safe env templates and lint/policy config (including branch policy SSOT).
-- `.github/` CI + PR policy enforcement + optional security automation templates.
+- `.github/` CI + PR policy enforcement + release/promotion/deploy guard workflows + optional security automation templates.
 - Root policy templates: `.editorconfig`, `CONTRIBUTING.md`, `SECURITY.md`.
 
 ## How to use in a new project

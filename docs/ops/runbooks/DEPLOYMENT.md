@@ -7,6 +7,7 @@ This baseline is intentionally vendor-agnostic. Deployment is **project-specific
 - Keep deployments repeatable and auditable.
 - Separate **integration** (`dev`) from **production** (`main`).
 - Use GitHub **Environments** for approvals + scoped secrets.
+- Require explicit promotion for production releases.
 - Avoid hardcoding environment details in code; use configuration and environment variables.
 
 ## Recommended GitHub setup (CLI-first)
@@ -18,6 +19,8 @@ Preferred: use the baseline bootstrap which provisions environments best-effort:
 By default, bootstrap:
 - Creates `staging` and `production` environments (if missing).
 - Adds deployment branch policies derived from `config/policy/branch-policy.json` (integration -> `staging`, production -> `production`).
+- Applies environment hardening when configured (`required_reviewers`, `prevent_self_review`, `can_admins_bypass`).
+- Sets deploy/release guard variables from SSOT policy (`config/policy/bootstrap-policy.json`).
 
 Verify via CLI:
 - `gh api /repos/<owner>/<repo>/environments`
@@ -60,7 +63,18 @@ If you choose to use GitHub Actions for deployment:
 
 - Enable the baseline deployment workflow by setting repo variable: `DEPLOY_ENABLED=1`.
 - Workflow template: `.github/workflows/deploy.yml` (manual dispatch; calls `scripts/deploy/deploy.sh`).
+- Production promotion workflow: `.github/workflows/promote-production.yml` (comment `/approve-prod` on merged production PR, or workflow dispatch).
 - Ensure the workflow targets the correct GitHub Environment (`staging`/`production`).
 - Keep permissions minimal (add OIDC `id-token: write` only when you actually use it).
 
 If your org has centralized deployment tooling, keep the workflow as a thin wrapper calling your SSOT deploy script.
+
+## Guard variables (recommended)
+
+- `STAGING_DEPLOY_GUARD=enabled` allows staging deploys.
+- `PRODUCTION_DEPLOY_GUARD=enabled` allows production deploys.
+- `PRODUCTION_PROMOTION_REQUIRED=enabled` requires production deploys to come through `Promote (Production)` (promotion source `approved-flow`).
+- `DOCS_PUBLISH_GUARD=enabled` allows docs publish/deploy component runs.
+- `API_INGRESS_DEPLOY_GUARD=enabled` allows API ingress deploy component runs.
+
+Default policy is conservative: production/docs/api-ingress are blocked until explicitly enabled.
