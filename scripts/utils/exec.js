@@ -49,4 +49,32 @@ function run(cmd, args = [], opts = {}) {
   });
 }
 
-module.exports = { run };
+function runCapture(cmd, args = [], opts = {}) {
+  const { env = process.env, cwd = process.cwd(), input = null } = opts;
+  return new Promise((resolve, reject) => {
+    const attempt = (useShell) => {
+      const base = resolveCmd(cmd);
+      const finalArgs =
+        isWsl() && (cmd === 'npm' || cmd === 'npx')
+          ? ['/c', cmd, ...args]
+          : args;
+      const child = spawn(base, finalArgs, { env, cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: useShell || false });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (d) => { stdout += String(d); });
+      child.stderr.on('data', (d) => { stderr += String(d); });
+      if (input != null) child.stdin.write(String(input));
+      child.stdin.end();
+      child.on('error', (err) => {
+        if (!useShell && process.platform === 'win32' && err && err.code === 'EINVAL') {
+          return attempt(true);
+        }
+        reject(err);
+      });
+      child.on('close', (code) => resolve({ code: code || 0, stdout, stderr }));
+    };
+    attempt(false);
+  });
+}
+
+module.exports = { run, runCapture };

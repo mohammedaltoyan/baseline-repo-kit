@@ -14,18 +14,20 @@ Reusable, project-agnostic baseline: planning system + docs templates + repo gua
 
 ## How to use in a new project
 
-Preferred: use the installer so projects can be updated from a single SSOT baseline without copying baseline-only plan instances.
+Preferred: use the bootstrap so new repos are fully ready (local + optional GitHub provisioning) and can be updated from a single SSOT baseline without copying baseline-only plan instances.
 
 From this baseline repo:
 
-1. Install the baseline into a target repo:
-   - New repo: `npm run baseline:install -- <target-path> init`
-   - Existing repo: `npm run baseline:install -- <target-path> overlay`
+1. Bootstrap a new/existing repo (recommended):
+   - Local-only: `npm run baseline:bootstrap -- --to <target-path>`
+   - With GitHub provisioning: `npm run baseline:bootstrap -- --to <target-path> --github`
 2. Update an existing target repo from the baseline SSOT (no deletes; overwrite baseline-managed files):
-   - Preview: `npm run baseline:install -- <target-path> overlay overwrite dry-run verbose`
-   - Apply: `npm run baseline:install -- <target-path> overlay overwrite verbose`
-3. In the target repo:
+   - Preview: `npm run baseline:bootstrap -- --to <target-path> --mode overlay --overwrite --dry-run --github`
+   - Apply: `npm run baseline:bootstrap -- --to <target-path> --mode overlay --overwrite --github`
+3. In the target repo (if you skipped tests):
+   - Run gates: `npm test`
    - Create a canonical plan: `npm run plans:new -- <slug> "<title>" '@owner' in_progress`
-   - Install deps and run gates: `npm install` then `npm test`
 
-Details: `docs/ops/runbooks/BASELINE_INSTALL.md`
+Details:
+- `docs/ops/runbooks/BASELINE_BOOTSTRAP.md`
+- `docs/ops/runbooks/BASELINE_INSTALL.md` (install/update only)

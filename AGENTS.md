@@ -135,6 +135,7 @@ When working on frontend UI/UX:
 - `npm test` runs baseline guardrails (plans + objectives + structure).
 - `npm run docs:clean` validates docs hygiene (and can optionally fix issues via env flags when supported).
 - `npm run pr:ready` runs baseline gates before opening a PR (and can optionally enforce clean/up-to-date branches).
+- One-button new repo setup (recommended): `npm run baseline:bootstrap -- --to <target-path> [--github]` (installs baseline, inits git/branches, optional GitHub provisioning, optional tests).
 - Optional installer to overlay this kit onto another repo:
   - Safe positional form: `npm run baseline:install -- <target-path> [overlay|init] [overwrite] [dry-run] [verbose]`
   - Flag form (safe with modern npm): `npm run baseline:install -- --to <path> --mode overlay --dry-run`

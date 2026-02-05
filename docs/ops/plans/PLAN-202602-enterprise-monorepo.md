@@ -3,7 +3,7 @@ plan_id: PLAN-202602-enterprise-monorepo
 title: Enterprise workflow + monorepo structure (backend+frontend)
 owner: @owner
 status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
-current_step: S97
+current_step: S06
 updated: 2026-02-05
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
@@ -12,10 +12,10 @@ links:
 ---
 
 At-a-Glance
-- Now: S97 - Remote/CI wiring + CI Evidence recorded (when remote exists)
-- Next: Mark plan done + archive
-- Blockers: No remote/CI configured yet (CI Evidence URL pending)
-- ETA: When remote exists
+- Now: S06 - One-button baseline bootstrap (install + GitHub provisioning)
+- Next: S97 - Remote/CI wiring + CI Evidence recorded (when remote exists)
+- Blockers: None (GitHub provisioning is optional when no remote exists)
+- ETA: After S06
 
 Checklist
 - [x] S00 - Plan preflight complete (scope drafted; guardrails set)
@@ -24,6 +24,7 @@ Checklist
 - [x] S03 - Design validation (flows, failure messaging, CI behavior)
 - [x] S04 - Implementation (enterprise workflow + monorepo scaffolding)
 - [x] S05 - Docs updated (guides/runbooks/AGENTS aligned)
+- [ ] S06 - Baseline bootstrap automation (install/update + optional GitHub provisioning)
 - [x] S95 - Testing coverage design and execution (npm test, docs:clean, deep verify)
 - [ ] S97 - Remote/CI wiring + CI Evidence recorded (when remote exists)
 
@@ -45,6 +46,7 @@ Decisions & Notes
 - 2026-02-05 - Strict docs hygiene: `docs-clean` is enforced via `npm test`.
 - 2026-02-05 - Optional security automation templates: Dependabot + (opt-in) CodeQL + dependency review (enable via repo var `SECURITY_ENABLED=1`).
 - 2026-02-05 - Baseline SSOT install/update workflow: installer excludes baseline plan instances and supports repeatable overlay updates (see `docs/ops/runbooks/BASELINE_INSTALL.md`).
+- 2026-02-05 - One-button bootstrap: `npm run baseline:bootstrap` installs baseline, inits git/branches, and can optionally provision GitHub (repo + rulesets/merge queue + vars) using SSOT defaults in `config/policy/bootstrap-policy.json`.
 - Verification (local): `npm test`, `npm run test:deep`.
 - YYYY-MM-DD - <decision> (link to evidence)
 - PR: <link(s) to PR(s) if applicable>

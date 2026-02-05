@@ -14,6 +14,8 @@ Key properties:
 - In overlay mode, merges baseline scripts/dependencies into an existing `package.json` instead of replacing it.
 - In overlay mode, does not overwrite `README.md` (project identity) unless you explicitly choose to manage it yourself.
 
+If you want a fully guided end-to-end setup (git + optional GitHub provisioning + optional tests), use `docs/ops/runbooks/BASELINE_BOOTSTRAP.md` (`npm run baseline:bootstrap`) instead.
+
 ## Install into a new repo (recommended)
 
 From this baseline kit repo:
@@ -56,4 +58,3 @@ Notes:
 ## Optional CI/security templates
 
 The baseline ships optional GitHub automation templates under `.github/`. Some are opt-in via repository variables (see `docs/ops/runbooks/SECURITY_AUTOMATION.md` and `docs/ops/runbooks/BRANCH_PROTECTION.md`).
-

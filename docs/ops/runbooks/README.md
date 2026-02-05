@@ -7,6 +7,7 @@ Key runbooks:
 - `PR_POLICY.md` - required PR metadata and plan gates
 - `BRANCH_PROTECTION.md` - required checks + merge queue notes
 - `BASELINE_INSTALL.md` - install/update baseline into other repos
+- `BASELINE_BOOTSTRAP.md` - one-button bootstrap (install + optional GitHub provisioning)
 - `WORKTREE_ISOLATION.md` - worktree/env isolation guidance
 - `SECRETS.md` - secrets handling and env overlays
 - `LABELS.md` - labeler + bootstrap workflow
