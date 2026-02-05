@@ -21,7 +21,7 @@ const readline = require('readline/promises');
 
 const { parseFlagArgs } = require('../utils/cli-args');
 const { isTruthy } = require('../utils/is-truthy');
-const { readJsonSafe } = require('../utils/json');
+const { readJsonSafe, writeJson } = require('../utils/json');
 const { run, runCapture } = require('../utils/exec');
 const { loadBranchPolicyConfig } = require('../ops/branch-policy');
 
@@ -163,6 +163,10 @@ function parseArgs(argv) {
     dryRun: isTruthy(args['dry-run'] || args.dryRun),
     verbose: isTruthy(args.verbose),
     github: isTruthy(args.github),
+    adopt: isTruthy(args.adopt),
+    reviewers: toString(args.reviewers || args.reviewer || ''),
+    autoMerge: isTruthy(args['auto-merge'] || args.autoMerge),
+    requireClean: isTruthy(args['require-clean'] || args.requireClean),
     host: toString(args.host || ''),
     owner: toString(args.owner || ''),
     repo: toString(args.repo || ''),
@@ -192,6 +196,35 @@ async function promptText({ rl, label, defaultValue, nonInteractive, yes }) {
 async function ensureGitAvailable() {
   const res = await runCapture('git', ['--version']).catch(() => null);
   if (!res || res.code !== 0) die('git is required but was not found on PATH.');
+}
+
+function patchBranchPolicyFile({ repoRoot, integration, production, dryRun }) {
+  const root = path.resolve(String(repoRoot || process.cwd()));
+  const cfgPath = path.join(root, 'config', 'policy', 'branch-policy.json');
+  const raw = readJsonSafe(cfgPath);
+  if (!raw || typeof raw !== 'object') return { path: cfgPath, changed: false };
+
+  const next = { ...raw };
+  let changed = false;
+  const i = toString(integration);
+  const p = toString(production);
+
+  if (i && toString(next.integration_branch) !== i) {
+    next.integration_branch = i;
+    changed = true;
+  }
+  if (p && toString(next.production_branch) !== p) {
+    next.production_branch = p;
+    changed = true;
+  }
+
+  if (!changed) return { path: cfgPath, changed: false };
+  if (dryRun) {
+    info(`[dry-run] patch branch policy: integration_branch=${i || '<unchanged>'}, production_branch=${p || '<unchanged>'}`);
+    return { path: cfgPath, changed: true };
+  }
+  writeJson(cfgPath, next);
+  return { path: cfgPath, changed: true };
 }
 
 function parseRemoteRepoSlug(remoteUrl) {
@@ -344,6 +377,48 @@ async function ghGetRepo({ cwd, host, owner, repo }) {
   return { found: false, data: null };
 }
 
+async function ghBranchExists({ cwd, host, owner, repo, branch }) {
+  const b = toString(branch);
+  if (!b) return false;
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches/${encodeURIComponent(b)}`;
+  const res = await ghApiJson({ cwd, host, endpoint });
+  if (res.ok) return true;
+  if (looksLikeNotFound(res)) return false;
+  die(`GitHub API error while reading branch ${owner}/${repo}:${b}: ${res.stderr || res.stdout || ''}`);
+  return false;
+}
+
+async function ghGetBranchHeadSha({ cwd, host, owner, repo, branch }) {
+  const b = toString(branch);
+  if (!b) return '';
+  const ref = encodeURIComponent(`heads/${b}`);
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/${ref}`;
+  const res = await ghApiJson({ cwd, host, endpoint });
+  if (!res.ok) {
+    if (looksLikeNotFound(res)) return '';
+    die(`GitHub API error while reading ref heads/${b}: ${res.stderr || res.stdout || ''}`);
+  }
+  return toString(res.data && res.data.object && res.data.object.sha || '');
+}
+
+async function ghCreateBranchRef({ cwd, host, owner, repo, branch, sha, dryRun }) {
+  const b = toString(branch);
+  const s = toString(sha);
+  if (!b || !s) return;
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs`;
+  const body = { ref: `refs/heads/${b}`, sha: s };
+
+  if (dryRun) {
+    info(`[dry-run] create branch ref: ${b} @ ${s}`);
+    return;
+  }
+
+  const res = await ghApiJson({ cwd, host, method: 'POST', endpoint, body });
+  if (!res.ok) {
+    throw new Error(`Failed to create branch ${b} in ${owner}/${repo}: ${res.stderr || res.stdout || ''}`);
+  }
+}
+
 async function ghCreateRepoViaApi({ cwd, host, owner, repo, visibility, personalLogin, dryRun }) {
   const isOrg = personalLogin && owner !== personalLogin;
   const endpoint = isOrg ? `/orgs/${encodeURIComponent(owner)}/repos` : '/user/repos';
@@ -411,6 +486,34 @@ async function gitCheckout({ cwd, ref, dryRun }) {
     return;
   }
   await run('git', ['checkout', r], { cwd });
+}
+
+async function gitStatusPorcelain({ cwd }) {
+  const res = await runCapture('git', ['status', '--porcelain'], { cwd });
+  if (res.code !== 0) return null;
+  return toString(res.stdout || '');
+}
+
+async function gitGetCurrentBranch({ cwd }) {
+  const res = await runCapture('git', ['branch', '--show-current'], { cwd });
+  if (res.code !== 0) return '';
+  return toString(res.stdout || '');
+}
+
+async function gitGetRemoteHeadBranch({ cwd, remoteName }) {
+  const remote = toString(remoteName) || 'origin';
+  const res = await runCapture('git', ['symbolic-ref', '-q', `refs/remotes/${remote}/HEAD`], { cwd });
+  if (res.code !== 0) return '';
+  const full = toString(res.stdout || ''); // refs/remotes/origin/main
+  const m = /^refs\/remotes\/[^/]+\/(.+)$/.exec(full);
+  return m ? toString(m[1]) : '';
+}
+
+async function gitRefExists({ cwd, ref }) {
+  const r = toString(ref);
+  if (!r) return false;
+  const res = await runCapture('git', ['show-ref', '--verify', r], { cwd });
+  return res.code === 0;
 }
 
 async function ghSetDefaultBranch({ cwd, host, owner, repo, defaultBranch, dryRun }) {
@@ -640,6 +743,10 @@ async function main() {
       '  --overwrite                Overwrite baseline-managed files in target (recommended for updates)',
       '  --dry-run                  Print actions without writing',
       '  --github                   Provision/configure GitHub via gh (optional)',
+      '  --adopt                    Active repo mode: create an adoption PR (recommended when branches are protected)',
+      '  --reviewers                Comma-separated reviewers for the adopt PR (users or org/team)',
+      '  --auto-merge               Enable GitHub auto-merge for the adopt PR (still requires approvals)',
+      '  --require-clean            Fail if the target repo has uncommitted changes (implied by --adopt)',
       '  --owner / --repo           GitHub owner and repo name (optional; prompted if missing)',
       '  --visibility               private|public (default from bootstrap policy)',
       '  --host                     GitHub host (default from bootstrap policy; usually github.com)',
@@ -657,6 +764,7 @@ async function main() {
   }
 
   if (!args.to) die('Missing --to <path>.');
+  if (args.adopt && !args.github) die('--adopt requires --github (adopt mode opens a PR via gh).');
 
   const sourceRoot = path.resolve(__dirname, '..', '..');
   const policy = loadBootstrapPolicy(sourceRoot).config;
@@ -672,6 +780,17 @@ async function main() {
 
   info(`Target: ${targetRoot}`);
   info(`Mode: ${mode}${args.overwrite ? ' (overwrite)' : ''}${args.dryRun ? ' (dry-run)' : ''}`);
+
+  const requireClean = !!(args.requireClean || args.adopt);
+  if (requireClean && fs.existsSync(path.join(targetRoot, '.git'))) {
+    const dirty = await gitStatusPorcelain({ cwd: targetRoot });
+    if (dirty) {
+      die(
+        'Target repo has uncommitted changes. Commit or stash them before running bootstrap.\n' +
+        'Tip: for active repos, prefer a clean worktree and use --adopt to open a PR.'
+      );
+    }
+  }
 
   // 1) Install/update baseline files into target.
   const installScript = path.join(sourceRoot, 'scripts', 'tooling', 'baseline-install.js');
@@ -706,13 +825,49 @@ async function main() {
   }
 
   // 3) Git init/commit/branches (idempotent).
-  const branchPolicy = loadBranchPolicyConfig(targetRoot).config;
-  const integration = toString(branchPolicy.integration_branch) || 'dev';
-  const production = toString(branchPolicy.production_branch) || 'main';
+  const branchPolicyLoaded = loadBranchPolicyConfig(targetRoot);
+  const branchPolicy = branchPolicyLoaded.config;
+  let integration = toString(branchPolicy.integration_branch) || 'dev';
+  let production = toString(branchPolicy.production_branch) || 'main';
 
-  if (!fs.existsSync(path.join(targetRoot, '.git'))) {
+  const hadGitDirBefore = fs.existsSync(path.join(targetRoot, '.git'));
+  const hadCommitBefore = hadGitDirBefore ? await gitHasCommit({ cwd: targetRoot }) : false;
+
+  if (!hadGitDirBefore) {
     if (args.dryRun) info(`[dry-run] git init -b ${production}`);
     else await run('git', ['init', '-b', production], { cwd: targetRoot });
+  }
+
+  // Existing repos: if the configured production branch doesn't exist locally, infer it from origin/HEAD or current branch.
+  if (hadGitDirBefore) {
+    const prodRef = `refs/heads/${production}`;
+    const prodExists = await gitRefExists({ cwd: targetRoot, ref: prodRef });
+    if (!prodExists) {
+      const inferredRemoteHead = await gitGetRemoteHeadBranch({ cwd: targetRoot, remoteName: 'origin' });
+      const inferredCurrent = await gitGetCurrentBranch({ cwd: targetRoot });
+      const inferred = inferredRemoteHead || inferredCurrent;
+      if (!inferred || inferred === 'HEAD') {
+        die(
+          `Configured production branch (${production}) was not found, and bootstrap could not infer a production branch.\n` +
+          `Fix: update ${path.join('config', 'policy', 'branch-policy.json')} to match your repo's production branch, or checkout a branch before running bootstrap.`
+        );
+      }
+      warn(`Production branch "${production}" not found; using "${inferred}" (from origin/HEAD or current branch).`);
+      production = inferred;
+      patchBranchPolicyFile({ repoRoot: targetRoot, integration, production, dryRun: args.dryRun });
+
+      const inferredLocalRef = `refs/heads/${production}`;
+      const inferredLocalExists = await gitRefExists({ cwd: targetRoot, ref: inferredLocalRef });
+      if (!inferredLocalExists) {
+        const inferredRemoteRef = `refs/remotes/origin/${production}`;
+        const inferredRemoteExists = await gitRefExists({ cwd: targetRoot, ref: inferredRemoteRef });
+        if (!inferredRemoteExists) {
+          die(`Unable to find local or remote ref for inferred production branch "${production}".`);
+        }
+        if (args.dryRun) info(`[dry-run] git branch ${production} origin/${production}`);
+        else await run('git', ['branch', production, `origin/${production}`], { cwd: targetRoot });
+      }
+    }
   }
 
   if (!(await gitHasCommit({ cwd: targetRoot }))) {
@@ -774,13 +929,42 @@ async function main() {
     const cloneUrl = repoData ? toString(repoData.ssh_url || repoData.clone_url || '') : '';
     await gitEnsureRemoteOrigin({ cwd: targetRoot, desired: { host: actualHost, owner, repo }, candidateUrl: cloneUrl, dryRun: args.dryRun });
 
-    // Push branches (create remote refs).
-    if (args.dryRun) {
-      info(`[dry-run] git push -u origin ${production}`);
-      info(`[dry-run] git push -u origin ${integration}`);
-    } else {
-      await run('git', ['push', '-u', 'origin', production], { cwd: targetRoot });
-      await run('git', ['push', '-u', 'origin', integration], { cwd: targetRoot });
+    // Ensure remote branches exist (avoid pushing protected branches when already present).
+    let prodRemoteExists = await ghBranchExists({ cwd: targetRoot, host: actualHost, owner, repo, branch: production });
+    let integRemoteExists = await ghBranchExists({ cwd: targetRoot, host: actualHost, owner, repo, branch: integration });
+
+    async function gitPushBranch(branch) {
+      const b = toString(branch);
+      if (!b) return;
+      if (args.dryRun) {
+        info(`[dry-run] git push -u origin ${b}`);
+        return;
+      }
+      await run('git', ['push', '-u', 'origin', b], { cwd: targetRoot });
+    }
+
+    if (!prodRemoteExists) {
+      await gitPushBranch(production);
+      prodRemoteExists = true;
+    }
+
+    if (!integRemoteExists) {
+      // Prefer creating the integration branch via API when the repo already exists.
+      if (repoGet.found && prodRemoteExists) {
+        const sha = await ghGetBranchHeadSha({ cwd: targetRoot, host: actualHost, owner, repo, branch: production });
+        if (sha) {
+          try {
+            await ghCreateBranchRef({ cwd: targetRoot, host: actualHost, owner, repo, branch: integration, sha, dryRun: args.dryRun });
+            integRemoteExists = true;
+          } catch (e) {
+            warn(`Unable to create integration branch via API (${integration}); falling back to git push. ${e.message || e}`);
+          }
+        }
+      }
+      if (!integRemoteExists) {
+        await gitPushBranch(integration);
+        integRemoteExists = true;
+      }
     }
 
     // Default branch (recommended: integration).
@@ -839,6 +1023,121 @@ async function main() {
         `- If unsupported, bootstrap will warn and the ruleset will be applied without merge queue.\n` +
         '- Workflows already include `merge_group` triggers so required checks can run under Merge Queue.'
       );
+    }
+
+    // Active repo adopt mode: create a PR instead of pushing baseline changes directly to protected branches.
+    if (args.adopt) {
+      if (!hadCommitBefore || !repoGet.found) {
+        info('Adopt: skipped (new repo bootstraps directly; PR adoption is for existing repos).');
+      } else {
+        const dirty = await gitStatusPorcelain({ cwd: targetRoot });
+        if (!dirty) {
+          info('Adopt: no working tree changes detected; skipping PR creation.');
+        } else {
+          const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-').replace('Z', '');
+          const adoptBranch = `baseline/adopt-${stamp}`;
+
+          const reviewers = toString(args.reviewers)
+            .split(',')
+            .map((v) => toString(v).replace(/^@/, ''))
+            .filter(Boolean);
+
+          function ym() {
+            const d = new Date();
+            const y = d.getUTCFullYear();
+            const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+            return `${y}${m}`;
+          }
+
+          function planPathForSlug(slug) {
+            return path.join(targetRoot, 'docs', 'ops', 'plans', `PLAN-${ym()}-${slug}.md`);
+          }
+
+          function resolveUniqueSlug(baseSlug) {
+            const base = toString(baseSlug) || 'baseline-adopt';
+            for (let i = 0; i < 50; i++) {
+              const slug = i === 0 ? base : `${base}-${i + 1}`;
+              if (!fs.existsSync(planPathForSlug(slug))) return slug;
+            }
+            return `${base}-${Date.now()}`;
+          }
+
+          const planOwner = personalLogin ? `@${personalLogin}` : '@handle';
+          const slug = resolveUniqueSlug('baseline-adopt');
+          const planId = `PLAN-${ym()}-${slug}`;
+          const planNew = path.join(targetRoot, 'scripts', 'ops', 'plan-new.js');
+          const planAdvance = path.join(targetRoot, 'scripts', 'ops', 'plan-advance.js');
+          const planFile = path.join(targetRoot, 'docs', 'ops', 'plans', `${planId}.md`);
+
+          if (args.dryRun) {
+            info(`[dry-run] git checkout -b ${adoptBranch}`);
+            info(`[dry-run] node ${path.relative(targetRoot, planNew)} --slug ${slug} --title "Baseline adoption" --owner ${planOwner} --status in_progress`);
+            info(`[dry-run] insert checklist step: - [ ] S10 - Baseline adoption (bootstrap install + PR)`);
+            info(`[dry-run] node ${path.relative(targetRoot, planAdvance)} --plan ${planId} --to S10`);
+            info('[dry-run] git add -A && git commit -m "chore: adopt baseline kit"');
+            info(`[dry-run] git push -u origin ${adoptBranch}`);
+            info(`[dry-run] gh pr create -R ${actualHost}/${owner}/${repo} --base ${integration} --head ${adoptBranch} ...`);
+          } else {
+            await run('git', ['checkout', '-b', adoptBranch], { cwd: targetRoot });
+
+            // Create a plan so PR policy can validate Plan/Step metadata.
+            await run(process.execPath, [planNew, '--slug', slug, '--title', 'Baseline adoption', '--owner', planOwner, '--status', 'in_progress'], { cwd: targetRoot });
+
+            // Insert S10 into the checklist and advance the plan to S10 (so Step is valid + visible).
+            let body = fs.readFileSync(planFile, 'utf8');
+            if (!/^- \[ \] S10\b/m.test(body)) {
+              body = body.replace(
+                /^- \[ \] S03\b.*$/m,
+                (m) => `${m}\n- [ ] S10 - Baseline adoption (bootstrap install + PR)`
+              );
+              fs.writeFileSync(planFile, body, 'utf8');
+            }
+            await run(process.execPath, [planAdvance, '--plan', planId, '--to', 'S10'], { cwd: targetRoot });
+
+            await run('git', ['add', '-A'], { cwd: targetRoot });
+            await run('git', ['commit', '-m', 'chore: adopt baseline kit'], { cwd: targetRoot });
+            await run('git', ['push', '-u', 'origin', adoptBranch], { cwd: targetRoot });
+
+            const prTitle = 'chore: adopt baseline kit';
+            const prBody = [
+              '## Plan',
+              `Plan: ${planId}`,
+              'Step: S10',
+              '',
+              '## Summary',
+              '- Adopt baseline kit into an existing repository (non-destructive overlay).',
+              '',
+              '## Verification',
+              '- [ ] `npm test`',
+              '',
+            ].join('\n');
+
+            const prArgs = [
+              'pr', 'create',
+              '-R', `${actualHost}/${owner}/${repo}`,
+              '--base', integration,
+              '--head', adoptBranch,
+              '--title', prTitle,
+              '--body', prBody,
+            ];
+            for (const r of reviewers) prArgs.push('--reviewer', r);
+
+            const prRes = await runCapture('gh', prArgs, { cwd: targetRoot });
+            if (prRes.code !== 0) die(`Failed to create adopt PR: ${prRes.stderr || prRes.stdout || ''}`);
+            const prUrl = toString((prRes.stdout || '').split(/\r?\n/).pop());
+            info(`Adopt PR created: ${prUrl || '<unknown>'}`);
+
+            if (args.autoMerge && prUrl) {
+              const mergeRes = await runCapture('gh', ['pr', 'merge', prUrl, '--auto', '--squash', '--delete-branch'], { cwd: targetRoot });
+              if (mergeRes.code !== 0) {
+                warn(`Unable to enable auto-merge for adopt PR. ${mergeRes.stderr || mergeRes.stdout || ''}`.trim());
+              } else {
+                info('Adopt PR: auto-merge enabled (awaiting approvals + green checks).');
+              }
+            }
+          }
+        }
+      }
     }
 
     printGitHubUiChecklist({ host: actualHost, owner, repo, integration, production, policy });
