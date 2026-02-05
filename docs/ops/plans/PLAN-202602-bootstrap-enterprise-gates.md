@@ -45,7 +45,9 @@ Decisions & Notes
   - `npm run test:deep` (pass)
   - `node scripts/tooling/baseline-bootstrap.js --to . --mode overlay --overwrite --dry-run --github --skip-tests --skip-env` (pass; summary printed with attempted/skipped gates)
 - 2026-02-05 - Active repo application (non-dry-run) succeeded for repo variables and environment reviewer hardening; ruleset update failed with HTTP 422 until the new required check workflow (`release-policy-main`) is merged and available to GitHub checks.
+- 2026-02-05 - Follow-up fix: `ghListRulesets` now forces `--method GET` (previously `-f includes_parents=false` defaulted to POST and caused ruleset list/upsert 422 failures).
+- 2026-02-05 - Follow-up fix: ruleset merge-queue fallback now parses combined `stderr+stdout`, so unsupported merge queue on personal/public plan is detected and retried without merge queue.
+- 2026-02-05 - Active repo re-apply complete after fixes: integration/production rulesets updated with required checks (`test`, `validate`, `release-main-policy`), reviewer requirements restored to `1`, environment reviewer policy active for production, and guard variables set.
 - PR: <link(s) to PR(s) if applicable>
 - CI Evidence: <CI run URL(s) for S99>
 - Objectives Evidence: <short attestation and/or links to proof>
-
