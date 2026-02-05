@@ -32,15 +32,15 @@ function run() {
     repoRoot,
     workflowPaths: policy.github.required_check_workflows,
   });
-  assert.ok(contexts.includes('CI / test'), `expected required checks to include "CI / test" (got: ${contexts.join(', ')})`);
-  assert.ok(contexts.includes('PR Policy / validate'), `expected required checks to include "PR Policy / validate" (got: ${contexts.join(', ')})`);
+  assert.ok(contexts.includes('test'), `expected required checks to include "test" (got: ${contexts.join(', ')})`);
+  assert.ok(contexts.includes('validate'), `expected required checks to include "validate" (got: ${contexts.join(', ')})`);
 
   // Ruleset body shape.
   const ruleset = buildRulesetBody({
     name: 'baseline: integration',
     branch: 'dev',
     enforcement: 'active',
-    requiredContexts: ['CI / test'],
+    requiredContexts: ['test'],
     includeMergeQueue: true,
     policy,
   });
@@ -57,4 +57,3 @@ if (require.main === module) {
 }
 
 module.exports = { run };
-

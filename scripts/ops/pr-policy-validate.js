@@ -53,6 +53,30 @@ function parseRepo(full) {
   return m ? { owner: m[1], repo: m[2] } : { owner: '', repo: '' };
 }
 
+function isDependencyAutomationPr({ authorLogin, authorType, headRef }) {
+  const login = String(authorLogin || '').trim().toLowerCase();
+  const type = String(authorType || '').trim().toLowerCase();
+  const head = String(headRef || '').trim().toLowerCase();
+
+  const isBot = type === 'bot' || login.endsWith('[bot]') || login.startsWith('app/');
+  if (!isBot) return false;
+
+  const looksLikeDependencyBot =
+    login.includes('dependabot') ||
+    login.includes('renovate') ||
+    head.startsWith('dependabot/') ||
+    head.startsWith('renovate/');
+
+  return looksLikeDependencyBot;
+}
+
+function shouldBypassPlanStep({ baseRef, integrationBranch, authorLogin, authorType, headRef }) {
+  const base = String(baseRef || '').trim();
+  const integration = String(integrationBranch || '').trim();
+  if (!base || !integration || base !== integration) return false;
+  return isDependencyAutomationPr({ authorLogin, authorType, headRef });
+}
+
 function extractPrNumbersFromMergeGroup(evt) {
   const mg = evt && evt.merge_group;
   if (!mg) return [];
@@ -146,6 +170,8 @@ async function resolvePrContexts() {
       prBody: String(evt.pull_request.body || ''),
       baseRef: String(evt.pull_request.base && evt.pull_request.base.ref || ''),
       headRef: String(evt.pull_request.head && evt.pull_request.head.ref || ''),
+      authorLogin: String(evt.pull_request.user && evt.pull_request.user.login || ''),
+      authorType: String(evt.pull_request.user && evt.pull_request.user.type || ''),
       changedFiles: null,
     }];
   }
@@ -167,6 +193,8 @@ async function resolvePrContexts() {
         prBody: String(pr && pr.body || ''),
         baseRef: String(pr && pr.base && pr.base.ref || ''),
         headRef: String(pr && pr.head && pr.head.ref || ''),
+        authorLogin: String(pr && pr.user && pr.user.login || ''),
+        authorType: String(pr && pr.user && pr.user.type || ''),
         changedFiles: null,
       });
     }
@@ -174,7 +202,15 @@ async function resolvePrContexts() {
   }
 
   if (fromEnv) {
-    return [{ prNumber: 0, prBody: fromEnv, baseRef: '', headRef: '', changedFiles: null }];
+    return [{
+      prNumber: 0,
+      prBody: fromEnv,
+      baseRef: '',
+      headRef: '',
+      authorLogin: '',
+      authorType: '',
+      changedFiles: null,
+    }];
   }
 
   die('Missing PR body. Run in GitHub Actions (pull_request/merge_group) or set PR_BODY.');
@@ -208,6 +244,24 @@ async function main() {
 
     const planIds = extractPlanIds(body);
     const step = extractStep(body);
+    const bypassPlan = shouldBypassPlanStep({
+      baseRef: hydrated.baseRef,
+      integrationBranch: branchPolicy.config.integration_branch,
+      authorLogin: hydrated.authorLogin,
+      authorType: hydrated.authorType,
+      headRef: hydrated.headRef,
+    });
+    if ((planIds.length === 0 || !step) && bypassPlan) {
+      validateBranchPolicy({
+        baseRef: hydrated.baseRef,
+        headRef: hydrated.headRef,
+        prBody: body,
+        config: branchPolicy.config,
+      });
+      console.log(`[pr-policy-validate] OK PR ${prNumber} (dependency automation: Plan/Step not required)`);
+      continue;
+    }
+
     if (planIds.length === 0) die(`PR ${prNumber}: Missing \`Plan: PLAN-YYYYMM-<slug>\` in PR body.`);
     if (!step) die(`PR ${prNumber}: Missing \`Step: Sxx\` in PR body.`);
 
@@ -230,4 +284,11 @@ async function main() {
   }
 }
 
-main().catch((e) => die(e && e.message ? e.message : String(e)));
+if (require.main === module) {
+  main().catch((e) => die(e && e.message ? e.message : String(e)));
+}
+
+module.exports = {
+  isDependencyAutomationPr,
+  shouldBypassPlanStep,
+};
