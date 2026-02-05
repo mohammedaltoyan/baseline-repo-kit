@@ -11,6 +11,7 @@ Recommended branches (enterprise default)
 Recommended required status checks
 - Require the baseline CI job that runs `npm test` (this repo ships `.github/workflows/ci.yml`, job: `test`).
 - Require the PR metadata policy job (this repo ships `.github/workflows/pr-policy.yml`, job: `validate`).
+- Require the main-release policy job (this repo ships `.github/workflows/release-policy-main.yml`, job: `release-main-policy`).
 
 Notes
 - GitHub required checks must match the emitted check-run names exactly; copy them from a successful PR run.
@@ -38,6 +39,7 @@ Branch rules (recommended)
     - Release PR: `dev` -> `main`
     - Hotfix PR: `hotfix/*` -> `main` (and backport to `dev`)
   - Enforce allowed PR source branches via CI (SSOT is `config/policy/branch-policy.json`).
+  - Enforce required approver logins via `Release Policy (main)` check (repo variable: `MAIN_REQUIRED_APPROVER_LOGINS`).
   - Optional: enable repo variable `BACKPORT_ENABLED=1` to automatically open a backport PR from production -> integration after a hotfix merge (ships as `.github/workflows/hotfix-backport.yml`).
 
 Optional (quality-of-life)

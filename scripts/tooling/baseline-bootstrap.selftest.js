@@ -7,7 +7,9 @@ const {
   buildRulesetBody,
   deriveRequiredCheckContexts,
   loadBootstrapPolicy,
+  normalizeEnvironmentReviewerSpecs,
   parseRemoteRepoSlug,
+  resolvePolicyTemplateToken,
 } = require('./baseline-bootstrap');
 
 function run() {
@@ -25,6 +27,26 @@ function run() {
     { host: 'github.com', owner: 'acme', repo: 'example' }
   );
 
+  // Policy template tokens and reviewer normalization.
+  assert.strictEqual(
+    resolvePolicyTemplateToken('$repo_owner_user', { owner: 'octocat', personalLogin: 'octocat' }),
+    'octocat'
+  );
+  assert.strictEqual(
+    resolvePolicyTemplateToken('$repo_owner_user', { owner: 'acme', personalLogin: 'octocat' }),
+    ''
+  );
+  assert.deepStrictEqual(
+    normalizeEnvironmentReviewerSpecs(
+      ['$repo_owner_user', 'acme/release-team', { type: 'user', login: '@octocat' }],
+      { owner: 'octocat', personalLogin: 'octocat' }
+    ),
+    [
+      { kind: 'user', login: 'octocat' },
+      { kind: 'team', org: 'acme', slug: 'release-team' },
+    ]
+  );
+
   // Required check contexts derived from baseline workflows.
   const repoRoot = path.resolve(__dirname, '..', '..');
   const policy = loadBootstrapPolicy(repoRoot).config;
@@ -34,6 +56,10 @@ function run() {
   });
   assert.ok(contexts.includes('test'), `expected required checks to include "test" (got: ${contexts.join(', ')})`);
   assert.ok(contexts.includes('validate'), `expected required checks to include "validate" (got: ${contexts.join(', ')})`);
+  assert.ok(
+    contexts.includes('release-main-policy'),
+    `expected required checks to include "release-main-policy" (got: ${contexts.join(', ')})`
+  );
 
   // Ruleset body shape.
   const ruleset = buildRulesetBody({

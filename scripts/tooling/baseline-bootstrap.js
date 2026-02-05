@@ -208,6 +208,7 @@ function defaultBootstrapPolicy() {
       required_check_workflows: [
         '.github/workflows/ci.yml',
         '.github/workflows/pr-policy.yml',
+        '.github/workflows/release-policy-main.yml',
       ],
       rulesets: {
         integration: { name: 'baseline: integration', enforcement: 'active' },
@@ -246,6 +247,15 @@ function defaultBootstrapPolicy() {
       repo_settings: {
         delete_branch_on_merge: true,
       },
+      repo_variables: {
+        MAIN_REQUIRED_APPROVER_LOGINS: '$repo_owner_user',
+        MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK: '1',
+        PRODUCTION_PROMOTION_REQUIRED: 'enabled',
+        STAGING_DEPLOY_GUARD: 'enabled',
+        PRODUCTION_DEPLOY_GUARD: 'disabled',
+        DOCS_PUBLISH_GUARD: 'disabled',
+        API_INGRESS_DEPLOY_GUARD: 'disabled',
+      },
       labels: {
         enabled: true,
         update_existing: false,
@@ -263,8 +273,15 @@ function defaultBootstrapPolicy() {
       environments: {
         enabled: true,
         defaults: [
-          { name: 'staging', branches: ['$integration'], wait_timer: 0 },
-          { name: 'production', branches: ['$production'], wait_timer: 0 },
+          { name: 'staging', branches: ['$integration'], wait_timer: 0, can_admins_bypass: true },
+          {
+            name: 'production',
+            branches: ['$production'],
+            wait_timer: 0,
+            prevent_self_review: false,
+            can_admins_bypass: true,
+            required_reviewers: ['$repo_owner_user'],
+          },
         ],
       },
     },
@@ -294,6 +311,7 @@ function loadBootstrapPolicy(sourceRoot) {
     ...((cfg.github.security && cfg.github.security.security_and_analysis) || {}),
   };
   cfg.github.environments = { ...d.github.environments, ...(cfg.github.environments || {}) };
+  cfg.github.repo_variables = { ...d.github.repo_variables, ...(cfg.github.repo_variables || {}) };
   return { path: cfgPath, loaded: true, config: cfg };
 }
 
@@ -321,6 +339,7 @@ function parseArgs(argv) {
     skipEnv: isTruthy(args['skip-env'] || args.skipEnv),
     skipTests: isTruthy(args['skip-tests'] || args.skipTests || args.noTests),
     mergeQueueProduction: isTruthy(args['merge-queue-production'] || args.mergeQueueProduction),
+    mainApprovers: toString(args['main-approvers'] || args.mainApprovers || ''),
     enableBackport: args.enableBackport === undefined ? null : isTruthy(args.enableBackport),
     enableSecurity: args.enableSecurity === undefined ? null : isTruthy(args.enableSecurity),
     enableDeploy: args.enableDeploy === undefined ? null : isTruthy(args.enableDeploy),
@@ -930,6 +949,148 @@ function resolveBranchToken(token, { integration, production }) {
   return v;
 }
 
+function resolvePolicyTemplateToken(raw, { owner, personalLogin }) {
+  const v = toString(raw);
+  const o = toString(owner);
+  const p = toString(personalLogin);
+  if (!v) return '';
+  if (v === '$repo_owner') return o;
+  if (v === '$personal_login') return p;
+  if (v === '$repo_owner_user') {
+    if (o && p && o.toLowerCase() === p.toLowerCase()) return o;
+    return '';
+  }
+  return v;
+}
+
+function normalizeEnvironmentReviewerSpecs(raw, { owner, personalLogin }) {
+  const out = [];
+  const seen = new Set();
+  const list = Array.isArray(raw) ? raw : [];
+
+  function addUser(login) {
+    const l = toString(login).replace(/^@/, '');
+    if (!l) return;
+    const key = `user:${l.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ kind: 'user', login: l });
+  }
+
+  function addTeam(org, slug) {
+    const o = toString(org);
+    const s = toString(slug).replace(/^@/, '');
+    if (!o || !s) return;
+    const key = `team:${o.toLowerCase()}/${s.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ kind: 'team', org: o, slug: s });
+  }
+
+  for (const entry of list) {
+    if (typeof entry === 'string') {
+      const token = resolvePolicyTemplateToken(entry, { owner, personalLogin });
+      const value = toString(token).replace(/^@/, '');
+      if (!value) continue;
+      const slash = value.indexOf('/');
+      if (slash > 0) {
+        addTeam(value.slice(0, slash), value.slice(slash + 1));
+      } else {
+        addUser(value);
+      }
+      continue;
+    }
+
+    if (!entry || typeof entry !== 'object') continue;
+    const type = toString(entry.type).toLowerCase();
+    const rawUser = resolvePolicyTemplateToken(entry.login || entry.user || '', { owner, personalLogin });
+    const rawTeam = resolvePolicyTemplateToken(entry.team || '', { owner, personalLogin });
+    const rawOrg = resolvePolicyTemplateToken(entry.org || '', { owner, personalLogin });
+    const rawSlug = resolvePolicyTemplateToken(entry.slug || '', { owner, personalLogin });
+
+    if (type === 'team') {
+      if (rawTeam && toString(rawTeam).includes('/')) {
+        const [org, slug] = toString(rawTeam).split('/', 2);
+        addTeam(org, slug);
+      } else {
+        addTeam(rawOrg || owner, rawSlug || rawTeam);
+      }
+      continue;
+    }
+
+    if (type === 'user') {
+      addUser(rawUser || rawTeam);
+      continue;
+    }
+
+    if (rawTeam && toString(rawTeam).includes('/')) {
+      const [org, slug] = toString(rawTeam).split('/', 2);
+      addTeam(org, slug);
+      continue;
+    }
+    if (rawUser) addUser(rawUser);
+  }
+
+  return out;
+}
+
+function formatReviewerSpec(spec) {
+  if (!spec || typeof spec !== 'object') return '';
+  if (spec.kind === 'team') return `${toString(spec.org)}/${toString(spec.slug)}`;
+  return `@${toString(spec.login)}`;
+}
+
+async function ghResolveEnvironmentReviewers({ cwd, host, owner, personalLogin, reviewers, dryRun }) {
+  const specs = normalizeEnvironmentReviewerSpecs(reviewers, { owner, personalLogin });
+  if (specs.length === 0) return [];
+
+  if (dryRun) {
+    info(`[dry-run] environment reviewers: ${specs.map((s) => formatReviewerSpec(s)).filter(Boolean).join(', ')}`);
+    return [];
+  }
+
+  const out = [];
+  for (const spec of specs) {
+    if (spec.kind === 'team') {
+      const endpoint =
+        `/orgs/${encodeURIComponent(spec.org)}/teams/${encodeURIComponent(spec.slug)}`;
+      // eslint-disable-next-line no-await-in-loop
+      const team = await ghApiJson({ cwd, host, endpoint });
+      if (!team.ok) {
+        warn(`Unable to resolve environment reviewer team "${spec.org}/${spec.slug}". ${team.stderr || team.stdout || ''}`.trim());
+        continue;
+      }
+      const id = Number(team.data && team.data.id);
+      if (!Number.isFinite(id) || id <= 0) {
+        warn(`Skipping environment reviewer team "${spec.org}/${spec.slug}" (invalid team id).`);
+        continue;
+      }
+      out.push({ type: 'Team', id: Math.floor(id) });
+      continue;
+    }
+
+    const endpoint = `/users/${encodeURIComponent(spec.login)}`;
+    // eslint-disable-next-line no-await-in-loop
+    const user = await ghApiJson({ cwd, host, endpoint });
+    if (!user.ok) {
+      warn(`Unable to resolve environment reviewer user "${spec.login}". ${user.stderr || user.stdout || ''}`.trim());
+      continue;
+    }
+    const userType = toString(user.data && user.data.type).toLowerCase();
+    if (userType && userType !== 'user') {
+      warn(`Skipping environment reviewer "${spec.login}" (GitHub type=${userType}; expected user).`);
+      continue;
+    }
+    const id = Number(user.data && user.data.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      warn(`Skipping environment reviewer "${spec.login}" (invalid user id).`);
+      continue;
+    }
+    out.push({ type: 'User', id: Math.floor(id) });
+  }
+  return out;
+}
+
 function resolveEnvironmentBranches(raw, ctx) {
   const out = [];
   const list = Array.isArray(raw) ? raw : [];
@@ -951,7 +1112,19 @@ async function ghGetEnvironment({ cwd, host, owner, repo, environment }) {
   return { found: false, data: null, error: `${res.stderr || res.stdout || ''}` };
 }
 
-async function ghUpsertEnvironment({ cwd, host, owner, repo, environment, waitTimerSeconds, enableCustomBranchPolicies, preventSelfReview, dryRun }) {
+async function ghUpsertEnvironment({
+  cwd,
+  host,
+  owner,
+  repo,
+  environment,
+  waitTimerSeconds,
+  enableCustomBranchPolicies,
+  preventSelfReview,
+  canAdminsBypass,
+  reviewers,
+  dryRun,
+}) {
   const env = toString(environment);
   if (!env) return;
 
@@ -961,6 +1134,8 @@ async function ghUpsertEnvironment({ cwd, host, owner, repo, environment, waitTi
   const wt = Number(waitTimerSeconds);
   if (Number.isFinite(wt) && wt >= 0) body.wait_timer = Math.floor(wt);
   if (typeof preventSelfReview === 'boolean') body.prevent_self_review = preventSelfReview;
+  if (typeof canAdminsBypass === 'boolean') body.can_admins_bypass = canAdminsBypass;
+  if (Array.isArray(reviewers) && reviewers.length > 0) body.reviewers = reviewers;
 
   if (enableCustomBranchPolicies) {
     body.deployment_branch_policy = { protected_branches: false, custom_branch_policies: true };
@@ -1027,7 +1202,7 @@ function envPolicyIsUnrestricted(dep) {
   return !protectedBranches && !custom;
 }
 
-async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integration, production, dryRun }) {
+async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integration, production, personalLogin, dryRun }) {
   const envs = Array.isArray(policy.github.environments.defaults) ? policy.github.environments.defaults : [];
   const ctx = { integration, production };
 
@@ -1038,16 +1213,50 @@ async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integra
     const branches = resolveEnvironmentBranches(e && e.branches, ctx);
     const waitTimer = e && e.wait_timer;
     const preventSelfReview = typeof (e && e.prevent_self_review) === 'boolean' ? e.prevent_self_review : undefined;
+    const canAdminsBypass = typeof (e && e.can_admins_bypass) === 'boolean' ? e.can_admins_bypass : undefined;
+    const reviewersConfigured = e && Object.prototype.hasOwnProperty.call(e, 'required_reviewers');
+    const resolvedReviewers = reviewersConfigured
+      ? await ghResolveEnvironmentReviewers({
+        cwd,
+        host,
+        owner,
+        personalLogin,
+        reviewers: e.required_reviewers,
+        dryRun,
+      })
+      : [];
+    const reviewers = resolvedReviewers.length > 0 ? resolvedReviewers : undefined;
+    if (reviewersConfigured && !reviewers && !dryRun) {
+      warn(`Environment "${name}" has required_reviewers configured but no reviewers could be resolved; skipping reviewer enforcement.`);
+    }
 
     const got = await ghGetEnvironment({ cwd, host, owner, repo, environment: name });
     const exists = !!got.found;
     const dep = got.data && got.data.deployment_branch_policy;
     const shouldHarden = !exists || envPolicyIsUnrestricted(dep);
+    const shouldApplyPolicyFields =
+      !exists ||
+      typeof preventSelfReview === 'boolean' ||
+      typeof canAdminsBypass === 'boolean' ||
+      Number.isFinite(Number(waitTimer)) ||
+      !!reviewers;
 
     if (!branches.length) {
       warn(`Environments policy includes "${name}" with no branches; skipping branch policy enforcement.`);
-      if (!exists) {
-        await ghUpsertEnvironment({ cwd, host, owner, repo, environment: name, waitTimerSeconds: waitTimer, enableCustomBranchPolicies: false, preventSelfReview, dryRun });
+      if (shouldApplyPolicyFields) {
+        await ghUpsertEnvironment({
+          cwd,
+          host,
+          owner,
+          repo,
+          environment: name,
+          waitTimerSeconds: waitTimer,
+          enableCustomBranchPolicies: false,
+          preventSelfReview,
+          canAdminsBypass,
+          reviewers,
+          dryRun,
+        });
       }
       continue;
     }
@@ -1062,10 +1271,28 @@ async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integra
         waitTimerSeconds: waitTimer,
         enableCustomBranchPolicies: true,
         preventSelfReview,
+        canAdminsBypass,
+        reviewers,
         dryRun,
       });
       await ghEnsureDeploymentBranchPolicies({ cwd, host, owner, repo, environment: name, branches, dryRun });
       continue;
+    }
+
+    if (shouldApplyPolicyFields) {
+      await ghUpsertEnvironment({
+        cwd,
+        host,
+        owner,
+        repo,
+        environment: name,
+        waitTimerSeconds: waitTimer,
+        enableCustomBranchPolicies: false,
+        preventSelfReview,
+        canAdminsBypass,
+        reviewers,
+        dryRun,
+      });
     }
 
     if (dep && dep.custom_branch_policies) {
@@ -1115,8 +1342,11 @@ function printGitHubPostBootstrapChecklist({ host, owner, repo, integration, pro
   info(`  - CLI: gh api /repos/${owner}/${repo}/rulesets`);
   info(`- Actions variables (UI): ${base}/settings/variables/actions`);
   info(`  - CLI: gh variable list -R ${host}/${owner}/${repo}`);
+  info('  - Key gates: MAIN_REQUIRED_APPROVER_LOGINS, MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK, PRODUCTION_PROMOTION_REQUIRED, STAGING_DEPLOY_GUARD, PRODUCTION_DEPLOY_GUARD, DOCS_PUBLISH_GUARD, API_INGRESS_DEPLOY_GUARD');
   info(`- Environments (UI): ${base}/settings/environments`);
   info(`  - CLI: gh api /repos/${owner}/${repo}/environments`);
+  info(`  - Production promotion workflow: ${base}/actions/workflows/promote-production.yml`);
+  info(`    - Gate path: comment \`/approve-prod\` on a merged PR to \`${production}\`, or run workflow dispatch.`);
   info(`- Security & analysis (UI): ${base}/settings/security_analysis`);
   info(`  - CLI: gh api /repos/${owner}/${repo} --jq .security_and_analysis`);
   if (mqTargets) {
@@ -1137,6 +1367,27 @@ async function ghSetRepoVariable({ cwd, owner, repo, host, name, value, dryRun }
     return;
   }
   await run('gh', ['variable', 'set', n, '-R', `${host}/${owner}/${repo}`, '-b', v], { cwd });
+}
+
+function resolveRepoVariablePolicyValue(raw, { owner, personalLogin }) {
+  return resolvePolicyTemplateToken(raw, { owner, personalLogin });
+}
+
+async function ghApplyPolicyRepoVariables({ cwd, owner, repo, host, policy, personalLogin, dryRun }) {
+  const map = policy && policy.github && policy.github.repo_variables;
+  if (!map || typeof map !== 'object') return;
+
+  for (const [name, raw] of Object.entries(map)) {
+    const n = toString(name);
+    if (!n) continue;
+    const value = resolveRepoVariablePolicyValue(raw, { owner, personalLogin });
+    if (!toString(value)) {
+      warn(`Repo variable "${n}" resolved empty from policy template; skipping.`);
+      continue;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await ghSetRepoVariable({ cwd, owner, repo, host, name: n, value, dryRun });
+  }
 }
 
 async function ghListRulesets({ cwd, host, owner, repo }) {
@@ -1274,6 +1525,7 @@ async function main() {
       '  --skip-env                 Do not create local env file from template',
       '  --skip-tests               Do not run npm install/test in target',
       '  --merge-queue-production   Recommend enabling Merge Queue on production branch (manual)',
+      '  --main-approvers=<csv>     Override MAIN_REQUIRED_APPROVER_LOGINS repo var (when --github)',
       '  --enableBackport=<0|1>     Set BACKPORT_ENABLED repo var (when --github)',
       '  --enableSecurity=<0|1>     Set SECURITY_ENABLED repo var (when --github)',
       '  --enableDeploy=<0|1>       Set DEPLOY_ENABLED repo var (when --github)',
@@ -1539,10 +1791,31 @@ async function main() {
       const enableSecurity = args.enableSecurity == null ? !!policy.github.enable_security_default : !!args.enableSecurity;
       const enableDeploy = args.enableDeploy == null ? !!policy.github.enable_deploy_default : !!args.enableDeploy;
 
+      await ghApplyPolicyRepoVariables({
+        cwd: targetRoot,
+        owner,
+        repo,
+        host: actualHost,
+        policy,
+        personalLogin,
+        dryRun: args.dryRun,
+      });
+
       await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'BACKPORT_ENABLED', value: enableBackport ? '1' : '0', dryRun: args.dryRun });
       await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'SECURITY_ENABLED', value: enableSecurity ? '1' : '0', dryRun: args.dryRun });
       await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'DEPLOY_ENABLED', value: enableDeploy ? '1' : '0', dryRun: args.dryRun });
       await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'EVIDENCE_SOURCE_BRANCH', value: integration, dryRun: args.dryRun });
+      if (args.mainApprovers) {
+        await ghSetRepoVariable({
+          cwd: targetRoot,
+          owner,
+          repo,
+          host: actualHost,
+          name: 'MAIN_REQUIRED_APPROVER_LOGINS',
+          value: args.mainApprovers,
+          dryRun: args.dryRun,
+        });
+      }
 
       const state = repoGet.found ? 'existing repo' : 'created repo';
       step.note = `${actualHost}/${owner}/${repo} (${state})`;
@@ -1587,6 +1860,7 @@ async function main() {
           policy,
           integration,
           production,
+          personalLogin,
           dryRun: args.dryRun,
         });
       });
@@ -1807,6 +2081,8 @@ module.exports = {
   buildRulesetBody,
   deriveRequiredCheckContexts,
   loadBootstrapPolicy,
+  normalizeEnvironmentReviewerSpecs,
   parseRemoteRepoSlug,
   parseWorkflowChecks,
+  resolvePolicyTemplateToken,
 };
