@@ -72,7 +72,9 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - Required approvals: `1`
   - Require code owner review: enabled (add `.github/CODEOWNERS` in the target repo)
 - Repo settings (patched):
-  - Merge methods (default: squash-only, derived from policy)
+  - Merge methods (derived from policy and enforced via rulesets):
+    - Integration (`dev` by default): squash-only
+    - Production (`main` by default): merge-commit-only (prevents recurring `dev` -> `main` conflicts caused by squash releases)
   - Delete branch on merge (default: enabled)
 - Merge Queue:
   - Recommended by policy for integration branch by default.

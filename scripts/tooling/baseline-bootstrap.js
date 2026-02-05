@@ -222,6 +222,11 @@ function defaultBootstrapPolicy() {
           required_approving_review_count: 1,
           required_review_thread_resolution: true,
         },
+        pull_request_overrides: {
+          production: {
+            allowed_merge_methods: ['merge'],
+          },
+        },
         merge_queue: {
           parameters: {
             check_response_timeout_minutes: 60,
@@ -442,8 +447,14 @@ function deriveRequiredCheckContexts({ repoRoot, workflowPaths }) {
   return contexts;
 }
 
-function buildRulesetBody({ name, branch, enforcement, requiredContexts, includeMergeQueue, policy }) {
-  const prParams = policy.github.rules.pull_request || {};
+function buildRulesetBody({ name, branch, enforcement, requiredContexts, includeMergeQueue, policy, scope }) {
+  const prBase = (policy && policy.github && policy.github.rules && policy.github.rules.pull_request) || {};
+  const prOverrides = (policy && policy.github && policy.github.rules && policy.github.rules.pull_request_overrides) || {};
+  const scoped = scope && prOverrides && typeof prOverrides === 'object' ? prOverrides[scope] : null;
+  const prParams = {
+    ...prBase,
+    ...(scoped && typeof scoped === 'object' ? scoped : {}),
+  };
   const statusParams = policy.github.rules.required_status_checks || {};
   const mqParams = (policy.github.rules.merge_queue && policy.github.rules.merge_queue.parameters) || {};
 
@@ -689,10 +700,24 @@ function normalizeAllowedMergeMethods(value) {
   return Array.from(out);
 }
 
+function deriveAllowedMergeMethodUnion({ base, overrides }) {
+  const union = new Set(normalizeAllowedMergeMethods(base && base.allowed_merge_methods));
+  if (overrides && typeof overrides === 'object') {
+    for (const scoped of Object.values(overrides)) {
+      for (const method of normalizeAllowedMergeMethods(scoped && scoped.allowed_merge_methods)) {
+        union.add(method);
+      }
+    }
+  }
+  return Array.from(union);
+}
+
 async function ghPatchRepoSettings({ cwd, host, owner, repo, policy, dryRun }) {
   const repoSettings = (policy && policy.github && policy.github.repo_settings) || {};
-  const prParams = (policy && policy.github && policy.github.rules && policy.github.rules.pull_request) || {};
-  const allowedMethods = normalizeAllowedMergeMethods(prParams.allowed_merge_methods);
+  const rules = (policy && policy.github && policy.github.rules) || {};
+  const prParams = rules.pull_request || {};
+  const prOverrides = rules.pull_request_overrides || {};
+  const allowedMethods = deriveAllowedMergeMethodUnion({ base: prParams, overrides: prOverrides });
 
   const payload = {};
 
@@ -1584,6 +1609,7 @@ async function main() {
         requiredContexts,
         includeMergeQueue: includeMqIntegration,
         policy,
+        scope: 'integration',
       });
 
       const productionRuleset = buildRulesetBody({
@@ -1593,6 +1619,7 @@ async function main() {
         requiredContexts,
         includeMergeQueue: includeMqProduction,
         policy,
+        scope: 'production',
       });
 
       await ghUpsertRuleset({ cwd: targetRoot, host: actualHost, owner, repo, desired: integrationRuleset, dryRun: args.dryRun });
