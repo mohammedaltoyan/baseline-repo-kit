@@ -41,7 +41,7 @@ Testing Gate (required to mark plan done)
 
 Decisions & Notes
 - Objectives Evidence: auto-verified at 2026-02-05T16:36:53.463Z (commit 0603a00d4a6924af8e96afaa8d5c47a45002ad4c)
+- 2026-02-05 - Local Evidence: `npm test`, `npm run test:deep` (all passing).
 - YYYY-MM-DD - <decision> (link to evidence)
-- PR: <link(s) to PR(s) if applicable>
-- CI Evidence: <CI run URL(s) for S99>
-
+- PR: https://github.com/mohammedaltoyan/baseline-repo-kit/pull/17
+- CI Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/21720221139, https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/21720221144
