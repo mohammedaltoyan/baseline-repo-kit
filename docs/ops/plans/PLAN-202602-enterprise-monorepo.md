@@ -39,7 +39,11 @@ Testing Gate (required to mark plan done)
 - [x] S99 - Tests Gate - All required suites passing; change-aware check (code changes require matching test artifacts). Include evidence for unit + integration/E2E; perf/load marked N/A if not applicable.
 
 Decisions & Notes
-- Objectives Evidence: auto-verified at 2026-02-05T09:11:11.523Z (commit 1529dc116d4789079ee5748f717de0a8faffab47)
+- Objectives Evidence: auto-verified at 2026-02-05T09:35:34.818Z (commit 78756016a79d62c33278185b9ff1a44944ee24d4)
+- 2026-02-05 - Branch strategy + CI enforcement: feature PRs -> `dev`; `main` only via `dev` (release) or `hotfix/*` with backport note; merge-queue compatible via `merge_group`.
+- 2026-02-05 - Strict docs hygiene: `docs-clean` is enforced via `npm test`.
+- 2026-02-05 - Optional security automation templates: Dependabot + (opt-in) CodeQL + dependency review (enable via repo var `SECURITY_ENABLED=1`).
+- Verification (local): `npm test`, `npm run test:deep`.
 - YYYY-MM-DD - <decision> (link to evidence)
 - PR: <link(s) to PR(s) if applicable>
 - CI Evidence: <CI run URL(s) for S99>
