@@ -3,7 +3,7 @@ plan_id: PLAN-202602-release-merge-strategy
 title: Release merge strategy (dev->main)
 owner: @owner
 status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
-current_step: S10
+current_step: S20
 updated: 2026-02-05
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
@@ -12,8 +12,8 @@ links:
 ---
 
 At-a-Glance
-- Now: S10 - PR: per-branch merge methods (integration vs production)
-- Next: S95 - Testing coverage design and execution
+- Now: S20 - One-time history alignment (main -> dev)
+- Next: S30 - Release PR (dev -> main)
 - Blockers: <none or short>
 - ETA: <date>
 
@@ -25,6 +25,8 @@ Checklist
 - [ ] S04 - Implementation (deliver via one or more small PRs; list the key deliverables)
 - [ ] S05 - Docs updated (update guides/runbooks/AGENTS as needed; avoid duplicating SSOT policy text)
 - [ ] S10 - PR: enforce merge methods by branch (integration squash-only; production merge-commit-only)
+- [ ] S20 - One-time history alignment: merge `main` -> `dev` (merge commit; resolves squash-release merge-base drift)
+- [ ] S30 - Release PR: merge `dev` -> `main` (merge commit; sets correct merge-base going forward)
 - [ ] S95 - Testing coverage design and execution (unit + integration/E2E; perf/load if applicable; evidence recorded)
 
 Phase Map (fill during S02)
@@ -43,5 +45,3 @@ Decisions & Notes
 - PR: <link(s) to PR(s) if applicable>
 - CI Evidence: <CI run URL(s) for S99>
 - Objectives Evidence: <short attestation and/or links to proof>
-
-
