@@ -10,6 +10,7 @@ Recommended required status checks
 Notes
 - GitHub required checks must match the emitted check-run names exactly; copy them from a successful PR run.
 - If you enable GitHub Merge Queue, make sure required checks also run on `merge_group` events.
+- Consider enabling "Require branches to be up to date before merging" (or enforce via Merge Queue) to reduce post-merge breakage.
 
 Optional (team policy)
 - Require approvals (e.g., `1+` once you have multiple maintainers)

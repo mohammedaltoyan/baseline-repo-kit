@@ -13,6 +13,11 @@ Suggested entries (replace with your org/team handles):
 # CI and repo policy
 /.github/**             @your-org/ci-owners
 
+# Apps (monorepo)
+# /apps/backend/**       @your-org/backend-owners
+# /apps/frontend/**      @your-org/frontend-owners
+# /packages/**           @your-org/platform-owners
+
 # Docs
 /docs/**                @your-org/docs-owners
 
@@ -23,4 +28,3 @@ Suggested entries (replace with your org/team handles):
 Notes:
 - Place CODEOWNERS in `.github/CODEOWNERS` (recommended).
 - Require at least one approving review in branch protection.
-
