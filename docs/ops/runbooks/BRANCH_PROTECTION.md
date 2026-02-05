@@ -31,6 +31,9 @@ Branch rules (recommended)
     - Hotfix PR: `hotfix/*` -> `main` (and backport to `dev`)
   - Enforce allowed PR source branches via CI (SSOT is `config/policy/branch-policy.json`).
 
+Optional (quality-of-life)
+- Set the repository default branch to `dev` so new PRs default to the integration branch (avoids accidental PRs to `main`).
+
 Optional (team policy)
 - Require approvals (e.g., `1+` once you have multiple maintainers)
 - Require conversation resolution
