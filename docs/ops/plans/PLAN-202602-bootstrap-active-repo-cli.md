@@ -3,7 +3,7 @@ plan_id: PLAN-202602-bootstrap-active-repo-cli
 title: Bootstrap: active repo CLI adoption + merge queue API
 owner: @owner
 status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
-current_step: S10
+current_step: S20
 updated: 2026-02-05
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
@@ -12,8 +12,8 @@ links:
 ---
 
 At-a-Glance
-- Now: S10 - Rulesets: Merge Queue via API (best-effort)
-- Next: S20 - Bootstrap: active repo adoption (PR-based)
+- Now: S20 - Bootstrap: active repo adoption (PR-based)
+- Next: S30 - GitHub hardening (environments + security)
 - Blockers: <none or short>
 - ETA: <date>
 
@@ -22,7 +22,7 @@ Checklist
 - [x] S01 - Scope/guardrails locked; focus set
 - [x] S02 - Requirements captured (include PR slicing plan: phase map + mergeable increments; feature flags if needed)
 - [x] S03 - Design validation (flows, failure messaging, CI behavior; overrides explicitly defined or none)
-- [ ] S10 - Rulesets: enable Merge Queue via API when supported (fallback when not supported)
+- [x] S10 - Rulesets: enable Merge Queue via API when supported (fallback when not supported)
 - [ ] S20 - Bootstrap: active repo adoption mode (PR-based, edge-case safe)
 - [ ] S30 - GitHub hardening: environments + security toggles (CLI best-effort; no vendor lock-in)
 - [ ] S95 - Testing coverage design and execution (npm test + deep verify; evidence recorded)
@@ -42,8 +42,7 @@ Testing Gate (required to mark plan done)
 
 Decisions & Notes
 - YYYY-MM-DD - <decision> (link to evidence)
-- PR: <link(s) to PR(s) if applicable>
+- PR: https://github.com/mohammedaltoyan/baseline-repo-kit/pull/12
 - CI Evidence: <CI run URL(s) for S99>
 - Objectives Evidence: <short attestation and/or links to proof>
-
 

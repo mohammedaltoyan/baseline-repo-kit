@@ -36,6 +36,10 @@ Update an existing repo from baseline SSOT (overwrite baseline-managed files; ne
 
 - `npm run baseline:bootstrap -- --to <target-path> --mode overlay --overwrite --github`
 
+Active repo (protected branches) adoption (recommended):
+
+- `npm run baseline:bootstrap -- --to <target-path> --mode overlay --overwrite --github --adopt --reviewers <user-or-team> --auto-merge`
+
 Dry-run preview (no writes):
 
 - `npm run baseline:bootstrap -- --to <target-path> --dry-run --github`
@@ -45,6 +49,7 @@ Dry-run preview (no writes):
 - Never deletes files in the target repo.
 - Does not overwrite an existing `origin` remote; it only validates that it points to the expected repo (host/owner/name). If it does not match, bootstrap fails and prints the mismatch.
 - Does not create or commit secret env files. If it creates `config/env/.env.local`, it is gitignored by default.
+- When run with `--adopt`, baseline changes are committed to a new branch and applied via a PR (avoids pushing directly to protected branches).
 
 ## GitHub enterprise defaults (SSOT)
 
