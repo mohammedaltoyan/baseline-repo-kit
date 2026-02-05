@@ -52,6 +52,14 @@ Dry-run preview (no writes):
 - Does not create or commit secret env files. If it creates `config/env/.env.local`, it is gitignored by default.
 - When run with `--adopt`, baseline changes are committed to a new branch and applied via a PR (avoids pushing directly to protected branches).
 
+## Output: end-of-run summary
+
+Bootstrap is "best-effort" for some GitHub features (plan/permission dependent). It will:
+
+- Attempt every enabled feature (based on flags + `config/policy/bootstrap-policy.json`).
+- Print `WARN:` lines when a feature cannot be enabled (e.g., plan limitation, missing permissions, API validation).
+- Print an end-of-run `Summary:` section that lists which steps/features were **attempted vs skipped**, and repeats any warnings with their associated step.
+
 ## GitHub enterprise defaults (SSOT)
 
 Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the baseline SSOT (then applied via updates):
