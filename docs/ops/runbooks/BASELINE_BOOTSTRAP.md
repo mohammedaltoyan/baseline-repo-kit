@@ -6,7 +6,8 @@ This baseline kit is a SSOT that can be installed into any new project repo. The
 - Create local env scaffolding (no secrets)
 - Initialize `git` and create baseline branches (SSOT: `config/policy/branch-policy.json`)
 - Optional: provision/configure GitHub (repo, repo settings, rulesets/branch protection, repo variables) using `gh`
-- Optional: enable GitHub Merge Queue (bootstrap attempts via rulesets API when supported; otherwise enable manually; workflows already support `merge_group`)
+- Optional: configure GitHub Merge Queue via rulesets API when supported (workflows already support `merge_group`)
+- Optional: provision baseline labels, security toggles, and environments (best-effort via API; non-destructive)
 - Optional: run `npm install`/`npm test` in the target repo
 
 ## Command
@@ -73,29 +74,29 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - `SECURITY_ENABLED` (default: `0`)
   - `DEPLOY_ENABLED` (default: `0`)
   - `EVIDENCE_SOURCE_BRANCH` (set to integration branch)
+- Labels:
+  - Baseline label definitions SSOT: `config/policy/github-labels.json`
+  - Bootstrap ensures labels exist when `github.labels.enabled=true` (default; non-destructive).
+- Security toggles (best-effort):
+  - Bootstrap can enable vulnerability alerts + automated security fixes and patch `security_and_analysis` settings when supported by the repo/plan.
+- Environments (best-effort):
+  - Bootstrap can create `staging` + `production` and add deployment branch policies derived from the branch policy SSOT.
 
-## Post-bootstrap GitHub UI checklist (manual)
+## Post-bootstrap verification (UI or CLI)
 
-Bootstrap configures everything it can via API, but some settings are UI-only or plan/feature dependent.
+Bootstrap configures everything it can via API, but some settings are plan/feature dependent.
 
 Recommended toggles:
 
 1) Merge Queue (if available in your plan)
-   - Settings  ->  Rules (rulesets)  ->  Edit `baseline: integration` (and optionally `baseline: production`)
-   - Confirm Merge Queue is enabled (bootstrap attempts to enable it; if it could not, you will see a warning in bootstrap output)
-   - Confirm required checks run on `merge_group` (this baseline already triggers `CI` + `PR Policy` on `merge_group`)
+   - Bootstrap attempts to enable it via rulesets API.
+   - Verify required checks run on `merge_group` (this baseline already triggers `CI` + `PR Policy` on `merge_group`).
 
 2) Security & analysis (recommended)
-   - Settings  ->  Security & analysis:
-     - Enable Dependency graph
-     - Enable Dependabot alerts
-     - Enable Dependabot security updates
-     - Enable Secret scanning (and push protection if available)
+   - Bootstrap attempts best-effort enablement via API (where supported).
    - When ready, set repo variable `SECURITY_ENABLED=1` to enable the baseline CodeQL + dependency review workflows.
 
 3) Deployment environments (recommended; generic)
-   - Settings  ->  Environments:
-     - Create `staging` and `production`
-     - Configure required reviewers for `production` (release approvals)
-     - Restrict deployment branches (typically `dev`  ->  staging, `main`  ->  production)
+   - Bootstrap can create environments and add branch policies (best-effort).
+   - Configure required reviewers for `production` (release approvals) per org policy.
    - When ready, set repo variable `DEPLOY_ENABLED=1` and implement the project-specific deploy hook (see `docs/ops/runbooks/DEPLOYMENT.md`).

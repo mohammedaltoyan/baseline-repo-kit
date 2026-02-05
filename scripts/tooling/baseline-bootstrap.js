@@ -129,6 +129,27 @@ function defaultBootstrapPolicy() {
       repo_settings: {
         delete_branch_on_merge: true,
       },
+      labels: {
+        enabled: true,
+        update_existing: false,
+        policy_path: 'config/policy/github-labels.json',
+      },
+      security: {
+        enabled: true,
+        enable_vulnerability_alerts: true,
+        enable_automated_security_fixes: true,
+        security_and_analysis: {
+          secret_scanning: 'enabled',
+          secret_scanning_push_protection: 'enabled',
+        },
+      },
+      environments: {
+        enabled: true,
+        defaults: [
+          { name: 'staging', branches: ['$integration'], wait_timer: 0 },
+          { name: 'production', branches: ['$production'], wait_timer: 0 },
+        ],
+      },
     },
   };
 }
@@ -149,6 +170,13 @@ function loadBootstrapPolicy(sourceRoot) {
     ...d.github.rules.merge_queue.parameters,
     ...((cfg.github.rules.merge_queue && cfg.github.rules.merge_queue.parameters) || {}),
   };
+  cfg.github.labels = { ...d.github.labels, ...(cfg.github.labels || {}) };
+  cfg.github.security = { ...d.github.security, ...(cfg.github.security || {}) };
+  cfg.github.security.security_and_analysis = {
+    ...d.github.security.security_and_analysis,
+    ...((cfg.github.security && cfg.github.security.security_and_analysis) || {}),
+  };
+  cfg.github.environments = { ...d.github.environments, ...(cfg.github.environments || {}) };
   return { path: cfgPath, loaded: true, config: cfg };
 }
 
@@ -179,6 +207,9 @@ function parseArgs(argv) {
     enableBackport: args.enableBackport === undefined ? null : isTruthy(args.enableBackport),
     enableSecurity: args.enableSecurity === undefined ? null : isTruthy(args.enableSecurity),
     enableDeploy: args.enableDeploy === undefined ? null : isTruthy(args.enableDeploy),
+    hardeningLabels: args['hardening-labels'] === undefined ? null : isTruthy(args['hardening-labels']),
+    hardeningSecurity: args['hardening-security'] === undefined ? null : isTruthy(args['hardening-security']),
+    hardeningEnvironments: args['hardening-environments'] === undefined ? null : isTruthy(args['hardening-environments']),
     help: isTruthy(args.help || args.h),
   };
 
@@ -576,6 +607,353 @@ async function ghPatchRepoSettings({ cwd, host, owner, repo, policy, dryRun }) {
   }
 }
 
+function normalizeHexColor(raw) {
+  const v = toString(raw).replace(/^#/, '').toLowerCase();
+  if (/^[0-9a-f]{6}$/.test(v)) return v;
+  if (/^[0-9a-f]{3}$/.test(v)) return v.split('').map((c) => `${c}${c}`).join('');
+  return '';
+}
+
+function loadGitHubLabelsPolicy({ repoRoot, policy }) {
+  const rel = toString(policy && policy.github && policy.github.labels && policy.github.labels.policy_path) || 'config/policy/github-labels.json';
+  const abs = path.join(repoRoot, ...rel.replace(/\\/g, '/').split('/'));
+  const raw = readJsonSafe(abs);
+  if (!raw || typeof raw !== 'object') return { path: abs, loaded: false, labels: [] };
+  const labels = Array.isArray(raw.labels) ? raw.labels : [];
+  const out = [];
+  for (const l of labels) {
+    if (!l || typeof l !== 'object') continue;
+    const name = toString(l.name);
+    if (!name) continue;
+    const color = normalizeHexColor(l.color) || 'ededed';
+    out.push({ name, color, description: toString(l.description) });
+  }
+  return { path: abs, loaded: true, labels: out };
+}
+
+async function ghGetLabel({ cwd, host, owner, repo, name }) {
+  const n = toString(name);
+  if (!n) return { found: false, data: null };
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/labels/${encodeURIComponent(n)}`;
+  const res = await ghApiJson({ cwd, host, endpoint });
+  if (res.ok) return { found: true, data: res.data };
+  if (looksLikeNotFound(res)) return { found: false, data: null };
+  return { found: false, data: null, error: `${res.stderr || res.stdout || ''}` };
+}
+
+async function ghCreateLabel({ cwd, host, owner, repo, label, dryRun }) {
+  const name = toString(label && label.name);
+  if (!name) return;
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/labels`;
+  const body = {
+    name,
+    color: normalizeHexColor(label && label.color) || 'ededed',
+    description: toString(label && label.description),
+  };
+
+  if (dryRun) {
+    info(`[dry-run] create label: ${name}`);
+    return;
+  }
+
+  const res = await ghApiJson({ cwd, host, method: 'POST', endpoint, body });
+  if (!res.ok) {
+    warn(`Unable to create label "${name}". ${res.stderr || res.stdout || ''}`.trim());
+  }
+}
+
+async function ghUpdateLabel({ cwd, host, owner, repo, label, dryRun }) {
+  const name = toString(label && label.name);
+  if (!name) return;
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/labels/${encodeURIComponent(name)}`;
+  const body = {
+    color: normalizeHexColor(label && label.color) || 'ededed',
+    description: toString(label && label.description),
+  };
+
+  if (dryRun) {
+    info(`[dry-run] update label: ${name}`);
+    return;
+  }
+
+  const res = await ghApiJson({ cwd, host, method: 'PATCH', endpoint, body });
+  if (!res.ok) {
+    warn(`Unable to update label "${name}". ${res.stderr || res.stdout || ''}`.trim());
+  }
+}
+
+async function ghEnsureLabels({ cwd, host, owner, repo, policy, updateExisting, dryRun }) {
+  const loaded = loadGitHubLabelsPolicy({ repoRoot: cwd, policy });
+  if (!loaded.loaded || loaded.labels.length === 0) {
+    warn(`Labels policy missing/empty; skipping labels provisioning. (${path.relative(cwd, loaded.path)})`);
+    return;
+  }
+
+  for (const label of loaded.labels) {
+    const name = toString(label && label.name);
+    if (!name) continue;
+    const got = await ghGetLabel({ cwd, host, owner, repo, name });
+    if (!got.found) {
+      await ghCreateLabel({ cwd, host, owner, repo, label, dryRun });
+      continue;
+    }
+    if (updateExisting) {
+      await ghUpdateLabel({ cwd, host, owner, repo, label, dryRun });
+    }
+  }
+}
+
+function normalizeSecurityStatus(raw) {
+  const v = toString(raw).toLowerCase();
+  if (v === 'enabled' || v === 'disabled') return v;
+  return '';
+}
+
+async function ghEnableVulnerabilityAlerts({ cwd, host, owner, repo, dryRun }) {
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/vulnerability-alerts`;
+  if (dryRun) {
+    info('[dry-run] enable vulnerability alerts (Dependabot alerts)');
+    return;
+  }
+
+  const res = await ghApiJson({ cwd, host, method: 'PUT', endpoint });
+  if (!res.ok) {
+    warn(`Unable to enable vulnerability alerts. ${res.stderr || res.stdout || ''}`.trim());
+  }
+}
+
+async function ghEnableAutomatedSecurityFixes({ cwd, host, owner, repo, dryRun }) {
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/automated-security-fixes`;
+  if (dryRun) {
+    info('[dry-run] enable automated security fixes (Dependabot security updates)');
+    return;
+  }
+
+  const res = await ghApiJson({ cwd, host, method: 'PUT', endpoint });
+  if (!res.ok) {
+    warn(`Unable to enable automated security fixes. ${res.stderr || res.stdout || ''}`.trim());
+  }
+}
+
+async function ghPatchSecurityAndAnalysis({ cwd, host, owner, repo, settings, dryRun }) {
+  const s = settings && typeof settings === 'object' ? settings : null;
+  if (!s) return;
+
+  const allowed = [
+    'advanced_security',
+    'dependency_graph',
+    'secret_scanning',
+    'secret_scanning_push_protection',
+  ];
+
+  const security_and_analysis = {};
+  for (const key of allowed) {
+    const status = normalizeSecurityStatus(s[key]);
+    if (!status) continue;
+    security_and_analysis[key] = { status };
+  }
+
+  if (Object.keys(security_and_analysis).length === 0) return;
+
+  if (dryRun) {
+    info(`[dry-run] patch repo security_and_analysis: ${JSON.stringify(security_and_analysis)}`);
+    return;
+  }
+
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  const res = await ghApiJson({ cwd, host, method: 'PATCH', endpoint, body: { security_and_analysis } });
+  if (!res.ok) {
+    warn(`Unable to patch security & analysis toggles. ${res.stderr || res.stdout || ''}`.trim());
+  }
+}
+
+async function ghHardeningSecurity({ cwd, host, owner, repo, policy, dryRun }) {
+  const sec = policy.github.security || {};
+  if (sec.enable_vulnerability_alerts) {
+    await ghEnableVulnerabilityAlerts({ cwd, host, owner, repo, dryRun });
+  }
+  if (sec.enable_automated_security_fixes) {
+    await ghEnableAutomatedSecurityFixes({ cwd, host, owner, repo, dryRun });
+  }
+  await ghPatchSecurityAndAnalysis({
+    cwd,
+    host,
+    owner,
+    repo,
+    settings: sec.security_and_analysis,
+    dryRun,
+  });
+}
+
+function resolveBranchToken(token, { integration, production }) {
+  const v = toString(token);
+  if (!v) return '';
+  if (v === '$integration' || v === '$integration_branch') return toString(integration);
+  if (v === '$production' || v === '$production_branch') return toString(production);
+  return v;
+}
+
+function resolveEnvironmentBranches(raw, ctx) {
+  const out = [];
+  const list = Array.isArray(raw) ? raw : [];
+  for (const t of list) {
+    const resolved = resolveBranchToken(t, ctx);
+    if (!resolved) continue;
+    if (!out.includes(resolved)) out.push(resolved);
+  }
+  return out;
+}
+
+async function ghGetEnvironment({ cwd, host, owner, repo, environment }) {
+  const env = toString(environment);
+  if (!env) return { found: false, data: null };
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/environments/${encodeURIComponent(env)}`;
+  const res = await ghApiJson({ cwd, host, endpoint });
+  if (res.ok) return { found: true, data: res.data };
+  if (looksLikeNotFound(res)) return { found: false, data: null };
+  return { found: false, data: null, error: `${res.stderr || res.stdout || ''}` };
+}
+
+async function ghUpsertEnvironment({ cwd, host, owner, repo, environment, waitTimerSeconds, enableCustomBranchPolicies, preventSelfReview, dryRun }) {
+  const env = toString(environment);
+  if (!env) return;
+
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/environments/${encodeURIComponent(env)}`;
+  const body = {};
+
+  const wt = Number(waitTimerSeconds);
+  if (Number.isFinite(wt) && wt >= 0) body.wait_timer = Math.floor(wt);
+  if (typeof preventSelfReview === 'boolean') body.prevent_self_review = preventSelfReview;
+
+  if (enableCustomBranchPolicies) {
+    body.deployment_branch_policy = { protected_branches: false, custom_branch_policies: true };
+  }
+
+  if (dryRun) {
+    info(`[dry-run] upsert environment: ${env} ${JSON.stringify(body)}`);
+    return;
+  }
+
+  const res = await ghApiJson({ cwd, host, method: 'PUT', endpoint, body });
+  if (!res.ok) {
+    warn(`Unable to upsert environment "${env}". ${res.stderr || res.stdout || ''}`.trim());
+  }
+}
+
+async function ghListDeploymentBranchPolicies({ cwd, host, owner, repo, environment }) {
+  const env = toString(environment);
+  if (!env) return [];
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/environments/${encodeURIComponent(env)}/deployment-branch-policies`;
+  const res = await ghApiJson({ cwd, host, endpoint });
+  if (!res.ok) return [];
+
+  const body = res.data;
+  const list = Array.isArray(body) ? body : Array.isArray(body && body.branch_policies) ? body.branch_policies : [];
+  return list.map((p) => toString(p && p.name)).filter(Boolean);
+}
+
+async function ghCreateDeploymentBranchPolicy({ cwd, host, owner, repo, environment, name, dryRun }) {
+  const env = toString(environment);
+  const n = toString(name);
+  if (!env || !n) return;
+
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/environments/${encodeURIComponent(env)}/deployment-branch-policies`;
+  const body = { name: n };
+
+  if (dryRun) {
+    info(`[dry-run] add deployment branch policy: ${env} <- ${n}`);
+    return;
+  }
+
+  const res = await ghApiJson({ cwd, host, method: 'POST', endpoint, body });
+  if (!res.ok) {
+    warn(`Unable to add deployment branch policy "${n}" to "${env}". ${res.stderr || res.stdout || ''}`.trim());
+  }
+}
+
+async function ghEnsureDeploymentBranchPolicies({ cwd, host, owner, repo, environment, branches, dryRun }) {
+  const env = toString(environment);
+  const want = Array.isArray(branches) ? branches.map((b) => toString(b)).filter(Boolean) : [];
+  if (!env || want.length === 0) return;
+
+  const existing = await ghListDeploymentBranchPolicies({ cwd, host, owner, repo, environment: env });
+  const missing = want.filter((b) => !existing.includes(b));
+  for (const b of missing) {
+    await ghCreateDeploymentBranchPolicy({ cwd, host, owner, repo, environment: env, name: b, dryRun });
+  }
+}
+
+function envPolicyIsUnrestricted(dep) {
+  if (!dep || typeof dep !== 'object') return true;
+  const protectedBranches = !!dep.protected_branches;
+  const custom = !!dep.custom_branch_policies;
+  return !protectedBranches && !custom;
+}
+
+async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integration, production, dryRun }) {
+  const envs = Array.isArray(policy.github.environments.defaults) ? policy.github.environments.defaults : [];
+  const ctx = { integration, production };
+
+  for (const e of envs) {
+    const name = toString(e && e.name);
+    if (!name) continue;
+
+    const branches = resolveEnvironmentBranches(e && e.branches, ctx);
+    const waitTimer = e && e.wait_timer;
+    const preventSelfReview = typeof (e && e.prevent_self_review) === 'boolean' ? e.prevent_self_review : undefined;
+
+    const got = await ghGetEnvironment({ cwd, host, owner, repo, environment: name });
+    const exists = !!got.found;
+    const dep = got.data && got.data.deployment_branch_policy;
+    const shouldHarden = !exists || envPolicyIsUnrestricted(dep);
+
+    if (!branches.length) {
+      warn(`Environments policy includes "${name}" with no branches; skipping branch policy enforcement.`);
+      if (!exists) {
+        await ghUpsertEnvironment({ cwd, host, owner, repo, environment: name, waitTimerSeconds: waitTimer, enableCustomBranchPolicies: false, preventSelfReview, dryRun });
+      }
+      continue;
+    }
+
+    if (!exists || shouldHarden) {
+      await ghUpsertEnvironment({
+        cwd,
+        host,
+        owner,
+        repo,
+        environment: name,
+        waitTimerSeconds: waitTimer,
+        enableCustomBranchPolicies: true,
+        preventSelfReview,
+        dryRun,
+      });
+      await ghEnsureDeploymentBranchPolicies({ cwd, host, owner, repo, environment: name, branches, dryRun });
+      continue;
+    }
+
+    if (dep && dep.custom_branch_policies) {
+      const existing = await ghListDeploymentBranchPolicies({ cwd, host, owner, repo, environment: name });
+      if (existing.length === 0) {
+        await ghEnsureDeploymentBranchPolicies({ cwd, host, owner, repo, environment: name, branches, dryRun });
+        continue;
+      }
+      const missing = branches.filter((b) => !existing.includes(b));
+      if (missing.length) {
+        warn(
+          `Environment "${name}" already has custom branch policies; expected patterns missing (${missing.join(', ')}). ` +
+          'Skipping to avoid broadening existing environment policy.'
+        );
+      }
+      continue;
+    }
+
+    warn(
+      `Environment "${name}" is already restricted via protected branches (or unknown policy). ` +
+      `Verify deploy restrictions are correct for your integration/production branches (${branches.join(', ')}).`
+    );
+  }
+}
+
 function ghWebBaseUrl({ host, owner, repo }) {
   const h = toString(host) || 'github.com';
   const o = encodeURIComponent(toString(owner));
@@ -584,7 +962,7 @@ function ghWebBaseUrl({ host, owner, repo }) {
   return `https://${h}/${o}/${r}`;
 }
 
-function printGitHubUiChecklist({ host, owner, repo, integration, production, policy }) {
+function printGitHubPostBootstrapChecklist({ host, owner, repo, integration, production, policy }) {
   const base = ghWebBaseUrl({ host, owner, repo });
   if (!base) return;
 
@@ -595,11 +973,15 @@ function printGitHubUiChecklist({ host, owner, repo, integration, production, po
     recommendMqProduction ? `\`${production}\`` : '',
   ].filter(Boolean).join(' and ');
 
-  info('Next (GitHub UI checklist):');
-  info(`- Branch/rules: ${base}/settings/rules`);
-  info(`- Security & analysis: ${base}/settings/security_analysis`);
-  info(`- Environments (deploy approvals + secrets): ${base}/settings/environments`);
-  info(`- Actions variables: ${base}/settings/variables/actions`);
+  info('Next (GitHub verification checklist):');
+  info(`- Rulesets (UI): ${base}/settings/rules`);
+  info(`  - CLI: gh api /repos/${owner}/${repo}/rulesets`);
+  info(`- Actions variables (UI): ${base}/settings/variables/actions`);
+  info(`  - CLI: gh variable list -R ${host}/${owner}/${repo}`);
+  info(`- Environments (UI): ${base}/settings/environments`);
+  info(`  - CLI: gh api /repos/${owner}/${repo}/environments`);
+  info(`- Security & analysis (UI): ${base}/settings/security_analysis`);
+  info(`  - CLI: gh api /repos/${owner}/${repo} --jq .security_and_analysis`);
   if (mqTargets) {
     info(`- Merge Queue (if available): bootstrap attempts API enablement; confirm for ${mqTargets} in rulesets (workflows already support \`merge_group\`).`);
   } else {
@@ -758,6 +1140,9 @@ async function main() {
       '  --enableBackport=<0|1>     Set BACKPORT_ENABLED repo var (when --github)',
       '  --enableSecurity=<0|1>     Set SECURITY_ENABLED repo var (when --github)',
       '  --enableDeploy=<0|1>       Set DEPLOY_ENABLED repo var (when --github)',
+      '  --hardening-labels=<0|1>   Ensure baseline labels exist (when --github; default from policy)',
+      '  --hardening-security=<0|1> Enable GitHub security toggles (when --github; best-effort; default from policy)',
+      '  --hardening-environments=<0|1> Create GitHub environments + branch policies (when --github; best-effort; default from policy)',
       '',
     ].join('\n'));
     return;
@@ -767,10 +1152,10 @@ async function main() {
   if (args.adopt && !args.github) die('--adopt requires --github (adopt mode opens a PR via gh).');
 
   const sourceRoot = path.resolve(__dirname, '..', '..');
-  const policy = loadBootstrapPolicy(sourceRoot).config;
+  const baselinePolicy = loadBootstrapPolicy(sourceRoot).config;
 
   const targetRoot = path.resolve(process.cwd(), args.to);
-  const host = args.host || toString(policy.github.host) || 'github.com';
+  const host = args.host || toString(baselinePolicy.github.host) || 'github.com';
 
   let mode = args.mode;
   if (!mode) mode = isEmptyDir(targetRoot) ? 'init' : 'overlay';
@@ -801,6 +1186,9 @@ async function main() {
 
   if (args.dryRun) info(`[dry-run] node ${path.relative(process.cwd(), installScript)} ${installArgs.join(' ')}`);
   else await run(process.execPath, [installScript, ...installArgs], { cwd: sourceRoot });
+
+  // Effective bootstrap policy is the target repo's SSOT once installed.
+  const policy = loadBootstrapPolicy(targetRoot).config;
 
   // 2) Env scaffold (non-destructive).
   if (!args.skipEnv) {
@@ -984,6 +1372,39 @@ async function main() {
     await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'DEPLOY_ENABLED', value: enableDeploy ? '1' : '0', dryRun: args.dryRun });
     await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'EVIDENCE_SOURCE_BRANCH', value: integration, dryRun: args.dryRun });
 
+    const hardeningLabels = args.hardeningLabels == null ? !!(policy.github.labels && policy.github.labels.enabled) : !!args.hardeningLabels;
+    const hardeningSecurity = args.hardeningSecurity == null ? !!(policy.github.security && policy.github.security.enabled) : !!args.hardeningSecurity;
+    const hardeningEnvironments = args.hardeningEnvironments == null ? !!(policy.github.environments && policy.github.environments.enabled) : !!args.hardeningEnvironments;
+
+    if (hardeningLabels) {
+      await ghEnsureLabels({
+        cwd: targetRoot,
+        host: actualHost,
+        owner,
+        repo,
+        policy,
+        updateExisting: !!(policy.github.labels && policy.github.labels.update_existing),
+        dryRun: args.dryRun,
+      });
+    }
+
+    if (hardeningSecurity) {
+      await ghHardeningSecurity({ cwd: targetRoot, host: actualHost, owner, repo, policy, dryRun: args.dryRun });
+    }
+
+    if (hardeningEnvironments) {
+      await ghHardeningEnvironments({
+        cwd: targetRoot,
+        host: actualHost,
+        owner,
+        repo,
+        policy,
+        integration,
+        production,
+        dryRun: args.dryRun,
+      });
+    }
+
     // Rulesets (branch protection).
     const requiredContexts = deriveRequiredCheckContexts({ repoRoot: targetRoot, workflowPaths: policy.github.required_check_workflows || [] });
     if (requiredContexts.length === 0) warn('Unable to derive required check contexts from workflow files; required status checks may not enforce as expected.');
@@ -1140,7 +1561,7 @@ async function main() {
       }
     }
 
-    printGitHubUiChecklist({ host: actualHost, owner, repo, integration, production, policy });
+    printGitHubPostBootstrapChecklist({ host: actualHost, owner, repo, integration, production, policy });
 
     info('GitHub: provisioning complete.');
   } else {
