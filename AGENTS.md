@@ -101,6 +101,15 @@ Planning discipline:
 - For workflow/orchestration changes, include integration/E2E scenarios that exercise the configuration-driven paths.
 - For security/permissions changes, include explicit allow/deny tests.
 
+## Frontend UI/UX Screenshot Iteration (If Applicable; Must When Doing UI Work)
+
+When working on frontend UI/UX:
+
+- Work is screenshot-driven: request/review screenshots for the affected screens and states (including edge/error/empty/loading states) and iterate until the result matches the objectives and scope.
+- Analyze screenshots for usability, accessibility, responsiveness, consistency, and clarity (no redundant UI patterns; no hard-coded environment assumptions).
+- Provide concrete, actionable iteration notes per screen/state, and re-review updated screenshots until complete.
+- Record UI verification evidence in the plan (S99) and/or PR (screenshots, short videos, notes) in the target repo (do not commit project-specific evidence into this baseline kit).
+
 ## Database Change Policy (If Applicable; Must When Using a DB)
 
 - Never change shared environments manually (no ad-hoc DDL/DML). Changes must be tracked (migrations, versioned config, or approved tooling).
