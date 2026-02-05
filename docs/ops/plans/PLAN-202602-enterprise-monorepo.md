@@ -12,10 +12,10 @@ links:
 ---
 
 At-a-Glance
-- Now: S97 - Remote/CI wiring + CI Evidence recorded (when remote exists)
+- Now: S97 - Remote/CI wiring + CI Evidence recorded
 - Next: Mark plan done + archive
-- Blockers: No remote/CI configured yet (CI Evidence URL pending)
-- ETA: When remote exists
+- Blockers: Merge Queue enablement is plan-dependent (optional; manual)
+- ETA: When CI is green on remote
 
 Checklist
 - [x] S00 - Plan preflight complete (scope drafted; guardrails set)
@@ -46,7 +46,7 @@ Decisions & Notes
 - 2026-02-05 - Strict docs hygiene: `docs-clean` is enforced via `npm test`.
 - 2026-02-05 - Optional security automation templates: Dependabot + (opt-in) CodeQL + dependency review (enable via repo var `SECURITY_ENABLED=1`).
 - 2026-02-05 - Baseline SSOT install/update workflow: installer excludes baseline plan instances and supports repeatable overlay updates (see `docs/ops/runbooks/BASELINE_INSTALL.md`).
-- 2026-02-05 - One-button bootstrap: `npm run baseline:bootstrap` installs baseline, inits git/branches, and can optionally provision GitHub (repo + rulesets/merge queue + vars) using SSOT defaults in `config/policy/bootstrap-policy.json`.
+- 2026-02-05 - One-button bootstrap: `npm run baseline:bootstrap` installs baseline, inits git/branches, and can optionally provision GitHub (repo + repo settings + rulesets + vars) using SSOT defaults in `config/policy/bootstrap-policy.json` (Merge Queue is manual).
 - Verification (local): `npm test`, `npm run test:deep`.
 - YYYY-MM-DD - <decision> (link to evidence)
 - PR: <link(s) to PR(s) if applicable>

@@ -5,7 +5,8 @@ This baseline kit is a SSOT that can be installed into any new project repo. The
 - Install/update baseline-managed files into a target repo
 - Create local env scaffolding (no secrets)
 - Initialize `git` and create baseline branches (SSOT: `config/policy/branch-policy.json`)
-- Optional: provision/configure GitHub (repo, rulesets/merge queue, repo variables) using `gh`
+- Optional: provision/configure GitHub (repo, repo settings, rulesets/branch protection, repo variables) using `gh`
+- Optional (manual): enable GitHub Merge Queue if your plan supports it (workflows already support `merge_group`)
 - Optional: run `npm install`/`npm test` in the target repo
 
 ## Command
@@ -27,7 +28,7 @@ Local-only bootstrap (no GitHub):
 
 - `npm run baseline:bootstrap -- --to <target-path>`
 
-Bootstrap + GitHub provisioning (creates repo if missing, applies rulesets/variables):
+Bootstrap + GitHub provisioning (creates repo if missing, applies repo settings + rulesets + variables):
 
 - `npm run baseline:bootstrap -- --to <target-path> --github`
 
@@ -51,10 +52,15 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
 
 - Required check contexts are derived from workflow files (default: `CI / test`, `PR Policy / validate`).
 - Rulesets are created/updated by name:
-  - `baseline: integration` (default: merge queue required)
-  - `baseline: production` (default: merge queue optional)
+  - `baseline: integration`
+  - `baseline: production`
+- Repo settings (patched):
+  - Merge methods (default: squash-only, derived from policy)
+  - Delete branch on merge (default: enabled)
+- Merge Queue:
+  - Recommended by policy for integration branch by default.
+  - Not configured automatically by bootstrap; enable manually in the GitHub UI when supported by your plan.
 - Repo variables set:
   - `BACKPORT_ENABLED` (default: `1`)
   - `SECURITY_ENABLED` (default: `0`)
   - `EVIDENCE_SOURCE_BRANCH` (set to integration branch)
-
