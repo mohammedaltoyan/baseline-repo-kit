@@ -2,7 +2,7 @@
 plan_id: PLAN-202602-bootstrap-enterprise-gates
 title: Bootstrap enterprise gates (release + promotion + deploy guards)
 owner: @owner
-status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
+status: done # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
 current_step: S99
 updated: 2026-02-05
 priority: P2 # P0|P1|P2|P3
