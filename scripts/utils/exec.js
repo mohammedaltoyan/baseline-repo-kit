@@ -27,15 +27,29 @@ function run(cmd, args = [], opts = {}) {
         isWsl() && (cmd === 'npm' || cmd === 'npx')
           ? ['/c', cmd, ...args]
           : args;
-      const child = spawn(base, finalArgs, { env, cwd, stdio, shell: useShell || false });
-      child.on('error', (err) => {
+      let child;
+      try {
+        child = spawn(base, finalArgs, { env, cwd, stdio, shell: useShell || false });
+      } catch (err) {
+        // On Windows, spawning *.cmd without shell can throw synchronously (EINVAL).
+        if (!useShell && process.platform === 'win32' && err && err.code === 'EINVAL') {
+          return attempt(true);
+        }
         console.error(
           `[exec] spawn error cmd=${cmd} args=${JSON.stringify(args)} cwd=${cwd} errno=${(err && err.code) || ''} message=${(err && err.message) || ''} shell=${useShell || false}`
         );
+        reject(err);
+        return;
+      }
+
+      child.on('error', (err) => {
         // On Windows, retry once with shell=true if we hit EINVAL
         if (!useShell && process.platform === 'win32' && err && err.code === 'EINVAL') {
           return attempt(true);
         }
+        console.error(
+          `[exec] spawn error cmd=${cmd} args=${JSON.stringify(args)} cwd=${cwd} errno=${(err && err.code) || ''} message=${(err && err.message) || ''} shell=${useShell || false}`
+        );
         reject(err);
       });
       child.on('close', (code) => {
@@ -58,7 +72,16 @@ function runCapture(cmd, args = [], opts = {}) {
         isWsl() && (cmd === 'npm' || cmd === 'npx')
           ? ['/c', cmd, ...args]
           : args;
-      const child = spawn(base, finalArgs, { env, cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: useShell || false });
+      let child;
+      try {
+        child = spawn(base, finalArgs, { env, cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: useShell || false });
+      } catch (err) {
+        if (!useShell && process.platform === 'win32' && err && err.code === 'EINVAL') {
+          return attempt(true);
+        }
+        reject(err);
+        return;
+      }
       let stdout = '';
       let stderr = '';
       child.stdout.on('data', (d) => { stdout += String(d); });
