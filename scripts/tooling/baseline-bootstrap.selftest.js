@@ -43,6 +43,7 @@ function run() {
     requiredContexts: ['test'],
     includeMergeQueue: true,
     policy,
+    scope: 'integration',
   });
   assert.strictEqual(ruleset.target, 'branch');
   assert.strictEqual(ruleset.enforcement, 'active');
@@ -51,6 +52,29 @@ function run() {
   assert.ok(
     ruleset.rules.some((r) => String(r?.type || '') === 'merge_queue'),
     'expected ruleset to include merge_queue rule when includeMergeQueue=true'
+  );
+
+  const integrationPr = ruleset.rules.find((r) => String(r?.type || '') === 'pull_request');
+  assert.deepStrictEqual(
+    integrationPr?.parameters?.allowed_merge_methods,
+    ['squash'],
+    `expected integration allowed_merge_methods=['squash'] (got: ${JSON.stringify(integrationPr?.parameters?.allowed_merge_methods || null)})`
+  );
+
+  const productionRuleset = buildRulesetBody({
+    name: 'baseline: production',
+    branch: 'main',
+    enforcement: 'active',
+    requiredContexts: ['test'],
+    includeMergeQueue: false,
+    policy,
+    scope: 'production',
+  });
+  const productionPr = productionRuleset.rules.find((r) => String(r?.type || '') === 'pull_request');
+  assert.deepStrictEqual(
+    productionPr?.parameters?.allowed_merge_methods,
+    ['merge'],
+    `expected production allowed_merge_methods=['merge'] (got: ${JSON.stringify(productionPr?.parameters?.allowed_merge_methods || null)})`
   );
 
   console.log('[baseline-bootstrap:selftest] OK');

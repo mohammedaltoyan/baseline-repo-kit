@@ -32,6 +32,11 @@
         "required_approving_review_count": 1,
         "required_review_thread_resolution": true
       },
+      "pull_request_overrides": {
+        "production": {
+          "allowed_merge_methods": ["merge"]
+        }
+      },
       "merge_queue": {
         "parameters": {
           "check_response_timeout_minutes": 60,
@@ -44,7 +49,7 @@
         }
       },
       "required_status_checks": {
-        "do_not_enforce_on_create": false,
+        "do_not_enforce_on_create": true,
         "strict_required_status_checks_policy": true
       }
     },

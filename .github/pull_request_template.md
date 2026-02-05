@@ -13,7 +13,7 @@ Step: Sxx
 ## Backport (required for hotfix -> main)
 - If this PR targets `main` from `hotfix/*`, include a backport reference so the fix is reflected in `dev`:
   - `Backport: <link-or-id>` (or `Dev PR: <link-or-id>`)
-  - If hotfix backport automation is enabled (repo var `BACKPORT_ENABLED=1`), you may use `Backport: auto` and the workflow will open a `main -> dev` backport PR after merge (still requires merging/queueing into `dev`).
+  - If hotfix backport automation is enabled (repo var `BACKPORT_ENABLED=1`), you may use `Backport: auto` and the workflow will open a `backport/* -> dev` backport PR after merge (still requires merging/queueing into `dev`).
 
 ## PR cadence (recommended)
 - Keep PRs small and phase-scoped (one plan step/phase per PR when possible).
