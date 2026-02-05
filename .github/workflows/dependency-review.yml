@@ -1,0 +1,19 @@
+name: Dependency Review
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  review:
+    if: ${{ vars.SECURITY_ENABLED == '1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+

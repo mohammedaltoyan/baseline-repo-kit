@@ -9,4 +9,5 @@ Key runbooks:
 - `WORKTREE_ISOLATION.md` - worktree/env isolation guidance
 - `SECRETS.md` - secrets handling and env overlays
 - `LABELS.md` - labeler + bootstrap workflow
+- `SECURITY_AUTOMATION.md` - optional security automation (CodeQL, dependency review, Dependabot)
 
