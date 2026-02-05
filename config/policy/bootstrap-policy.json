@@ -50,6 +50,27 @@
     },
     "repo_settings": {
       "delete_branch_on_merge": true
+    },
+    "labels": {
+      "enabled": true,
+      "update_existing": false,
+      "policy_path": "config/policy/github-labels.json"
+    },
+    "security": {
+      "enabled": true,
+      "enable_vulnerability_alerts": true,
+      "enable_automated_security_fixes": true,
+      "security_and_analysis": {
+        "secret_scanning": "enabled",
+        "secret_scanning_push_protection": "enabled"
+      }
+    },
+    "environments": {
+      "enabled": true,
+      "defaults": [
+        { "name": "staging", "branches": ["$integration"], "wait_timer": 0 },
+        { "name": "production", "branches": ["$production"], "wait_timer": 0 }
+      ]
     }
   }
 }

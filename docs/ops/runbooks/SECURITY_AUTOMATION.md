@@ -11,6 +11,9 @@ This enables:
 - `.github/workflows/dependency-review.yml` (dependency diff checks on PRs)
 - `.github/workflows/codeql.yml` (SAST for JavaScript/TypeScript)
 
+Note: GitHub "Security & analysis" toggles (Dependency graph, Dependabot alerts, automated security fixes, secret scanning) are repo settings.
+The baseline bootstrap can attempt to enable these best-effort via API when you run with `--github` (SSOT: `config/policy/bootstrap-policy.json`).
+
 ## Dependency updates
 
 This repo includes `.github/dependabot.yml` (weekly npm updates, monthly GitHub Actions updates).
@@ -24,4 +27,3 @@ Required checks must run on GitHub Merge Queue (`merge_group`) if you enable it.
 - `CodeQL` runs on `merge_group` when enabled
 
 If you make security checks required, verify they emit check-runs for both `pull_request` and `merge_group`.
-
