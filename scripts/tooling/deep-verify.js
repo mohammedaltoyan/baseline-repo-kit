@@ -127,11 +127,19 @@ function installBaseline({ sourceRoot, targetRoot, mode, overwrite, method }) {
 
 function bootstrapBaseline({ sourceRoot, targetRoot, args = [], labelSuffix = '' }) {
   const a = Array.isArray(args) ? args : [];
-  run(
-    npmCmd(),
-    ['run', 'baseline:bootstrap', '--', '--to', targetRoot, ...a],
-    { cwd: sourceRoot, label: `baseline-bootstrap (${labelSuffix || 'local'})`, env: withGitIdentityEnv(process.env) }
-  );
+  const cmd = npmCmd();
+  const argv = ['run', 'baseline:bootstrap', '--', '--to', targetRoot, ...a];
+  const label = `baseline-bootstrap (${labelSuffix || 'local'})`;
+
+  console.log(`[deep-verify] ${label}`);
+  const res = capture(cmd, argv, { cwd: sourceRoot, label, env: withGitIdentityEnv(process.env) });
+  if (res.stdout) process.stdout.write(res.stdout);
+  if (res.stderr) process.stderr.write(res.stderr);
+
+  const combined = `${res.stdout}\n${res.stderr}`;
+  if (!combined.includes('[baseline-bootstrap] Summary:')) {
+    die('Expected baseline bootstrap to print an end-of-run summary ("[baseline-bootstrap] Summary:").');
+  }
 }
 
 function runNpmTest({ targetRoot, useCi }) {
