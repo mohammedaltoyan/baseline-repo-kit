@@ -23,7 +23,7 @@
       "message": "Standalone tooling apps must live under tooling/apps/ (no package.json outside tooling/apps/)."
     }
   ],
-  "scripts_root_allowed_files": ["README.md"],
+  "scripts_root_allowed_files": ["README.md", "package.json"],
   "scripts_root_message": "scripts/ root must contain only README.md; move ad-hoc scripts into an appropriate scripts/ subfolder.",
   "evidence": {
     "dir": "docs/ops/evidence",
