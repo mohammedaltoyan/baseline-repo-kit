@@ -54,6 +54,9 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
 - Rulesets are created/updated by name:
   - `baseline: integration`
   - `baseline: production`
+- Pull request review defaults (via rulesets):
+  - Required approvals: `1`
+  - Require code owner review: enabled (add `.github/CODEOWNERS` in the target repo)
 - Repo settings (patched):
   - Merge methods (default: squash-only, derived from policy)
   - Delete branch on merge (default: enabled)
@@ -63,4 +66,31 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
 - Repo variables set:
   - `BACKPORT_ENABLED` (default: `1`)
   - `SECURITY_ENABLED` (default: `0`)
+  - `DEPLOY_ENABLED` (default: `0`)
   - `EVIDENCE_SOURCE_BRANCH` (set to integration branch)
+
+## Post-bootstrap GitHub UI checklist (manual)
+
+Bootstrap configures everything it can via API, but some settings are UI-only or plan/feature dependent.
+
+Recommended toggles:
+
+1) Merge Queue (if available in your plan)
+   - Settings  ->  Rules (rulesets)  ->  Edit `baseline: integration` (and optionally `baseline: production`)
+   - Add/enable Merge Queue
+   - Confirm required checks run on `merge_group` (this baseline already triggers `CI` + `PR Policy` on `merge_group`)
+
+2) Security & analysis (recommended)
+   - Settings  ->  Security & analysis:
+     - Enable Dependency graph
+     - Enable Dependabot alerts
+     - Enable Dependabot security updates
+     - Enable Secret scanning (and push protection if available)
+   - When ready, set repo variable `SECURITY_ENABLED=1` to enable the baseline CodeQL + dependency review workflows.
+
+3) Deployment environments (recommended; generic)
+   - Settings  ->  Environments:
+     - Create `staging` and `production`
+     - Configure required reviewers for `production` (release approvals)
+     - Restrict deployment branches (typically `dev`  ->  staging, `main`  ->  production)
+   - When ready, set repo variable `DEPLOY_ENABLED=1` and implement the project-specific deploy hook (see `docs/ops/runbooks/DEPLOYMENT.md`).

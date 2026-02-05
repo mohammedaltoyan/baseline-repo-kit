@@ -23,10 +23,14 @@ Branch rules (recommended)
 - Protect `dev` (integration):
   - Require PRs (no direct pushes).
   - Require required checks.
+  - Require at least 1 approving review (recommended baseline default).
+  - Require code owner review (recommended baseline default when CODEOWNERS exists).
   - Enable GitHub Merge Queue to serialize merges safely when multiple PRs are active.
 - Protect `main` (production):
   - Require PRs (no direct pushes).
   - Require required checks.
+  - Require at least 1 approving review (recommended baseline default).
+  - Require code owner review (recommended baseline default when CODEOWNERS exists).
   - Only accept changes via:
     - Release PR: `dev` -> `main`
     - Hotfix PR: `hotfix/*` -> `main` (and backport to `dev`)
@@ -37,6 +41,7 @@ Optional (quality-of-life)
 - Set the repository default branch to `dev` so new PRs default to the integration branch (avoids accidental PRs to `main`).
 
 Optional (team policy)
-- Require approvals (e.g., `1+` once you have multiple maintainers)
+- Require approvals (baseline default is `1`; raise to `2+` for larger teams)
+- Require code owners (add `.github/CODEOWNERS` and assign teams/owners per path)
 - Require conversation resolution
 - Require linear history (only if you do not use merge commits)
