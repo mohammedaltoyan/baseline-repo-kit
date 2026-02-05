@@ -1397,6 +1397,7 @@ async function ghListRulesets({ cwd, host, owner, repo }) {
       'api',
       '-H', 'X-GitHub-Api-Version: 2022-11-28',
       `--hostname=${host}`,
+      '--method', 'GET',
       `/repos/${owner}/${repo}/rulesets`,
       '-f', 'includes_parents=false',
       '--paginate',
@@ -1446,7 +1447,9 @@ async function ghUpsertRuleset({ cwd, host, owner, repo, desired, dryRun }) {
   let res = await upsert(desired);
 
   if (res.code !== 0) {
-    const msg = `${res.stderr || res.stdout || ''}`;
+    const stderr = toString(res && res.stderr);
+    const stdout = toString(res && res.stdout);
+    const msg = [stderr, stdout].filter(Boolean).join('\n');
     const mergeQueueUnsupported =
       /Invalid rule 'merge_queue'/i.test(msg) ||
       (/Invalid rule/i.test(msg) && /\bmerge_queue\b/i.test(msg));
