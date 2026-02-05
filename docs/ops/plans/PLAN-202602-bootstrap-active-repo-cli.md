@@ -44,5 +44,6 @@ Decisions & Notes
 - YYYY-MM-DD - <decision> (link to evidence)
 - PR: https://github.com/mohammedaltoyan/baseline-repo-kit/pull/12
 - PR: https://github.com/mohammedaltoyan/baseline-repo-kit/pull/13
+- PR: https://github.com/mohammedaltoyan/baseline-repo-kit/pull/14
 - CI Evidence: <CI run URL(s) for S99>
 - Objectives Evidence: <short attestation and/or links to proof>
