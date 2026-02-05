@@ -23,6 +23,19 @@ function run() {
   // Toolchain SSOT should be installed in overlay mode.
   assert.strictEqual(allowedByMode('.nvmrc', 'overlay'), true);
   assert.strictEqual(allowedByMode('.nvmrc', 'init'), true);
+  assert.strictEqual(allowedByMode('.editorconfig', 'overlay'), true);
+  assert.strictEqual(allowedByMode('CONTRIBUTING.md', 'overlay'), true);
+  assert.strictEqual(allowedByMode('SECURITY.md', 'overlay'), true);
+
+  // Monorepo scaffolding should be installable in overlay mode.
+  assert.strictEqual(allowedByMode('apps/README.md', 'overlay'), true);
+  assert.strictEqual(allowedByMode('apps/backend/README.md', 'overlay'), true);
+  assert.strictEqual(allowedByMode('apps/frontend/README.md', 'overlay'), true);
+  assert.strictEqual(allowedByMode('packages/README.md', 'overlay'), true);
+  assert.strictEqual(allowedByMode('packages/shared/README.md', 'overlay'), true);
+
+  // Overlay safety: avoid overwriting project identity by default.
+  assert.strictEqual(allowedByMode('README.md', 'overlay'), false);
 
   // Mode normalization.
   assert.strictEqual(normalizeMode(''), 'overlay');

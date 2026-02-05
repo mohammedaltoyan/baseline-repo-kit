@@ -145,6 +145,40 @@ function assertInstalledToolchain({ sourceRoot, targetRoot }) {
   assert.strictEqual(target, baseline, '[deep-verify] expected target .nvmrc to match baseline');
 }
 
+function assertInstalledRootPolicies({ sourceRoot, targetRoot }) {
+  const mustMatchIfPresent = [
+    '.editorconfig',
+    'AGENTS.md',
+    'CONTRIBUTING.md',
+    'SECURITY.md',
+  ];
+
+  for (const rel of mustMatchIfPresent) {
+    const baselinePath = path.join(sourceRoot, rel);
+    if (!fs.existsSync(baselinePath)) continue;
+    const targetPath = path.join(targetRoot, rel);
+    assert.ok(fs.existsSync(targetPath), `[deep-verify] expected target repo to include ${rel}`);
+    assert.strictEqual(
+      String(fs.readFileSync(targetPath, 'utf8') || ''),
+      String(fs.readFileSync(baselinePath, 'utf8') || ''),
+      `[deep-verify] expected target ${rel} to match baseline`
+    );
+  }
+}
+
+function assertInstalledMonorepoScaffold({ targetRoot }) {
+  const required = [
+    'apps/README.md',
+    'apps/backend/README.md',
+    'apps/frontend/README.md',
+    'packages/README.md',
+    'packages/shared/README.md',
+  ];
+  for (const rel of required) {
+    assert.ok(fs.existsSync(path.join(targetRoot, rel)), `[deep-verify] expected target repo to include ${rel}`);
+  }
+}
+
 function main() {
   const sourceRoot = path.resolve(__dirname, '..', '..');
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'baseline-kit-deep-verify-'));
@@ -157,6 +191,8 @@ function main() {
     assertNoInstalledArtifacts(initTarget);
     assertInstalledPackageJson({ sourceRoot, targetRoot: initTarget });
     assertInstalledToolchain({ sourceRoot, targetRoot: initTarget });
+    assertInstalledRootPolicies({ sourceRoot, targetRoot: initTarget });
+    assertInstalledMonorepoScaffold({ targetRoot: initTarget });
     runNpmTest({ targetRoot: initTarget, useCi: true });
 
     // Scenario B: overlay into a minimal Node repo (no conflicting scripts)
@@ -173,6 +209,8 @@ function main() {
     assertNoInstalledArtifacts(overlayClean);
     assertInstalledPackageJson({ sourceRoot, targetRoot: overlayClean });
     assertInstalledToolchain({ sourceRoot, targetRoot: overlayClean });
+    assertInstalledRootPolicies({ sourceRoot, targetRoot: overlayClean });
+    assertInstalledMonorepoScaffold({ targetRoot: overlayClean });
     runNpmTest({ targetRoot: overlayClean, useCi: false });
 
     // Scenario C: overlay with overwrite into a repo that has conflicting scripts/deps
@@ -193,6 +231,8 @@ function main() {
     assertNoInstalledArtifacts(overlayOverwrite);
     assertInstalledPackageJson({ sourceRoot, targetRoot: overlayOverwrite });
     assertInstalledToolchain({ sourceRoot, targetRoot: overlayOverwrite });
+    assertInstalledRootPolicies({ sourceRoot, targetRoot: overlayOverwrite });
+    assertInstalledMonorepoScaffold({ targetRoot: overlayOverwrite });
     runNpmTest({ targetRoot: overlayOverwrite, useCi: false });
 
     console.log('[deep-verify] OK');

@@ -86,14 +86,19 @@ function allowedByMode(relPosix, mode) {
   const top = rel.split('/')[0] || '';
   const allowedTop = new Set([
     '.github',
+    'apps',
     'config',
     'docs',
+    'packages',
     'scripts',
     'tooling',
   ]);
   const allowedRootFiles = new Set([
     'AGENTS.md',
+    'CONTRIBUTING.md',
     'README_BASELINE.md',
+    'SECURITY.md',
+    '.editorconfig',
     '.nvmrc',
     '.gitignore',
     '.gitattributes',
