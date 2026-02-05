@@ -4,6 +4,7 @@
 .editorconfig text eol=lf
 .gitignore text eol=lf
 .nvmrc text eol=lf
+.github/CODEOWNERS text eol=lf
 *.js text eol=lf
 *.cjs text eol=lf
 *.mjs text eol=lf
