@@ -3,7 +3,7 @@ plan_id: PLAN-202602-release-merge-strategy
 title: Release merge strategy (dev->main)
 owner: @owner
 status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
-current_step: S20
+current_step: S30
 updated: 2026-02-05
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
@@ -12,8 +12,8 @@ links:
 ---
 
 At-a-Glance
-- Now: S20 - One-time history alignment (main -> dev)
-- Next: S30 - Release PR (dev -> main)
+- Now: S30 - Release PR (dev -> main)
+- Next: S95 - Testing coverage design and execution
 - Blockers: <none or short>
 - ETA: <date>
 
