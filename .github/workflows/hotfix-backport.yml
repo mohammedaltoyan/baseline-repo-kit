@@ -5,7 +5,7 @@ on:
     types: [closed]
 
 permissions:
-  contents: read
+  contents: write
   issues: write
   pull-requests: write
 
@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 1
           ref: ${{ github.event.pull_request.base.ref }}
 
-      - name: Open backport PR (main -> dev) for hotfix merges
+      - name: Open backport PR (backport/* -> integration) for hotfix merges
         uses: actions/github-script@v8
         with:
           script: |
@@ -106,8 +106,17 @@ jobs:
               core.warning(`Unable to compare ${integration}...${production}; proceeding. ${e.message}`);
             }
 
-            // Avoid duplicates: if an open PR already exists from production -> integration, do nothing.
-            const existing = await github.rest.pulls.list({
+            const mergeSha = String(pr?.merge_commit_sha || '').trim();
+            if (!mergeSha) {
+              core.warning('Unable to determine merge commit sha for hotfix PR; cannot create backport branch.');
+              return;
+            }
+
+            const shortSha = mergeSha.slice(0, 7);
+            const baseBackportBranch = `backport/hotfix-${pr.number}`;
+
+            // Legacy guard: if an open PR already exists from production -> integration, do nothing.
+            const existingLegacy = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
@@ -115,14 +124,63 @@ jobs:
               head: `${context.repo.owner}:${production}`,
               per_page: 10,
             });
-            if ((existing?.data || []).length > 0) {
-              core.info(`Backport PR already open: ${existing.data[0].html_url}`);
+            if ((existingLegacy?.data || []).length > 0) {
+              core.info(`Backport PR already open: ${existingLegacy.data[0].html_url}`);
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: pr.number,
-                body: `Backport PR already open: ${existing.data[0].html_url}`,
+                body: `Backport PR already open: ${existingLegacy.data[0].html_url}`,
               }).catch(() => {});
+              return;
+            }
+
+            let backportBranch = '';
+            const candidates = [
+              baseBackportBranch,
+              `${baseBackportBranch}-${shortSha}`,
+              `${baseBackportBranch}-${shortSha}-${Date.now()}`,
+            ];
+
+            for (const candidate of candidates) {
+              const existing = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                base: integration,
+                head: `${context.repo.owner}:${candidate}`,
+                per_page: 10,
+              });
+              if ((existing?.data || []).length > 0) {
+                core.info(`Backport PR already open: ${existing.data[0].html_url}`);
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `Backport PR already open: ${existing.data[0].html_url}`,
+                }).catch(() => {});
+                return;
+              }
+
+              try {
+                await github.rest.git.createRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `refs/heads/${candidate}`,
+                  sha: mergeSha,
+                });
+                backportBranch = candidate;
+                break;
+              } catch (e) {
+                const status = Number(e?.status || 0);
+                if (status === 422) continue; // likely "reference already exists"
+                core.warning(`Unable to create backport branch ${candidate} @ ${shortSha}. ${e.message}`);
+                return;
+              }
+            }
+
+            if (!backportBranch) {
+              core.warning(`Unable to create a unique backport branch for hotfix PR #${pr.number}.`);
               return;
             }
 
@@ -148,7 +206,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               title,
-              head: production,
+              head: backportBranch,
               base: integration,
               body,
               maintainer_can_modify: true,

@@ -26,6 +26,7 @@ Branch rules (recommended)
   - Require at least 1 approving review (recommended baseline default).
   - Require code owner review (recommended baseline default when CODEOWNERS exists).
   - Allowed merge method: squash-only (keeps integration history clean and avoids merge commits into `dev`).
+  - Backports: do not open PRs from `main` directly into `dev`; use a `backport/*` branch (automation can create these).
   - Enable GitHub Merge Queue to serialize merges safely when multiple PRs are active.
 - Protect `main` (production):
   - Require PRs (no direct pushes).

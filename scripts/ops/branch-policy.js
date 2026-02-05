@@ -99,6 +99,12 @@ function validateBranchPolicy({ baseRef, headRef, prBody, config }) {
   const production = cfg.production_branch;
 
   if (base === integration) {
+    if (head === production && production && production !== integration) {
+      throw new Error(
+        `PRs into ${integration} must not come from ${production} directly. ` +
+        `Use a backport branch (e.g., backport/*) so ${production} is never the PR head.`
+      );
+    }
     return { ok: true, base, head, integration, production };
   }
 
@@ -137,4 +143,3 @@ module.exports = {
   normalizeConfig,
   validateBranchPolicy,
 };
-

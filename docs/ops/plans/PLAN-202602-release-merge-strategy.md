@@ -27,6 +27,7 @@ Checklist
 - [ ] S10 - PR: enforce merge methods by branch (integration squash-only; production merge-commit-only)
 - [ ] S20 - One-time history alignment: merge `main` -> `dev` (merge commit; resolves squash-release merge-base drift)
 - [ ] S30 - Release PR: merge `dev` -> `main` (merge commit; sets correct merge-base going forward)
+- [ ] S40 - Hardening: safe hotfix backport automation (use `backport/*` branch, not `main`) + allow status-check bypass on branch create
 - [ ] S95 - Testing coverage design and execution (unit + integration/E2E; perf/load if applicable; evidence recorded)
 
 Phase Map (fill during S02)
