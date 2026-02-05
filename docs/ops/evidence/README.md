@@ -8,6 +8,7 @@ This repo ships **optional** evidence workflows (disabled by default) to keep ma
 
 - Evidence branch: `ops/evidence` (configurable via the `EVIDENCE_BRANCH` repo variable)
 - Enable switch: set repo variable `EVIDENCE_ENABLED=1`
+- Source branch: defaults to the repo default branch; override with `EVIDENCE_SOURCE_BRANCH` (useful when `dev` is the integration branch)
 - Producers:
   - `.github/workflows/collect-evidence.yml` (writes `docs/ops/evidence/CI/<timestamp>/summary.md`)
   - `.github/workflows/evidence-retention.yml` (prunes old evidence using `scripts/ops/prune-evidence.js` + `config/lint/structure-rules.json`)

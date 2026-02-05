@@ -19,7 +19,7 @@ jobs:
           || (
             github.event.workflow_run.conclusion == 'success'
             && github.event.workflow_run.event == 'push'
-            && github.event.workflow_run.head_branch == github.event.repository.default_branch
+            && github.event.workflow_run.head_branch == (vars.EVIDENCE_SOURCE_BRANCH || github.event.repository.default_branch)
           )
         )
       }}
@@ -81,4 +81,3 @@ jobs:
 
           git commit -m "evidence(ci): ${ts} (${SOURCE_SHA:0:7}) [skip ci]"
           git push origin "${branch}"
-
