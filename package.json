@@ -8,7 +8,7 @@
     "lint:objectives": "node scripts/ops/objectives-lint.js",
     "lint:objectives:enforce": "OBJECTIVES_ENFORCE_RLS_MISSING=1 node scripts/ops/objectives-lint.js",
     "lint:plans": "node scripts/ops/plan-lint.js",
-    "lint:pr-policy": "node scripts/ops/pr-policy.selftest.js",
+    "lint:pr-policy": "node scripts/ops/pr-policy.selftest.js && node scripts/ops/pr-policy-validate.selftest.js",
     "lint:branch-policy": "node scripts/ops/branch-policy.selftest.js",
     "lint:docs": "node scripts/tooling/docs-clean.js",
     "lint:installer": "node scripts/tooling/baseline-install.selftest.js",

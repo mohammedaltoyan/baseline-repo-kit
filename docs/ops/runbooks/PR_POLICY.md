@@ -5,6 +5,9 @@
 - `Plan: PLAN-YYYYMM-<slug>`
 - `Step: Sxx`
 
+Exception (recommended):
+- Dependency automation PRs (Dependabot/Renovate) targeting the integration branch may bypass Plan/Step to keep security and dependency updates flowing. This baseline enforces this in `scripts/ops/pr-policy-validate.js`.
+
 Rule of thumb:
 - `Step: S00` is plan-only (docs/ops/plans changes only).
 - Any code/config change should reference the current plan step/phase and include matching docs/tests as required by the plan.
