@@ -17,6 +17,12 @@ function run() {
     true
   );
 
+  // Disallow main -> dev PRs (use backport/* instead).
+  assert.throws(
+    () => validateBranchPolicy({ baseRef: 'dev', headRef: 'main', prBody: 'Plan: PLAN-209901-x\nStep: S10', config: cfg }),
+    /must not come from main/i
+  );
+
   // Release PR: dev -> main is allowed.
   assert.deepStrictEqual(
     validateBranchPolicy({ baseRef: 'main', headRef: 'dev', prBody: 'Plan: PLAN-209901-x\nStep: S10', config: cfg }).ok,
@@ -50,4 +56,3 @@ if (require.main === module) {
 }
 
 module.exports = { run };
-

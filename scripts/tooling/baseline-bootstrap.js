@@ -239,7 +239,7 @@ function defaultBootstrapPolicy() {
           },
         },
         required_status_checks: {
-          do_not_enforce_on_create: false,
+          do_not_enforce_on_create: true,
           strict_required_status_checks_policy: true,
         },
       },
