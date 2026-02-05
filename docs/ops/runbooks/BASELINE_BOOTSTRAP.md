@@ -6,7 +6,7 @@ This baseline kit is a SSOT that can be installed into any new project repo. The
 - Create local env scaffolding (no secrets)
 - Initialize `git` and create baseline branches (SSOT: `config/policy/branch-policy.json`)
 - Optional: provision/configure GitHub (repo, repo settings, rulesets/branch protection, repo variables) using `gh`
-- Optional (manual): enable GitHub Merge Queue if your plan supports it (workflows already support `merge_group`)
+- Optional: enable GitHub Merge Queue (bootstrap attempts via rulesets API when supported; otherwise enable manually; workflows already support `merge_group`)
 - Optional: run `npm install`/`npm test` in the target repo
 
 ## Command
@@ -62,8 +62,8 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - Delete branch on merge (default: enabled)
 - Merge Queue:
   - Recommended by policy for integration branch by default.
-  - Not configured automatically by bootstrap; enable manually in the GitHub UI when supported by your plan.
-- Repo variables set:
+  - Bootstrap attempts to configure it via rulesets when supported; when unsupported (plan/org dependent), enable manually in the GitHub UI.
+  - Repo variables set:
   - `BACKPORT_ENABLED` (default: `1`)
   - `SECURITY_ENABLED` (default: `0`)
   - `DEPLOY_ENABLED` (default: `0`)
@@ -77,7 +77,7 @@ Recommended toggles:
 
 1) Merge Queue (if available in your plan)
    - Settings  ->  Rules (rulesets)  ->  Edit `baseline: integration` (and optionally `baseline: production`)
-   - Add/enable Merge Queue
+   - Confirm Merge Queue is enabled (bootstrap attempts to enable it; if it could not, you will see a warning in bootstrap output)
    - Confirm required checks run on `merge_group` (this baseline already triggers `CI` + `PR Policy` on `merge_group`)
 
 2) Security & analysis (recommended)
