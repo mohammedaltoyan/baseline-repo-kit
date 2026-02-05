@@ -2,7 +2,6 @@ name: Dependency Review
 
 on:
   pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,4 +15,3 @@ jobs:
     steps:
       - name: Dependency review
         uses: actions/dependency-review-action@v4
-

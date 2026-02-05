@@ -4,7 +4,6 @@ on:
   pull_request:
   merge_group:
     types: [checks_requested]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,4 +26,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/ops/pr-policy-validate.js
-
