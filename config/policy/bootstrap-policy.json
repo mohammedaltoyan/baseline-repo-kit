@@ -6,8 +6,8 @@
     "set_default_branch_to_integration": true,
     "enable_backport_default": true,
     "enable_security_default": false,
-    "enable_merge_queue_integration": true,
-    "enable_merge_queue_production": false,
+    "recommend_merge_queue_integration": true,
+    "recommend_merge_queue_production": false,
     "required_check_workflows": [
       ".github/workflows/ci.yml",
       ".github/workflows/pr-policy.yml"
@@ -34,17 +34,10 @@
       "required_status_checks": {
         "do_not_enforce_on_create": false,
         "strict_required_status_checks_policy": true
-      },
-      "merge_queue": {
-        "check_response_timeout_minutes": 60,
-        "grouping_strategy": "ALLGREEN",
-        "max_entries_to_build": 5,
-        "max_entries_to_merge": 5,
-        "merge_method": "SQUASH",
-        "min_entries_to_merge": 1,
-        "min_entries_to_merge_wait_minutes": 0
       }
+    },
+    "repo_settings": {
+      "delete_branch_on_merge": true
     }
   }
 }
-

@@ -5,7 +5,8 @@
  * One-button bootstrap for new projects:
  * - Installs/updates this baseline into a target repo (non-destructive).
  * - Initializes git + branches from SSOT policy.
- * - Optionally provisions/configures GitHub (repo, rulesets/merge queue, repo variables).
+ * - Optionally provisions/configures GitHub (repo, repo settings, rulesets/branch protection, repo variables).
+ *   - Merge Queue must be enabled manually (when supported by your GitHub plan).
  * - Optionally scaffolds local env files from templates.
  *
  * Usage:
@@ -89,8 +90,8 @@ function defaultBootstrapPolicy() {
       set_default_branch_to_integration: true,
       enable_backport_default: true,
       enable_security_default: false,
-      enable_merge_queue_integration: true,
-      enable_merge_queue_production: false,
+      recommend_merge_queue_integration: true,
+      recommend_merge_queue_production: false,
       required_check_workflows: [
         '.github/workflows/ci.yml',
         '.github/workflows/pr-policy.yml',
@@ -112,15 +113,9 @@ function defaultBootstrapPolicy() {
           do_not_enforce_on_create: false,
           strict_required_status_checks_policy: true,
         },
-        merge_queue: {
-          check_response_timeout_minutes: 60,
-          grouping_strategy: 'ALLGREEN',
-          max_entries_to_build: 5,
-          max_entries_to_merge: 5,
-          merge_method: 'SQUASH',
-          min_entries_to_merge: 1,
-          min_entries_to_merge_wait_minutes: 0,
-        },
+      },
+      repo_settings: {
+        delete_branch_on_merge: true,
       },
     },
   };
@@ -260,7 +255,6 @@ function deriveRequiredCheckContexts({ repoRoot, workflowPaths }) {
 function buildRulesetBody({ name, branch, enforcement, requiredContexts, includeMergeQueue, policy }) {
   const prParams = policy.github.rules.pull_request || {};
   const statusParams = policy.github.rules.required_status_checks || {};
-  const mqParams = policy.github.rules.merge_queue || {};
 
   const rules = [
     { type: 'pull_request', parameters: prParams },
@@ -272,7 +266,9 @@ function buildRulesetBody({ name, branch, enforcement, requiredContexts, include
       },
     },
   ];
-  if (includeMergeQueue) rules.push({ type: 'merge_queue', parameters: mqParams });
+
+  // NOTE: Merge queue cannot be configured via the Rulesets REST API at this time.
+  // Keep `includeMergeQueue` in the signature for compatibility, but do not emit a rule.
 
   return {
     name,
@@ -418,6 +414,49 @@ async function ghSetDefaultBranch({ cwd, host, owner, repo, defaultBranch, dryRu
   ], { cwd });
 }
 
+function normalizeAllowedMergeMethods(value) {
+  const raw = Array.isArray(value) ? value : [];
+  const out = new Set();
+  for (const v of raw) {
+    const m = toString(v).toLowerCase();
+    if (!m) continue;
+    if (m === 'merge' || m === 'merge_commit' || m === 'merge-commit') out.add('merge');
+    else if (m === 'squash') out.add('squash');
+    else if (m === 'rebase') out.add('rebase');
+  }
+  return Array.from(out);
+}
+
+async function ghPatchRepoSettings({ cwd, host, owner, repo, policy, dryRun }) {
+  const repoSettings = (policy && policy.github && policy.github.repo_settings) || {};
+  const prParams = (policy && policy.github && policy.github.rules && policy.github.rules.pull_request) || {};
+  const allowedMethods = normalizeAllowedMergeMethods(prParams.allowed_merge_methods);
+
+  const payload = {};
+
+  if (typeof repoSettings.delete_branch_on_merge === 'boolean') {
+    payload.delete_branch_on_merge = repoSettings.delete_branch_on_merge;
+  }
+
+  if (allowedMethods.length) {
+    payload.allow_merge_commit = allowedMethods.includes('merge');
+    payload.allow_squash_merge = allowedMethods.includes('squash');
+    payload.allow_rebase_merge = allowedMethods.includes('rebase');
+  }
+
+  if (Object.keys(payload).length === 0) return;
+
+  if (dryRun) {
+    info(`[dry-run] patch repo settings: ${JSON.stringify(payload)}`);
+    return;
+  }
+
+  const res = await ghApiJson({ cwd, host, method: 'PATCH', endpoint: `/repos/${owner}/${repo}`, body: payload });
+  if (!res.ok) {
+    throw new Error(`Failed to patch repo settings for ${owner}/${repo}: ${res.stderr || res.stdout || ''}`);
+  }
+}
+
 async function ghSetRepoVariable({ cwd, owner, repo, host, name, value, dryRun }) {
   const n = toString(name);
   const v = toString(value);
@@ -480,7 +519,19 @@ async function ghUpsertRuleset({ cwd, host, owner, repo, desired, dryRun }) {
     { cwd, input: JSON.stringify(desired) }
   );
 
-  if (res.code !== 0) die(`Failed to ${method} ruleset ${name}: ${res.stderr || res.stdout || ''}`);
+  if (res.code !== 0) {
+    const msg = `${res.stderr || res.stdout || ''}`;
+    if (/Upgrade\s+to\s+GitHub\s+Pro\b/i.test(msg) || /make\s+this\s+repository\s+public\b/i.test(msg)) {
+      throw new Error(
+        `Failed to ${method} ruleset ${name}: ${msg}\n` +
+        'Hint: Rulesets/branch protection may be restricted on private personal repos. Options:\n' +
+        '- Make the repository public, or\n' +
+        '- Upgrade your GitHub plan / use an organization repo with the required plan.\n' +
+        'After fixing, re-run: npm run baseline:bootstrap -- --to <target> --mode overlay --overwrite --github'
+      );
+    }
+    throw new Error(`Failed to ${method} ruleset ${name}: ${msg}`);
+  }
 }
 
 async function runNpmTests({ cwd, dryRun }) {
@@ -523,7 +574,7 @@ async function main() {
       '  --non-interactive          Fail instead of prompting for missing values',
       '  --skip-env                 Do not create local env file from template',
       '  --skip-tests               Do not run npm install/test in target',
-      '  --merge-queue-production   Also require merge queue on production ruleset',
+      '  --merge-queue-production   Recommend enabling Merge Queue on production branch (manual)',
       '  --enableBackport=<0|1>     Set BACKPORT_ENABLED repo var (when --github)',
       '  --enableSecurity=<0|1>     Set SECURITY_ENABLED repo var (when --github)',
       '',
@@ -663,6 +714,9 @@ async function main() {
       await ghSetDefaultBranch({ cwd: targetRoot, host: actualHost, owner, repo, defaultBranch: integration, dryRun: args.dryRun });
     }
 
+    // Repository settings (merge methods, delete branch on merge, etc.).
+    await ghPatchRepoSettings({ cwd: targetRoot, host: actualHost, owner, repo, policy, dryRun: args.dryRun });
+
     const enableBackport = args.enableBackport == null ? !!policy.github.enable_backport_default : !!args.enableBackport;
     const enableSecurity = args.enableSecurity == null ? !!policy.github.enable_security_default : !!args.enableSecurity;
 
@@ -670,7 +724,7 @@ async function main() {
     await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'SECURITY_ENABLED', value: enableSecurity ? '1' : '0', dryRun: args.dryRun });
     await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'EVIDENCE_SOURCE_BRANCH', value: integration, dryRun: args.dryRun });
 
-    // Rulesets (branch protection + merge queue).
+    // Rulesets (branch protection).
     const requiredContexts = deriveRequiredCheckContexts({ repoRoot: targetRoot, workflowPaths: policy.github.required_check_workflows || [] });
     if (requiredContexts.length === 0) warn('Unable to derive required check contexts from workflow files; required status checks may not enforce as expected.');
 
@@ -679,22 +733,34 @@ async function main() {
       branch: integration,
       enforcement: toString(policy.github.rulesets.integration && policy.github.rulesets.integration.enforcement) || 'active',
       requiredContexts,
-      includeMergeQueue: !!policy.github.enable_merge_queue_integration,
       policy,
     });
 
-    const includeMqProd = args.mergeQueueProduction || !!policy.github.enable_merge_queue_production;
     const productionRuleset = buildRulesetBody({
       name: toString(policy.github.rulesets.production && policy.github.rulesets.production.name) || 'baseline: production',
       branch: production,
       enforcement: toString(policy.github.rulesets.production && policy.github.rulesets.production.enforcement) || 'active',
       requiredContexts,
-      includeMergeQueue: includeMqProd,
       policy,
     });
 
     await ghUpsertRuleset({ cwd: targetRoot, host: actualHost, owner, repo, desired: integrationRuleset, dryRun: args.dryRun });
     await ghUpsertRuleset({ cwd: targetRoot, host: actualHost, owner, repo, desired: productionRuleset, dryRun: args.dryRun });
+
+    const recommendMqIntegration = !!policy.github.recommend_merge_queue_integration;
+    const recommendMqProduction = args.mergeQueueProduction || !!policy.github.recommend_merge_queue_production;
+    if (recommendMqIntegration || recommendMqProduction) {
+      const targets = [
+        recommendMqIntegration ? `\`${integration}\`` : '',
+        recommendMqProduction ? `\`${production}\`` : '',
+      ].filter(Boolean).join(' and ');
+      info('Merge Queue: recommended (manual enable).');
+      info(
+        `- baseline:bootstrap does not configure Merge Queue automatically.\n` +
+        `- If your GitHub plan supports it, enable Merge Queue for ${targets} in the GitHub UI.\n` +
+        '- Workflows already include `merge_group` triggers so required checks can run under Merge Queue.'
+      );
+    }
 
     info('GitHub: provisioning complete.');
   } else {
@@ -719,4 +785,3 @@ module.exports = {
   parseRemoteRepoSlug,
   parseWorkflowChecks,
 };
-
