@@ -6,7 +6,7 @@
  * - Installs/updates this baseline into a target repo (non-destructive).
  * - Initializes git + branches from SSOT policy.
  * - Optionally provisions/configures GitHub (repo, repo settings, rulesets/branch protection, repo variables).
- *   - Merge Queue must be enabled manually (when supported by your GitHub plan).
+ *   - Merge Queue is configured via rulesets when supported; otherwise bootstrap prints manual steps.
  * - Optionally scaffolds local env files from templates.
  *
  * Usage:
@@ -110,6 +110,17 @@ function defaultBootstrapPolicy() {
           required_approving_review_count: 1,
           required_review_thread_resolution: true,
         },
+        merge_queue: {
+          parameters: {
+            check_response_timeout_minutes: 60,
+            grouping_strategy: 'HEADGREEN',
+            max_entries_to_build: 5,
+            max_entries_to_merge: 5,
+            merge_method: 'SQUASH',
+            min_entries_to_merge: 1,
+            min_entries_to_merge_wait_minutes: 5,
+          },
+        },
         required_status_checks: {
           do_not_enforce_on_create: false,
           strict_required_status_checks_policy: true,
@@ -131,6 +142,13 @@ function loadBootstrapPolicy(sourceRoot) {
   cfg.github = { ...d.github, ...(raw.github || {}) };
   cfg.github.rulesets = { ...d.github.rulesets, ...(cfg.github.rulesets || {}) };
   cfg.github.rules = { ...d.github.rules, ...(cfg.github.rules || {}) };
+  cfg.github.rules.pull_request = { ...d.github.rules.pull_request, ...(cfg.github.rules.pull_request || {}) };
+  cfg.github.rules.required_status_checks = { ...d.github.rules.required_status_checks, ...(cfg.github.rules.required_status_checks || {}) };
+  cfg.github.rules.merge_queue = { ...d.github.rules.merge_queue, ...(cfg.github.rules.merge_queue || {}) };
+  cfg.github.rules.merge_queue.parameters = {
+    ...d.github.rules.merge_queue.parameters,
+    ...((cfg.github.rules.merge_queue && cfg.github.rules.merge_queue.parameters) || {}),
+  };
   return { path: cfgPath, loaded: true, config: cfg };
 }
 
@@ -251,6 +269,7 @@ function deriveRequiredCheckContexts({ repoRoot, workflowPaths }) {
 function buildRulesetBody({ name, branch, enforcement, requiredContexts, includeMergeQueue, policy }) {
   const prParams = policy.github.rules.pull_request || {};
   const statusParams = policy.github.rules.required_status_checks || {};
+  const mqParams = (policy.github.rules.merge_queue && policy.github.rules.merge_queue.parameters) || {};
 
   const rules = [
     { type: 'pull_request', parameters: prParams },
@@ -263,8 +282,9 @@ function buildRulesetBody({ name, branch, enforcement, requiredContexts, include
     },
   ];
 
-  // NOTE: Merge queue cannot be configured via the Rulesets REST API at this time.
-  // Keep `includeMergeQueue` in the signature for compatibility, but do not emit a rule.
+  if (includeMergeQueue) {
+    rules.push({ type: 'merge_queue', parameters: mqParams });
+  }
 
   return {
     name,
@@ -478,9 +498,9 @@ function printGitHubUiChecklist({ host, owner, repo, integration, production, po
   info(`- Environments (deploy approvals + secrets): ${base}/settings/environments`);
   info(`- Actions variables: ${base}/settings/variables/actions`);
   if (mqTargets) {
-    info(`- Merge Queue (if available): enable for ${mqTargets} in rulesets (workflows already support \`merge_group\`).`);
+    info(`- Merge Queue (if available): bootstrap attempts API enablement; confirm for ${mqTargets} in rulesets (workflows already support \`merge_group\`).`);
   } else {
-    info('- Merge Queue (optional): enable in rulesets if your plan supports it (workflows already support `merge_group`).');
+    info('- Merge Queue (optional): bootstrap attempts API enablement; confirm in rulesets if your plan supports it (workflows already support `merge_group`).');
   }
   info('- CODEOWNERS: add `.github/CODEOWNERS` in the target repo so code owner review rules can apply.');
   info('- Docs: see docs/ops/runbooks/BASELINE_BOOTSTRAP.md and docs/ops/runbooks/DEPLOYMENT.md');
@@ -535,21 +555,45 @@ async function ghUpsertRuleset({ cwd, host, owner, repo, desired, dryRun }) {
     return;
   }
 
-  const res = await runCapture(
-    'gh',
-    [
-      'api',
-      '-H', 'X-GitHub-Api-Version: 2022-11-28',
-      `--hostname=${host}`,
-      '--method', method,
-      endpoint,
-      '--input', '-',
-    ],
-    { cwd, input: JSON.stringify(desired) }
-  );
+  async function upsert(body) {
+    return runCapture(
+      'gh',
+      [
+        'api',
+        '-H', 'X-GitHub-Api-Version: 2022-11-28',
+        `--hostname=${host}`,
+        '--method', method,
+        endpoint,
+        '--input', '-',
+      ],
+      { cwd, input: JSON.stringify(body) }
+    );
+  }
+
+  let res = await upsert(desired);
 
   if (res.code !== 0) {
     const msg = `${res.stderr || res.stdout || ''}`;
+    const mergeQueueUnsupported =
+      /Invalid rule 'merge_queue'/i.test(msg) ||
+      (/Invalid rule/i.test(msg) && /\bmerge_queue\b/i.test(msg));
+
+    const hasMergeQueueRule =
+      Array.isArray(desired && desired.rules) &&
+      desired.rules.some((r) => toString(r && r.type).toLowerCase() === 'merge_queue');
+
+    if (mergeQueueUnsupported && hasMergeQueueRule) {
+      warn(
+        'Merge Queue rule was rejected by GitHub API for this repo (likely unsupported for personal repos or your plan). ' +
+        'Retrying ruleset without merge queue.'
+      );
+      const stripped = {
+        ...desired,
+        rules: desired.rules.filter((r) => toString(r && r.type).toLowerCase() !== 'merge_queue'),
+      };
+      res = await upsert(stripped);
+      if (res.code === 0) return;
+    }
     if (/Upgrade\s+to\s+GitHub\s+Pro\b/i.test(msg) || /make\s+this\s+repository\s+public\b/i.test(msg)) {
       throw new Error(
         `Failed to ${method} ruleset ${name}: ${msg}\n` +
@@ -760,11 +804,15 @@ async function main() {
     const requiredContexts = deriveRequiredCheckContexts({ repoRoot: targetRoot, workflowPaths: policy.github.required_check_workflows || [] });
     if (requiredContexts.length === 0) warn('Unable to derive required check contexts from workflow files; required status checks may not enforce as expected.');
 
+    const includeMqIntegration = !!policy.github.recommend_merge_queue_integration;
+    const includeMqProduction = args.mergeQueueProduction || !!policy.github.recommend_merge_queue_production;
+
     const integrationRuleset = buildRulesetBody({
       name: toString(policy.github.rulesets.integration && policy.github.rulesets.integration.name) || 'baseline: integration',
       branch: integration,
       enforcement: toString(policy.github.rulesets.integration && policy.github.rulesets.integration.enforcement) || 'active',
       requiredContexts,
+      includeMergeQueue: includeMqIntegration,
       policy,
     });
 
@@ -773,23 +821,22 @@ async function main() {
       branch: production,
       enforcement: toString(policy.github.rulesets.production && policy.github.rulesets.production.enforcement) || 'active',
       requiredContexts,
+      includeMergeQueue: includeMqProduction,
       policy,
     });
 
     await ghUpsertRuleset({ cwd: targetRoot, host: actualHost, owner, repo, desired: integrationRuleset, dryRun: args.dryRun });
     await ghUpsertRuleset({ cwd: targetRoot, host: actualHost, owner, repo, desired: productionRuleset, dryRun: args.dryRun });
 
-    const recommendMqIntegration = !!policy.github.recommend_merge_queue_integration;
-    const recommendMqProduction = args.mergeQueueProduction || !!policy.github.recommend_merge_queue_production;
-    if (recommendMqIntegration || recommendMqProduction) {
+    if (includeMqIntegration || includeMqProduction) {
       const targets = [
-        recommendMqIntegration ? `\`${integration}\`` : '',
-        recommendMqProduction ? `\`${production}\`` : '',
+        includeMqIntegration ? `\`${integration}\`` : '',
+        includeMqProduction ? `\`${production}\`` : '',
       ].filter(Boolean).join(' and ');
-      info('Merge Queue: recommended (manual enable).');
+      info('Merge Queue: policy enabled (best-effort).');
       info(
-        `- baseline:bootstrap does not configure Merge Queue automatically.\n` +
-        `- If your GitHub plan supports it, enable Merge Queue for ${targets} in the GitHub UI.\n` +
+        `- Bootstrap configures Merge Queue via rulesets when supported by your plan/org.\n` +
+        `- If unsupported, bootstrap will warn and the ruleset will be applied without merge queue.\n` +
         '- Workflows already include `merge_group` triggers so required checks can run under Merge Queue.'
       );
     }
