@@ -1,0 +1,84 @@
+name: Collect Evidence
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    if: >-
+      ${{
+        vars.EVIDENCE_ENABLED == '1'
+        && (
+          github.event_name != 'workflow_run'
+          || (
+            github.event.workflow_run.conclusion == 'success'
+            && github.event.workflow_run.event == 'push'
+            && github.event.workflow_run.head_branch == github.event.repository.default_branch
+          )
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EVIDENCE_BRANCH: ${{ vars.EVIDENCE_BRANCH || 'ops/evidence' }}
+      EVIDENCE_BUCKET: ${{ vars.EVIDENCE_BUCKET || 'CI' }}
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+      SOURCE_CONCLUSION: ${{ github.event.workflow_run.conclusion || 'manual' }}
+      SOURCE_URL: ${{ github.event.workflow_run.html_url || format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+    steps:
+      - name: Checkout (source SHA)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Collect evidence summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ts="$(date -u '+%Y-%m-%dT%H-%M-%SZ')"
+          dir="docs/ops/evidence/${EVIDENCE_BUCKET}/${ts}"
+          mkdir -p "${dir}"
+
+          cat > "${dir}/summary.md" <<EOF
+          # Evidence Summary
+
+          - Collected (UTC): ${ts}
+          - Source SHA: ${SOURCE_SHA}
+          - Source branch: ${SOURCE_BRANCH}
+          - Trigger URL: ${SOURCE_URL}
+          - Conclusion: ${SOURCE_CONCLUSION}
+          - Actor: ${GITHUB_ACTOR}
+          EOF
+
+          branch="${EVIDENCE_BRANCH}"
+          git fetch origin "${branch}" || true
+          if git show-ref --verify --quiet "refs/remotes/origin/${branch}"; then
+            git switch "${branch}"
+            git merge --no-edit "${SOURCE_SHA}"
+          else
+            git switch -c "${branch}"
+          fi
+
+          git add "${dir}/summary.md"
+          if git diff --cached --quiet; then
+            echo "No evidence changes to commit."
+            exit 0
+          fi
+
+          git commit -m "evidence(ci): ${ts} (${SOURCE_SHA:0:7}) [skip ci]"
+          git push origin "${branch}"
+

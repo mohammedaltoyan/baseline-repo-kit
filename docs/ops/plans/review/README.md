@@ -7,5 +7,4 @@ This folder stores **generated** plan review artifacts created by plan tooling (
 
 Baseline-kit note:
 - This repository should not ship with historical review artifacts from other projects.
-- Keep this directory empty in the baseline; artifacts are generated per-project/per-plan when needed.
-
+- This baseline's installer excludes `docs/ops/plans/review/**`, so target repos start empty (except this README).

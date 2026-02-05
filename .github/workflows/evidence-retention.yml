@@ -1,0 +1,59 @@
+name: Evidence Retention
+
+on:
+  schedule:
+    # Weekly (UTC) by default; tune per project.
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    if: ${{ vars.EVIDENCE_ENABLED == '1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EVIDENCE_BRANCH: ${{ vars.EVIDENCE_BRANCH || 'ops/evidence' }}
+    steps:
+      - name: Checkout (default branch)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Switch to evidence branch (if present)
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="${EVIDENCE_BRANCH}"
+          if ! git fetch origin "${branch}"; then
+            echo "Evidence branch missing: ${branch}. Nothing to prune."
+            exit 0
+          fi
+          git switch "${branch}" || git switch -c "${branch}" "origin/${branch}"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Prune evidence (apply)
+        run: node scripts/ops/prune-evidence.js --apply
+
+      - name: Commit and push (if changed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git status --porcelain | grep -q .; then
+            ts="$(date -u '+%Y-%m-%dT%H-%M-%SZ')"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "evidence(retention): prune (${ts}) [skip ci]"
+            git push origin "${EVIDENCE_BRANCH}"
+          else
+            echo "No evidence changes to commit."
+          fi
+

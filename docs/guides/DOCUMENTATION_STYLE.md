@@ -16,7 +16,8 @@ This guide keeps docs simple, scalable, and dynamic with zero redundancy.
 
 ## File Naming
 
-- Use lowercase with hyphens: `service-runbook.md`.
+- Prefer lowercase with hyphens for most docs: `service-runbook.md`.
+- Policy/runbook docs may use `SCREAMING_SNAKE_CASE.md` for high visibility (keep naming consistent within a folder).
 - Dated artefacts: `YYYY-MM-DD-*` for evidence/release notes; future-dated plans allowed.
 - Migrations: `YYYYMMDDHHMM_description.sql` (12-digit timestamp).
 
@@ -80,6 +81,6 @@ This guide keeps docs simple, scalable, and dynamic with zero redundancy.
 
 - Use present tense and active voice.
 - Prefer exact nouns: table/function names over descriptions.
-- Keep examples minimal; link to full samples under `product/examples/`.
+- Keep examples minimal; link to full samples under `docs/product/examples/`.
 - Validate instructions by pasting commands into a fresh shell with `ENV_FILE` exported.
 

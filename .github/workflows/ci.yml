@@ -10,6 +10,8 @@ permissions:
 
 jobs:
   test:
+    # Avoid running CI on the evidence branch to prevent loops/spam when evidence is committed.
+    if: ${{ github.ref_name != (vars.EVIDENCE_BRANCH || 'ops/evidence') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

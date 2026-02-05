@@ -16,3 +16,5 @@
 
 - `npm install`
 - `npm test`
+- Optional (deeper): `npm run test:deep`
+- Optional (docs hygiene): `npm run docs:clean`
