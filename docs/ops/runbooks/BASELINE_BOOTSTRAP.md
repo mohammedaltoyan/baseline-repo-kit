@@ -50,7 +50,7 @@ Dry-run preview (no writes):
 
 Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the baseline SSOT (then applied via updates):
 
-- Required check contexts are derived from workflow files (default: `CI / test`, `PR Policy / validate`).
+- Required check contexts are derived from workflow files (default: `test`, `validate`).
 - Rulesets are created/updated by name:
   - `baseline: integration`
   - `baseline: production`

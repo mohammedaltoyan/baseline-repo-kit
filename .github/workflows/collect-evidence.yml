@@ -34,7 +34,7 @@ jobs:
       SOURCE_URL: ${{ github.event.workflow_run.html_url || format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
     steps:
       - name: Checkout (source SHA)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ env.SOURCE_SHA }}
