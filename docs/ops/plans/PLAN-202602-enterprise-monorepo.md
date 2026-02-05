@@ -2,7 +2,7 @@
 plan_id: PLAN-202602-enterprise-monorepo
 title: Enterprise workflow + monorepo structure (backend+frontend)
 owner: @owner
-status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
+status: done # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
 current_step: S97
 updated: 2026-02-05
 priority: P2 # P0|P1|P2|P3
@@ -26,7 +26,7 @@ Checklist
 - [x] S05 - Docs updated (guides/runbooks/AGENTS aligned)
 - [x] S06 - Baseline bootstrap automation (install/update + optional GitHub provisioning)
 - [x] S95 - Testing coverage design and execution (npm test, docs:clean, deep verify)
-- [ ] S97 - Remote/CI wiring + CI Evidence recorded (when remote exists)
+- [x] S97 - Remote/CI wiring + CI Evidence recorded (when remote exists)
 
 Phase Map (fill during S02)
 - Add phase steps as needed (recommended: S10, S20, S30, ...) where each phase is a mergeable PR (or a small PR series).
@@ -48,6 +48,7 @@ Decisions & Notes
 - 2026-02-05 - Baseline SSOT install/update workflow: installer excludes baseline plan instances and supports repeatable overlay updates (see `docs/ops/runbooks/BASELINE_INSTALL.md`).
 - 2026-02-05 - One-button bootstrap: `npm run baseline:bootstrap` installs baseline, inits git/branches, and can optionally provision GitHub (repo + repo settings + rulesets + vars) using SSOT defaults in `config/policy/bootstrap-policy.json` (Merge Queue is manual).
 - Verification (local): `npm test`, `npm run test:deep`.
-- YYYY-MM-DD - <decision> (link to evidence)
-- PR: <link(s) to PR(s) if applicable>
-- CI Evidence: <CI run URL(s) for S99>
+- PR:
+  - https://github.com/mohammedaltoyan/baseline-repo-kit/pull/7
+  - https://github.com/mohammedaltoyan/baseline-repo-kit/pull/8
+- CI Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/21710735030
