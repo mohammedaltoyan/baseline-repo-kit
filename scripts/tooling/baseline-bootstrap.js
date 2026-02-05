@@ -197,16 +197,6 @@ function parseWorkflowChecks(workflowFilePath) {
   const content = fs.readFileSync(workflowFilePath, 'utf8');
   const lines = content.split(/\r?\n/);
 
-  let workflowName = '';
-  for (const line of lines) {
-    const m = /^name:\s*(.+?)\s*$/.exec(line);
-    if (m) {
-      workflowName = stripQuotes(m[1]);
-      break;
-    }
-  }
-  if (!workflowName) workflowName = path.posix.basename(workflowFilePath.replace(/\\/g, '/'));
-
   const jobs = [];
   let inJobs = false;
   let currentJobId = '';
@@ -233,7 +223,11 @@ function parseWorkflowChecks(workflowFilePath) {
   }
   if (currentJobId) jobs.push({ id: currentJobId, name: currentJobName });
 
-  return jobs.map((j) => `${workflowName} / ${toString(j.name) || j.id}`);
+  // GitHub Rulesets required status checks match the check-run name (job `name:` when set; otherwise job id),
+  // not the UI label combining `<workflow name> / <job name>`.
+  return jobs
+    .map((j) => toString(j.name) || j.id)
+    .filter(Boolean);
 }
 
 function deriveRequiredCheckContexts({ repoRoot, workflowPaths }) {
