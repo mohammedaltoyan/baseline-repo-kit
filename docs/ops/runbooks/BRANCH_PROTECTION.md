@@ -17,7 +17,7 @@ Notes
 - GitHub required checks must match the emitted check-run names exactly; copy them from a successful PR run.
 - If you enable GitHub Merge Queue, make sure required checks also run on `merge_group` events.
 - Consider enabling "Require branches to be up to date before merging" (or enforce via Merge Queue) to reduce post-merge breakage.
-- Automation option: `npm run baseline:bootstrap -- --to <repo> --github` can provision GitHub repo settings + rulesets/branch protection using SSOT defaults in `config/policy/bootstrap-policy.json`. Merge Queue is configured via rulesets when supported; otherwise enable manually in the GitHub UI.
+- Automation option: `npm run baseline:bootstrap -- -- --to <repo> --github` can provision GitHub repo settings + rulesets/branch protection using SSOT defaults in `config/policy/bootstrap-policy.json`. Merge Queue is configured via rulesets when supported; otherwise enable manually in the GitHub UI.
 
 Branch rules (recommended)
 

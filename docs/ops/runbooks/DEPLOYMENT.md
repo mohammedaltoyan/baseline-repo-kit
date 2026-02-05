@@ -14,7 +14,7 @@ This baseline is intentionally vendor-agnostic. Deployment is **project-specific
 
 Preferred: use the baseline bootstrap which provisions environments best-effort:
 
-- `npm run baseline:bootstrap -- --to <repo> --mode overlay --overwrite --github`
+- `npm run baseline:bootstrap -- -- --to <repo> --mode overlay --overwrite --github`
 
 By default, bootstrap:
 - Creates `staging` and `production` environments (if missing).

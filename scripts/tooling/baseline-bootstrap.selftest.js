@@ -8,6 +8,7 @@ const {
   deriveRequiredCheckContexts,
   loadBootstrapPolicy,
   normalizeEnvironmentReviewerSpecs,
+  parseArgs,
   parseRemoteRepoSlug,
   resolvePolicyTemplateToken,
 } = require('./baseline-bootstrap');
@@ -102,6 +103,56 @@ function run() {
     ['merge'],
     `expected production allowed_merge_methods=['merge'] (got: ${JSON.stringify(productionPr?.parameters?.allowed_merge_methods || null)})`
   );
+
+  // npm flag passthrough compatibility: newer npm may place unknown flags into npm_config_* env.
+  const previous = {
+    to: process.env.npm_config_to,
+    mode: process.env.npm_config_mode,
+    github: process.env.npm_config_github,
+    mainApprovers: process.env.npm_config_main_approvers,
+    dryRun: process.env.npm_config_dry_run,
+    overwrite: process.env.npm_config_overwrite,
+  };
+  try {
+    process.env.npm_config_to = 'C:\\temp\\target';
+    process.env.npm_config_mode = 'overlay';
+    process.env.npm_config_github = 'true';
+    process.env.npm_config_main_approvers = 'octocat,hubot';
+    process.env.npm_config_dry_run = '1';
+    process.env.npm_config_overwrite = '1';
+
+    const parsed = parseArgs([]);
+    assert.strictEqual(parsed.to, 'C:\\temp\\target');
+    assert.strictEqual(parsed.mode, 'overlay');
+    assert.strictEqual(parsed.github, true);
+    assert.strictEqual(parsed.mainApprovers, 'octocat,hubot');
+    assert.strictEqual(parsed.dryRun, true);
+    assert.strictEqual(parsed.overwrite, true);
+
+    process.env.npm_config_to = 'true';
+    process.env.npm_config_mode = 'true';
+    const positionalFallback = parseArgs(['C:\\positional\\target', 'overlay']);
+    assert.strictEqual(positionalFallback.to, 'C:\\positional\\target');
+    assert.strictEqual(positionalFallback.mode, 'overlay');
+  } finally {
+    if (previous.to === undefined) delete process.env.npm_config_to;
+    else process.env.npm_config_to = previous.to;
+
+    if (previous.mode === undefined) delete process.env.npm_config_mode;
+    else process.env.npm_config_mode = previous.mode;
+
+    if (previous.github === undefined) delete process.env.npm_config_github;
+    else process.env.npm_config_github = previous.github;
+
+    if (previous.mainApprovers === undefined) delete process.env.npm_config_main_approvers;
+    else process.env.npm_config_main_approvers = previous.mainApprovers;
+
+    if (previous.dryRun === undefined) delete process.env.npm_config_dry_run;
+    else process.env.npm_config_dry_run = previous.dryRun;
+
+    if (previous.overwrite === undefined) delete process.env.npm_config_overwrite;
+    else process.env.npm_config_overwrite = previous.overwrite;
+  }
 
   console.log('[baseline-bootstrap:selftest] OK');
 }
