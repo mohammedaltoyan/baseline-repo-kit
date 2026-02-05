@@ -90,6 +90,7 @@ function defaultBootstrapPolicy() {
       set_default_branch_to_integration: true,
       enable_backport_default: true,
       enable_security_default: false,
+      enable_deploy_default: false,
       recommend_merge_queue_integration: true,
       recommend_merge_queue_production: false,
       required_check_workflows: [
@@ -104,9 +105,9 @@ function defaultBootstrapPolicy() {
         pull_request: {
           allowed_merge_methods: ['squash'],
           dismiss_stale_reviews_on_push: true,
-          require_code_owner_review: false,
+          require_code_owner_review: true,
           require_last_push_approval: false,
-          required_approving_review_count: 0,
+          required_approving_review_count: 1,
           required_review_thread_resolution: true,
         },
         required_status_checks: {
@@ -155,6 +156,7 @@ function parseArgs(argv) {
     mergeQueueProduction: isTruthy(args['merge-queue-production'] || args.mergeQueueProduction),
     enableBackport: args.enableBackport === undefined ? null : isTruthy(args.enableBackport),
     enableSecurity: args.enableSecurity === undefined ? null : isTruthy(args.enableSecurity),
+    enableDeploy: args.enableDeploy === undefined ? null : isTruthy(args.enableDeploy),
     help: isTruthy(args.help || args.h),
   };
 
@@ -451,6 +453,39 @@ async function ghPatchRepoSettings({ cwd, host, owner, repo, policy, dryRun }) {
   }
 }
 
+function ghWebBaseUrl({ host, owner, repo }) {
+  const h = toString(host) || 'github.com';
+  const o = encodeURIComponent(toString(owner));
+  const r = encodeURIComponent(toString(repo));
+  if (!o || !r) return '';
+  return `https://${h}/${o}/${r}`;
+}
+
+function printGitHubUiChecklist({ host, owner, repo, integration, production, policy }) {
+  const base = ghWebBaseUrl({ host, owner, repo });
+  if (!base) return;
+
+  const recommendMqIntegration = !!(policy && policy.github && policy.github.recommend_merge_queue_integration);
+  const recommendMqProduction = !!(policy && policy.github && policy.github.recommend_merge_queue_production);
+  const mqTargets = [
+    recommendMqIntegration ? `\`${integration}\`` : '',
+    recommendMqProduction ? `\`${production}\`` : '',
+  ].filter(Boolean).join(' and ');
+
+  info('Next (GitHub UI checklist):');
+  info(`- Branch/rules: ${base}/settings/rules`);
+  info(`- Security & analysis: ${base}/settings/security_analysis`);
+  info(`- Environments (deploy approvals + secrets): ${base}/settings/environments`);
+  info(`- Actions variables: ${base}/settings/variables/actions`);
+  if (mqTargets) {
+    info(`- Merge Queue (if available): enable for ${mqTargets} in rulesets (workflows already support \`merge_group\`).`);
+  } else {
+    info('- Merge Queue (optional): enable in rulesets if your plan supports it (workflows already support `merge_group`).');
+  }
+  info('- CODEOWNERS: add `.github/CODEOWNERS` in the target repo so code owner review rules can apply.');
+  info('- Docs: see docs/ops/runbooks/BASELINE_BOOTSTRAP.md and docs/ops/runbooks/DEPLOYMENT.md');
+}
+
 async function ghSetRepoVariable({ cwd, owner, repo, host, name, value, dryRun }) {
   const n = toString(name);
   const v = toString(value);
@@ -571,6 +606,7 @@ async function main() {
       '  --merge-queue-production   Recommend enabling Merge Queue on production branch (manual)',
       '  --enableBackport=<0|1>     Set BACKPORT_ENABLED repo var (when --github)',
       '  --enableSecurity=<0|1>     Set SECURITY_ENABLED repo var (when --github)',
+      '  --enableDeploy=<0|1>       Set DEPLOY_ENABLED repo var (when --github)',
       '',
     ].join('\n'));
     return;
@@ -713,9 +749,11 @@ async function main() {
 
     const enableBackport = args.enableBackport == null ? !!policy.github.enable_backport_default : !!args.enableBackport;
     const enableSecurity = args.enableSecurity == null ? !!policy.github.enable_security_default : !!args.enableSecurity;
+    const enableDeploy = args.enableDeploy == null ? !!policy.github.enable_deploy_default : !!args.enableDeploy;
 
     await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'BACKPORT_ENABLED', value: enableBackport ? '1' : '0', dryRun: args.dryRun });
     await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'SECURITY_ENABLED', value: enableSecurity ? '1' : '0', dryRun: args.dryRun });
+    await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'DEPLOY_ENABLED', value: enableDeploy ? '1' : '0', dryRun: args.dryRun });
     await ghSetRepoVariable({ cwd: targetRoot, owner, repo, host: actualHost, name: 'EVIDENCE_SOURCE_BRANCH', value: integration, dryRun: args.dryRun });
 
     // Rulesets (branch protection).
@@ -755,6 +793,8 @@ async function main() {
         '- Workflows already include `merge_group` triggers so required checks can run under Merge Queue.'
       );
     }
+
+    printGitHubUiChecklist({ host: actualHost, owner, repo, integration, production, policy });
 
     info('GitHub: provisioning complete.');
   } else {
