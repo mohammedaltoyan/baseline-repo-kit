@@ -25,12 +25,14 @@ Branch rules (recommended)
   - Require required checks.
   - Require at least 1 approving review (recommended baseline default).
   - Require code owner review (recommended baseline default when CODEOWNERS exists).
+  - Allowed merge method: squash-only (keeps integration history clean and avoids merge commits into `dev`).
   - Enable GitHub Merge Queue to serialize merges safely when multiple PRs are active.
 - Protect `main` (production):
   - Require PRs (no direct pushes).
   - Require required checks.
   - Require at least 1 approving review (recommended baseline default).
   - Require code owner review (recommended baseline default when CODEOWNERS exists).
+  - Allowed merge method: merge-commit-only (prevents recurring `dev` -> `main` conflicts caused by squash releases).
   - Only accept changes via:
     - Release PR: `dev` -> `main`
     - Hotfix PR: `hotfix/*` -> `main` (and backport to `dev`)
