@@ -5,6 +5,9 @@
 - `Plan: PLAN-YYYYMM-<slug>`
 - `Step: Sxx`
 
+Exception (recommended):
+- Dependency automation PRs (Dependabot/Renovate) targeting the integration branch may bypass Plan/Step to keep security and dependency updates flowing. This baseline enforces this in `scripts/ops/pr-policy-validate.js`.
+
 Rule of thumb:
 - `Step: S00` is plan-only (docs/ops/plans changes only).
 - Any code/config change should reference the current plan step/phase and include matching docs/tests as required by the plan.
@@ -52,7 +55,7 @@ Hotfix backport note (required for `hotfix/*` -> `main`):
 
 - `npm test`
 - Optional: `npm run docs:clean` (report-only) or `DOCS_CLEAN_WRITE=1 npm run docs:clean` (apply)
-- Optional (deeper): `npm run test:deep` (installs baseline into temp repos and runs gates)
+- Optional (deeper): `npm run test:deep` (E2E: installs baseline into temp repos, runs `npm test`, and runs local bootstrap)
 - Optional: `npm run pr:ready -- PLAN-YYYYMM-<slug> require-clean`
 
 ## Plan gates

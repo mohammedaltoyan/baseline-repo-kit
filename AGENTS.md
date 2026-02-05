@@ -60,7 +60,7 @@ If your system has multiple override scopes (multi-tenant, multi-client, multi-s
 - If GitHub Merge Queue is enabled:
   - Do not re-queue repeatedly. Queue once and wait for completion in order.
   - Do not push new commits while queued (it invalidates the queue run). If changes are required, update the branch, then queue once.
-  - Do not “spam” update/queue actions; let the queue proceed and only intervene when a run completes/fails.
+  - Do not spam update/queue actions; let the queue proceed and only intervene when a run completes/fails.
 
 ## Mandatory Plan Gate (No Edits Without a Plan) (Must)
 

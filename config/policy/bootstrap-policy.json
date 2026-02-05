@@ -6,8 +6,9 @@
     "set_default_branch_to_integration": true,
     "enable_backport_default": true,
     "enable_security_default": false,
-    "enable_merge_queue_integration": true,
-    "enable_merge_queue_production": false,
+    "enable_deploy_default": false,
+    "recommend_merge_queue_integration": true,
+    "recommend_merge_queue_production": false,
     "required_check_workflows": [
       ".github/workflows/ci.yml",
       ".github/workflows/pr-policy.yml"
@@ -26,25 +27,50 @@
       "pull_request": {
         "allowed_merge_methods": ["squash"],
         "dismiss_stale_reviews_on_push": true,
-        "require_code_owner_review": false,
+        "require_code_owner_review": true,
         "require_last_push_approval": false,
         "required_approving_review_count": 1,
         "required_review_thread_resolution": true
       },
+      "merge_queue": {
+        "parameters": {
+          "check_response_timeout_minutes": 60,
+          "grouping_strategy": "HEADGREEN",
+          "max_entries_to_build": 5,
+          "max_entries_to_merge": 5,
+          "merge_method": "SQUASH",
+          "min_entries_to_merge": 1,
+          "min_entries_to_merge_wait_minutes": 5
+        }
+      },
       "required_status_checks": {
         "do_not_enforce_on_create": false,
         "strict_required_status_checks_policy": true
-      },
-      "merge_queue": {
-        "check_response_timeout_minutes": 60,
-        "grouping_strategy": "ALLGREEN",
-        "max_entries_to_build": 5,
-        "max_entries_to_merge": 5,
-        "merge_method": "SQUASH",
-        "min_entries_to_merge": 1,
-        "min_entries_to_merge_wait_minutes": 0
       }
+    },
+    "repo_settings": {
+      "delete_branch_on_merge": true
+    },
+    "labels": {
+      "enabled": true,
+      "update_existing": false,
+      "policy_path": "config/policy/github-labels.json"
+    },
+    "security": {
+      "enabled": true,
+      "enable_vulnerability_alerts": true,
+      "enable_automated_security_fixes": true,
+      "security_and_analysis": {
+        "secret_scanning": "enabled",
+        "secret_scanning_push_protection": "enabled"
+      }
+    },
+    "environments": {
+      "enabled": true,
+      "defaults": [
+        { "name": "staging", "branches": ["$integration"], "wait_timer": 0 },
+        { "name": "production", "branches": ["$production"], "wait_timer": 0 }
+      ]
     }
   }
 }
-

@@ -32,22 +32,26 @@ function run() {
     repoRoot,
     workflowPaths: policy.github.required_check_workflows,
   });
-  assert.ok(contexts.includes('CI / test'), `expected required checks to include "CI / test" (got: ${contexts.join(', ')})`);
-  assert.ok(contexts.includes('PR Policy / validate'), `expected required checks to include "PR Policy / validate" (got: ${contexts.join(', ')})`);
+  assert.ok(contexts.includes('test'), `expected required checks to include "test" (got: ${contexts.join(', ')})`);
+  assert.ok(contexts.includes('validate'), `expected required checks to include "validate" (got: ${contexts.join(', ')})`);
 
   // Ruleset body shape.
   const ruleset = buildRulesetBody({
     name: 'baseline: integration',
     branch: 'dev',
     enforcement: 'active',
-    requiredContexts: ['CI / test'],
+    requiredContexts: ['test'],
     includeMergeQueue: true,
     policy,
   });
   assert.strictEqual(ruleset.target, 'branch');
   assert.strictEqual(ruleset.enforcement, 'active');
   assert.deepStrictEqual(ruleset.conditions.ref_name.include, ['refs/heads/dev']);
-  assert.ok(Array.isArray(ruleset.rules) && ruleset.rules.length >= 2);
+  assert.ok(Array.isArray(ruleset.rules) && ruleset.rules.length >= 3);
+  assert.ok(
+    ruleset.rules.some((r) => String(r?.type || '') === 'merge_queue'),
+    'expected ruleset to include merge_queue rule when includeMergeQueue=true'
+  );
 
   console.log('[baseline-bootstrap:selftest] OK');
 }
@@ -57,4 +61,3 @@ if (require.main === module) {
 }
 
 module.exports = { run };
-

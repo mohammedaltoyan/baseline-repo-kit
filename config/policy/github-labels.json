@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "labels": [
+    { "name": "plans", "color": "5319e7", "description": "Canonical planning system changes" },
+    { "name": "ops", "color": "0052cc", "description": "Operational tooling and runbooks" },
+    { "name": "tooling", "color": "1d76db", "description": "Repo tooling and automation" },
+    { "name": "ci", "color": "cfd3d7", "description": "CI and repository policy" },
+    { "name": "docs", "color": "0e8a16", "description": "Documentation changes" },
+    { "name": "backend", "color": "fbca04", "description": "Backend app changes (apps/backend)" },
+    { "name": "frontend", "color": "f9d0c4", "description": "Frontend app changes (apps/frontend)" },
+    { "name": "packages", "color": "d4c5f9", "description": "Shared packages changes (packages/)" }
+  ]
+}
+
