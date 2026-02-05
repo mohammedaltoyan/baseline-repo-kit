@@ -9,7 +9,21 @@ This baseline is intentionally vendor-agnostic. Deployment is **project-specific
 - Use GitHub **Environments** for approvals + scoped secrets.
 - Avoid hardcoding environment details in code; use configuration and environment variables.
 
-## Recommended GitHub setup (UI)
+## Recommended GitHub setup (CLI-first)
+
+Preferred: use the baseline bootstrap which provisions environments best-effort:
+
+- `npm run baseline:bootstrap -- --to <repo> --mode overlay --overwrite --github`
+
+By default, bootstrap:
+- Creates `staging` and `production` environments (if missing).
+- Adds deployment branch policies derived from `config/policy/branch-policy.json` (integration -> `staging`, production -> `production`).
+
+Verify via CLI:
+- `gh api /repos/<owner>/<repo>/environments`
+- `gh api /repos/<owner>/<repo>/environments/production/deployment-branch-policies`
+
+## Manual GitHub setup (UI fallback)
 
 1) Create environments:
    - Settings  ->  Environments  ->  New environment
