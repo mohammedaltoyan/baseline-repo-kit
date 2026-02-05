@@ -28,23 +28,23 @@ This baseline kit is a SSOT that can be installed into any new project repo. The
 
 Local-only bootstrap (no GitHub):
 
-- `npm run baseline:bootstrap -- --to <target-path>`
+- `npm run baseline:bootstrap -- -- --to <target-path>`
 
 Bootstrap + GitHub provisioning (creates repo if missing, applies repo settings + rulesets + variables):
 
-- `npm run baseline:bootstrap -- --to <target-path> --github`
+- `npm run baseline:bootstrap -- -- --to <target-path> --github`
 
 Update an existing repo from baseline SSOT (overwrite baseline-managed files; never deletes target files):
 
-- `npm run baseline:bootstrap -- --to <target-path> --mode overlay --overwrite --github`
+- `npm run baseline:bootstrap -- -- --to <target-path> --mode overlay --overwrite --github`
 
 Active repo (protected branches) adoption (recommended):
 
-- `npm run baseline:bootstrap -- --to <target-path> --mode overlay --overwrite --github --adopt --reviewers <user-or-team> --auto-merge`
+- `npm run baseline:bootstrap -- -- --to <target-path> --mode overlay --overwrite --github --adopt --reviewers <user-or-team> --auto-merge`
 
 Dry-run preview (no writes):
 
-- `npm run baseline:bootstrap -- --to <target-path> --dry-run --github`
+- `npm run baseline:bootstrap -- -- --to <target-path> --dry-run --github`
 
 ## Non-destructive guarantees
 

@@ -10,7 +10,8 @@
  * - Optionally scaffolds local env files from templates.
  *
  * Usage:
- *   npm run baseline:bootstrap -- --to <path> [--mode init|overlay] [--overwrite] [--dry-run] [--github]
+ *   npm run baseline:bootstrap -- -- --to <path> [--mode init|overlay] [--overwrite] [--dry-run] [--github]
+ *   node scripts/tooling/baseline-bootstrap.js --to <path> [--mode init|overlay] [--overwrite] [--dry-run] [--github]
  */
 /* eslint-disable no-console */
 'use strict';
@@ -57,6 +58,59 @@ function info(msg) {
 
 function toString(value) {
   return String(value == null ? '' : value).trim();
+}
+
+function toOptionKey(value) {
+  const raw = toString(value);
+  if (!raw) return '';
+  return raw
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/_/g, '-')
+    .replace(/^-+/, '')
+    .toLowerCase();
+}
+
+function isBooleanLikeToken(value) {
+  const v = toString(value).toLowerCase();
+  return v === '1' || v === '0' || v === 'true' || v === 'false';
+}
+
+function nonBooleanString(value) {
+  const v = toString(value);
+  if (!v) return '';
+  if (isBooleanLikeToken(v)) return '';
+  return v;
+}
+
+function readNpmConfigArgsFromEnv(env = process.env) {
+  const source = env && typeof env === 'object' ? env : {};
+  const out = {};
+
+  for (const [rawKey, rawValue] of Object.entries(source)) {
+    if (!/^npm_config_/i.test(rawKey)) continue;
+    const key = toOptionKey(rawKey.slice('npm_config_'.length));
+    if (!key) continue;
+    const value = toString(rawValue);
+    out[key] = value === '' ? '1' : value;
+  }
+
+  return out;
+}
+
+function pickArgValue({ args, npmConfig, keys }) {
+  const cli = args && typeof args === 'object' ? args : {};
+  const envArgs = npmConfig && typeof npmConfig === 'object' ? npmConfig : {};
+  const keyList = Array.isArray(keys) ? keys : [];
+
+  for (const key of keyList) {
+    if (Object.prototype.hasOwnProperty.call(cli, key)) return cli[key];
+  }
+  for (const key of keyList) {
+    const normalized = toOptionKey(key);
+    if (!normalized) continue;
+    if (Object.prototype.hasOwnProperty.call(envArgs, normalized)) return envArgs[normalized];
+  }
+  return undefined;
 }
 
 function createRunSummary({ dryRun, verbose }) {
@@ -317,36 +371,54 @@ function loadBootstrapPolicy(sourceRoot) {
 
 function parseArgs(argv) {
   const args = parseFlagArgs(argv);
+  const npmConfig = readNpmConfigArgsFromEnv();
   const positionals = Array.isArray(args._) ? args._.map((v) => toString(v)).filter(Boolean) : [];
+  const positionalTo = toString(positionals[0] || '');
+  const positionalMode = normalizeMode(positionals[1] || '');
+  const toRaw = pickArgValue({ args, npmConfig, keys: ['to', 't'] });
+  const modeRaw = pickArgValue({ args, npmConfig, keys: ['mode'] });
+  const reviewersRaw = pickArgValue({ args, npmConfig, keys: ['reviewers', 'reviewer'] });
+  const hostRaw = pickArgValue({ args, npmConfig, keys: ['host'] });
+  const ownerRaw = pickArgValue({ args, npmConfig, keys: ['owner'] });
+  const repoRaw = pickArgValue({ args, npmConfig, keys: ['repo'] });
+  const visibilityRaw = pickArgValue({ args, npmConfig, keys: ['visibility'] });
+  const mainApproversRaw = pickArgValue({ args, npmConfig, keys: ['main-approvers', 'mainApprovers', 'main_approvers'] });
+
+  const enableBackportRaw = pickArgValue({ args, npmConfig, keys: ['enableBackport', 'enable-backport', 'enable_backport'] });
+  const enableSecurityRaw = pickArgValue({ args, npmConfig, keys: ['enableSecurity', 'enable-security', 'enable_security'] });
+  const enableDeployRaw = pickArgValue({ args, npmConfig, keys: ['enableDeploy', 'enable-deploy', 'enable_deploy'] });
+  const hardeningLabelsRaw = pickArgValue({ args, npmConfig, keys: ['hardening-labels', 'hardeningLabels', 'hardening_labels'] });
+  const hardeningSecurityRaw = pickArgValue({ args, npmConfig, keys: ['hardening-security', 'hardeningSecurity', 'hardening_security'] });
+  const hardeningEnvironmentsRaw = pickArgValue({ args, npmConfig, keys: ['hardening-environments', 'hardeningEnvironments', 'hardening_environments'] });
 
   const out = {
-    to: toString(args.to || args.t || positionals[0] || ''),
-    mode: normalizeMode(args.mode || ''),
-    overwrite: isTruthy(args.overwrite),
-    dryRun: isTruthy(args['dry-run'] || args.dryRun),
-    verbose: isTruthy(args.verbose),
-    github: isTruthy(args.github),
-    adopt: isTruthy(args.adopt),
-    reviewers: toString(args.reviewers || args.reviewer || ''),
-    autoMerge: isTruthy(args['auto-merge'] || args.autoMerge),
-    requireClean: isTruthy(args['require-clean'] || args.requireClean),
-    host: toString(args.host || ''),
-    owner: toString(args.owner || ''),
-    repo: toString(args.repo || ''),
-    visibility: normalizeVisibility(args.visibility || ''),
-    yes: isTruthy(args.yes || args.y),
-    nonInteractive: isTruthy(args['non-interactive'] || args.nonInteractive),
-    skipEnv: isTruthy(args['skip-env'] || args.skipEnv),
-    skipTests: isTruthy(args['skip-tests'] || args.skipTests || args.noTests),
-    mergeQueueProduction: isTruthy(args['merge-queue-production'] || args.mergeQueueProduction),
-    mainApprovers: toString(args['main-approvers'] || args.mainApprovers || ''),
-    enableBackport: args.enableBackport === undefined ? null : isTruthy(args.enableBackport),
-    enableSecurity: args.enableSecurity === undefined ? null : isTruthy(args.enableSecurity),
-    enableDeploy: args.enableDeploy === undefined ? null : isTruthy(args.enableDeploy),
-    hardeningLabels: args['hardening-labels'] === undefined ? null : isTruthy(args['hardening-labels']),
-    hardeningSecurity: args['hardening-security'] === undefined ? null : isTruthy(args['hardening-security']),
-    hardeningEnvironments: args['hardening-environments'] === undefined ? null : isTruthy(args['hardening-environments']),
-    help: isTruthy(args.help || args.h),
+    to: toString(nonBooleanString(toRaw) || positionalTo || ''),
+    mode: normalizeMode(modeRaw || '') || positionalMode || '',
+    overwrite: isTruthy(pickArgValue({ args, npmConfig, keys: ['overwrite'] })),
+    dryRun: isTruthy(pickArgValue({ args, npmConfig, keys: ['dry-run', 'dryRun', 'dry_run'] })),
+    verbose: isTruthy(pickArgValue({ args, npmConfig, keys: ['verbose'] })),
+    github: isTruthy(pickArgValue({ args, npmConfig, keys: ['github'] })),
+    adopt: isTruthy(pickArgValue({ args, npmConfig, keys: ['adopt'] })),
+    reviewers: toString(nonBooleanString(reviewersRaw) || ''),
+    autoMerge: isTruthy(pickArgValue({ args, npmConfig, keys: ['auto-merge', 'autoMerge', 'auto_merge'] })),
+    requireClean: isTruthy(pickArgValue({ args, npmConfig, keys: ['require-clean', 'requireClean', 'require_clean'] })),
+    host: toString(nonBooleanString(hostRaw) || ''),
+    owner: toString(nonBooleanString(ownerRaw) || ''),
+    repo: toString(nonBooleanString(repoRaw) || ''),
+    visibility: normalizeVisibility(nonBooleanString(visibilityRaw) || ''),
+    yes: isTruthy(pickArgValue({ args, npmConfig, keys: ['yes', 'y'] })),
+    nonInteractive: isTruthy(pickArgValue({ args, npmConfig, keys: ['non-interactive', 'nonInteractive', 'non_interactive'] })),
+    skipEnv: isTruthy(pickArgValue({ args, npmConfig, keys: ['skip-env', 'skipEnv', 'skip_env'] })),
+    skipTests: isTruthy(pickArgValue({ args, npmConfig, keys: ['skip-tests', 'skipTests', 'skip_tests', 'noTests', 'no-tests', 'no_tests'] })),
+    mergeQueueProduction: isTruthy(pickArgValue({ args, npmConfig, keys: ['merge-queue-production', 'mergeQueueProduction', 'merge_queue_production'] })),
+    mainApprovers: toString(nonBooleanString(mainApproversRaw) || ''),
+    enableBackport: enableBackportRaw === undefined ? null : isTruthy(enableBackportRaw),
+    enableSecurity: enableSecurityRaw === undefined ? null : isTruthy(enableSecurityRaw),
+    enableDeploy: enableDeployRaw === undefined ? null : isTruthy(enableDeployRaw),
+    hardeningLabels: hardeningLabelsRaw === undefined ? null : isTruthy(hardeningLabelsRaw),
+    hardeningSecurity: hardeningSecurityRaw === undefined ? null : isTruthy(hardeningSecurityRaw),
+    hardeningEnvironments: hardeningEnvironmentsRaw === undefined ? null : isTruthy(hardeningEnvironmentsRaw),
+    help: isTruthy(pickArgValue({ args, npmConfig, keys: ['help', 'h'] })),
   };
 
   return out;
@@ -1476,7 +1548,7 @@ async function ghUpsertRuleset({ cwd, host, owner, repo, desired, dryRun }) {
         'Hint: Rulesets/branch protection may be restricted on private personal repos. Options:\n' +
         '- Make the repository public, or\n' +
         '- Upgrade your GitHub plan / use an organization repo with the required plan.\n' +
-        'After fixing, re-run: npm run baseline:bootstrap -- --to <target> --mode overlay --overwrite --github'
+        'After fixing, re-run: npm run baseline:bootstrap -- -- --to <target> --mode overlay --overwrite --github'
       );
     }
     throw new Error(`Failed to ${method} ruleset ${name}: ${msg}`);
@@ -1508,7 +1580,8 @@ async function main() {
       'baseline:bootstrap',
       '',
       'Usage:',
-      '  npm run baseline:bootstrap -- --to <path> [--mode init|overlay] [--overwrite] [--dry-run] [--github]',
+      '  npm run baseline:bootstrap -- -- --to <path> [--mode init|overlay] [--overwrite] [--dry-run] [--github]',
+      '  node scripts/tooling/baseline-bootstrap.js --to <path> [--mode init|overlay] [--overwrite] [--dry-run] [--github]',
       '',
       'Flags:',
       '  --to, -t                   Target path (required)',
@@ -1638,6 +1711,14 @@ async function main() {
   const hadCommitBefore = hadGitDirBefore ? await gitHasCommit({ cwd: targetRoot }) : false;
 
   await summaryStep(runSummary, 'Git: init/commit/branches', async (step) => {
+    if (args.dryRun && !isDirectory(targetRoot)) {
+      info(`[dry-run] git init -b ${production}`);
+      info(`[dry-run] git branch ${integration} ${production}`);
+      info(`[dry-run] git checkout ${integration}`);
+      step.note = `integration=${integration}, production=${production}, dry-run (target not created)`;
+      return;
+    }
+
     if (!hadGitDirBefore) {
       if (args.dryRun) info(`[dry-run] git init -b ${production}`);
       else await run('git', ['init', '-b', production], { cwd: targetRoot });
@@ -2085,6 +2166,7 @@ module.exports = {
   deriveRequiredCheckContexts,
   loadBootstrapPolicy,
   normalizeEnvironmentReviewerSpecs,
+  parseArgs,
   parseRemoteRepoSlug,
   parseWorkflowChecks,
   resolvePolicyTemplateToken,

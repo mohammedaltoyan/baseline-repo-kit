@@ -19,12 +19,12 @@ Preferred: use the bootstrap so new repos are fully ready (local + optional GitH
 From this baseline repo:
 
 1. Bootstrap a new/existing repo (recommended):
-   - Local-only: `npm run baseline:bootstrap -- --to <target-path>`
-   - With GitHub provisioning: `npm run baseline:bootstrap -- --to <target-path> --github`
-   - Active repo (protected branches): `npm run baseline:bootstrap -- --to <target-path> --mode overlay --overwrite --github --adopt`
+   - Local-only: `npm run baseline:bootstrap -- -- --to <target-path>`
+   - With GitHub provisioning: `npm run baseline:bootstrap -- -- --to <target-path> --github`
+   - Active repo (protected branches): `npm run baseline:bootstrap -- -- --to <target-path> --mode overlay --overwrite --github --adopt`
 2. Update an existing target repo from the baseline SSOT (no deletes; overwrite baseline-managed files):
-   - Preview: `npm run baseline:bootstrap -- --to <target-path> --mode overlay --overwrite --dry-run --github`
-   - Apply: `npm run baseline:bootstrap -- --to <target-path> --mode overlay --overwrite --github`
+   - Preview: `npm run baseline:bootstrap -- -- --to <target-path> --mode overlay --overwrite --dry-run --github`
+   - Apply: `npm run baseline:bootstrap -- -- --to <target-path> --mode overlay --overwrite --github`
 3. In the target repo (if you skipped tests):
    - Run gates: `npm test`
    - Create a canonical plan: `npm run plans:new -- <slug> "<title>" '@owner' in_progress`
