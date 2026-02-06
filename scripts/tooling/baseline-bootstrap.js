@@ -1030,6 +1030,8 @@ function resolvePolicyTemplateToken(raw, { owner, personalLogin }) {
   if (v === '$personal_login') return p;
   if (v === '$repo_owner_user') {
     if (o && p && o.toLowerCase() === p.toLowerCase()) return o;
+    // Org-owned repos should still resolve to an actionable user when available.
+    if (p) return p;
     return '';
   }
   return v;
@@ -1218,10 +1220,45 @@ async function ghUpsertEnvironment({
     return;
   }
 
-  const res = await ghApiJson({ cwd, host, method: 'PUT', endpoint, body });
-  if (!res.ok) {
+  const attemptBody = { ...body };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const res = await ghApiJson({ cwd, host, method: 'PUT', endpoint, body: attemptBody });
+    if (res.ok) return;
+
+    const rawMsg = `${res.stderr || ''}\n${res.stdout || ''}`.trim();
+    const waitTimerUnsupported =
+      Object.prototype.hasOwnProperty.call(attemptBody, 'wait_timer') &&
+      /wait timer protection rule/i.test(rawMsg);
+    if (waitTimerUnsupported) {
+      delete attemptBody.wait_timer;
+      warn(
+        `Environment "${env}" does not support wait_timer on this plan/repo. ` +
+        'Retrying without wait_timer.'
+      );
+      continue;
+    }
+
+    const reviewersUnsupported =
+      Array.isArray(attemptBody.reviewers) &&
+      attemptBody.reviewers.length > 0 &&
+      /required reviewers protection rule/i.test(rawMsg);
+    if (reviewersUnsupported) {
+      delete attemptBody.reviewers;
+      if (Object.prototype.hasOwnProperty.call(attemptBody, 'prevent_self_review')) {
+        delete attemptBody.prevent_self_review;
+      }
+      warn(
+        `Environment "${env}" does not support required reviewers protection on this plan/repo. ` +
+        'Retrying without reviewer gating.'
+      );
+      continue;
+    }
+
     warn(`Unable to upsert environment "${env}". ${res.stderr || res.stdout || ''}`.trim());
+    return;
   }
+
+  warn(`Unable to upsert environment "${env}" after fallback retries.`);
 }
 
 async function ghListDeploymentBranchPolicies({ cwd, host, owner, repo, environment }) {
