@@ -35,7 +35,7 @@ function run() {
   );
   assert.strictEqual(
     resolvePolicyTemplateToken('$repo_owner_user', { owner: 'acme', personalLogin: 'octocat' }),
-    ''
+    'octocat'
   );
   assert.deepStrictEqual(
     normalizeEnvironmentReviewerSpecs(

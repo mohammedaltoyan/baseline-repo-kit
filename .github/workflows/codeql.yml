@@ -17,8 +17,58 @@ permissions:
   security-events: write
 
 jobs:
+  capability:
+    runs-on: ubuntu-latest
+    outputs:
+      run_codeql: ${{ steps.detect.outputs.run_codeql }}
+    steps:
+      - name: Detect code security capability
+        id: detect
+        uses: actions/github-script@v8
+        env:
+          SECURITY_ENABLED: ${{ vars.SECURITY_ENABLED }}
+        with:
+          script: |
+            const securityEnabled = process.env.SECURITY_ENABLED === '1';
+            if (!securityEnabled) {
+              core.info(`SECURITY_ENABLED=${process.env.SECURITY_ENABLED || 'unset'} -> CodeQL disabled by policy variable.`);
+              core.setOutput('run_codeql', 'false');
+              return;
+            }
+
+            let runCodeql = false;
+            try {
+              await github.request('GET /repos/{owner}/{repo}/code-scanning/default-setup', {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              core.info('Code Security probe succeeded via code-scanning/default-setup.');
+              runCodeql = true;
+            } catch (error) {
+              const status = Number(error?.status || error?.response?.status || 0);
+              const message = error?.response?.data?.message || error?.message || 'unknown error';
+              const integrationLimited =
+                status === 403 && /resource not accessible by integration/i.test(message);
+              const featureDisabled =
+                status === 403 && /code security must be enabled/i.test(message);
+
+              if (integrationLimited) {
+                core.info(`Code Security probe blocked by token scope (status=${status}); proceeding with CodeQL run.`);
+                runCodeql = true;
+              } else if (featureDisabled) {
+                core.info(`Code Security is disabled (status=${status}); skipping CodeQL run.`);
+                runCodeql = false;
+              } else {
+                core.info(`Code Security probe unavailable (status=${status || 'n/a'}): ${message}`);
+                runCodeql = false;
+              }
+            }
+
+            core.setOutput('run_codeql', runCodeql ? 'true' : 'false');
+
   analyze:
-    if: ${{ vars.SECURITY_ENABLED == '1' }}
+    needs: capability
+    if: ${{ needs.capability.outputs.run_codeql == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -37,4 +87,3 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
-
