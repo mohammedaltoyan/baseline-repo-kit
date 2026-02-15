@@ -148,6 +148,12 @@ When working on frontend UI/UX:
 - Target repos receive a small lock file `config/baseline/baseline.lock.json` to record the selected profile so overlay updates remain deterministic.
 - Profiles may define `bootstrap_defaults` (for example `enableDeploy`, `enableSecurity`, hardening toggles) that apply when bootstrap flags are omitted.
 
+## Deploy Isolation (GitHub Environments)
+
+- Default deploy workflow targets **component-scoped** GitHub Environments (for isolation) resolved from repo variables:
+  - `DEPLOY_ENV_<COMPONENT>_<TIER>` (example: `DEPLOY_ENV_APPLICATION_STAGING=application-staging`)
+- Bootstrap can provision these environments and their deployment branch policies (best-effort; SSOT: `config/policy/bootstrap-policy.json`).
+
 ## Commit & Pull Request Guidelines (Recommended)
 
 - Keep commits and PRs scoped and phase-aligned.

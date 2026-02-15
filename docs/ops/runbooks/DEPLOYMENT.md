@@ -17,28 +17,36 @@ Preferred: use the baseline bootstrap which provisions environments best-effort:
 - `npm run baseline:bootstrap -- -- --to <repo> --mode overlay --overwrite --github`
 
 By default, bootstrap:
-- Creates `staging` and `production` environments (if missing).
-- Adds deployment branch policies derived from `config/policy/branch-policy.json` (integration -> `staging`, production -> `production`).
+- Creates component-scoped GitHub Environments (if missing), based on `DEPLOY_ENV_<COMPONENT>_<TIER>` repo variables.
+- Default environment names (policy defaults):
+  - `application-staging`, `application-production`
+  - `docs-staging`, `docs-production`
+  - `api-ingress-staging`, `api-ingress-production`
+- Adds deployment branch policies derived from `config/policy/branch-policy.json` (integration branch for `*-staging` envs; production branch for `*-production` envs).
 - Applies environment hardening when configured (`required_reviewers`, `prevent_self_review`, `can_admins_bypass`).
 - Sets deploy/release guard variables from SSOT policy (`config/policy/bootstrap-policy.json`).
 
 Verify via CLI:
 - `gh api /repos/<owner>/<repo>/environments`
-- `gh api /repos/<owner>/<repo>/environments/production/deployment-branch-policies`
+- `gh api /repos/<owner>/<repo>/environments/application-production/deployment-branch-policies`
 
 ## Manual GitHub setup (UI fallback)
 
 1) Create environments:
    - Settings  ->  Environments  ->  New environment
    - Create:
-     - `staging`
-     - `production`
+     - `application-staging`
+     - `application-production`
+     - `docs-staging` (optional)
+     - `docs-production` (optional)
+     - `api-ingress-staging` (optional)
+     - `api-ingress-production` (optional)
 
 2) Configure protections:
-   - `production`:
+   - `application-production` (and any other `*-production` env you use):
      - Require reviewers (release approvals)
      - Restrict branches/tags that can deploy (typically `main` only)
-   - `staging` (optional):
+   - `application-staging` (optional):
      - Restrict branches (typically `dev`)
 
 3) Configure environment secrets/vars:
@@ -64,7 +72,7 @@ If you choose to use GitHub Actions for deployment:
 - Enable the baseline deployment workflow by setting repo variable: `DEPLOY_ENABLED=1`.
 - Workflow template: `.github/workflows/deploy.yml` (manual dispatch; calls `scripts/deploy/deploy.sh`).
 - Production promotion workflow: `.github/workflows/promote-production.yml` (comment `/approve-prod` on merged production PR, or workflow dispatch).
-- Ensure the workflow targets the correct GitHub Environment (`staging`/`production`).
+- Baseline default: the workflow resolves the GitHub Environment from `DEPLOY_ENV_<COMPONENT>_<TIER>` repo variables (tier is still `staging|production`).
 - Keep permissions minimal (add OIDC `id-token: write` only when you actually use it).
 
 If your org has centralized deployment tooling, keep the workflow as a thin wrapper calling your SSOT deploy script.

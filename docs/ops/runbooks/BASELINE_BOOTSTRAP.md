@@ -30,6 +30,10 @@ Local-only bootstrap (no GitHub):
 
 - `npm run baseline:bootstrap -- -- --to <target-path>`
 
+Bootstrap with an install profile:
+
+- `npm run baseline:bootstrap -- -- --to <target-path> --profile enterprise`
+
 Bootstrap + GitHub provisioning (creates repo if missing, applies repo settings + rulesets + variables):
 
 - `npm run baseline:bootstrap -- -- --to <target-path> --github`
@@ -84,6 +88,8 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - `BACKPORT_ENABLED` (default: `1`)
   - `SECURITY_ENABLED` (default: `0`)
   - `DEPLOY_ENABLED` (default: `0`)
+  - Deploy environment mapping vars (used by `.github/workflows/deploy.yml`):
+    - `DEPLOY_ENV_<COMPONENT>_<TIER>` (example defaults: `DEPLOY_ENV_APPLICATION_STAGING=application-staging`, `DEPLOY_ENV_APPLICATION_PRODUCTION=application-production`)
   - `EVIDENCE_SOURCE_BRANCH` (set to integration branch)
   - `MAIN_REQUIRED_APPROVER_LOGINS` (default policy template: `$repo_owner_user`; can be overridden with `--main-approvers=<csv>`)
   - `MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK` (default: `1`, avoids solo-maintainer deadlocks)
@@ -99,6 +105,7 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - Bootstrap can enable vulnerability alerts + automated security fixes and patch `security_and_analysis` settings when supported by the repo/plan.
 - Environments (best-effort):
   - Bootstrap can create `staging` + `production` and add deployment branch policies derived from the branch policy SSOT.
+  - Bootstrap can also derive component-scoped deployment environments from `DEPLOY_ENV_*` repo variables (example: `application-staging`, `application-production`).
   - Bootstrap can apply environment reviewer policies (`required_reviewers`, `prevent_self_review`, `can_admins_bypass`) when configured.
 
 ## Post-bootstrap verification (UI or CLI)
