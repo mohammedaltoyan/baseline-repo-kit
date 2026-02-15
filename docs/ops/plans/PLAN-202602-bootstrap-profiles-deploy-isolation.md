@@ -34,5 +34,5 @@ Decisions & Notes
 - 2026-02-15 - Add profile/module selection to baseline install/bootstrap while keeping default behavior backward compatible.
 - 2026-02-15 - Deploy isolation will use component-scoped GitHub Environments by default (environment name derived from component + tier; overridable via repo vars).
 - 2026-02-15 - Add `DEPLOY_ENV_MAP_JSON` (JSON map) as the preferred SSOT for deploy environment naming and bootstrap provisioning; keep legacy `DEPLOY_ENV_<COMPONENT>_<TIER>` fallback.
-- PR: <add once opened>
+- PR: https://github.com/mohammedaltoyan/baseline-repo-kit/pull/34
 - CI Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/22038909732
