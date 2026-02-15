@@ -2,12 +2,19 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const {
   buildRulesetBody,
+  codeownersHasActiveRules,
+  detectCodeownersSelfReviewDeadlock,
   deriveRequiredCheckContexts,
+  ensureCodeownersFile,
   loadBootstrapPolicy,
+  normalizeCodeownerHandles,
   normalizeEnvironmentReviewerSpecs,
+  parseCodeownerHandlesFromContent,
   parseArgs,
   parseRemoteRepoSlug,
   resolvePolicyTemplateToken,
@@ -47,9 +54,78 @@ function run() {
       { kind: 'team', org: 'acme', slug: 'release-team' },
     ]
   );
+  assert.deepStrictEqual(
+    normalizeCodeownerHandles(['$repo_owner_user', '@acme/platform', 'octocat', '@acme/platform'], { owner: 'acme', personalLogin: 'octocat' }),
+    ['@octocat', '@acme/platform']
+  );
+  assert.strictEqual(
+    codeownersHasActiveRules('# comments only\n# /docs/** @docs-team\n'),
+    false
+  );
+  assert.strictEqual(
+    codeownersHasActiveRules('* @octocat\n'),
+    true
+  );
+  assert.deepStrictEqual(
+    parseCodeownerHandlesFromContent('/docs/** @acme/docs\n* @octocat # trailing comment', { owner: 'acme', personalLogin: 'octocat' }),
+    ['@acme/docs', '@octocat']
+  );
+  assert.deepStrictEqual(
+    detectCodeownersSelfReviewDeadlock({
+      policy: {
+        github: {
+          rules: {
+            pull_request: {
+              require_code_owner_review: true,
+              required_approving_review_count: 1,
+            },
+          },
+        },
+      },
+      handles: ['@octocat'],
+      actorLogin: 'octocat',
+    }),
+    { deadlock: true, reason: 'single-owner-is-pr-author:octocat' }
+  );
+  assert.strictEqual(
+    detectCodeownersSelfReviewDeadlock({
+      policy: {
+        github: {
+          rules: {
+            pull_request: {
+              require_code_owner_review: true,
+              required_approving_review_count: 1,
+            },
+          },
+        },
+      },
+      handles: ['@octocat', '@hubot'],
+      actorLogin: 'octocat',
+    }).deadlock,
+    false
+  );
+
+  const repoRoot = path.resolve(__dirname, '..', '..');
+
+  // CODEOWNERS provisioning: create missing file with resolved default owners.
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-codeowners-'));
+  try {
+    const result = ensureCodeownersFile({
+      repoRoot: tmpRoot,
+      policy: loadBootstrapPolicy(repoRoot).config,
+      owner: 'acme',
+      personalLogin: 'octocat',
+      codeownersOverride: '',
+      dryRun: false,
+    });
+    assert.strictEqual(result.wrote, true);
+    const generated = fs.readFileSync(path.join(tmpRoot, '.github', 'CODEOWNERS'), 'utf8');
+    assert.ok(/\* @octocat\b/.test(generated), 'expected generated CODEOWNERS to contain fallback owner @octocat');
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
 
   // Required check contexts derived from baseline workflows.
-  const repoRoot = path.resolve(__dirname, '..', '..');
   const policy = loadBootstrapPolicy(repoRoot).config;
   const contexts = deriveRequiredCheckContexts({
     repoRoot,
@@ -124,6 +200,7 @@ function run() {
     profile: process.env.npm_config_profile,
     dryRun: process.env.npm_config_dry_run,
     overwrite: process.env.npm_config_overwrite,
+    codeowners: process.env.npm_config_codeowners,
   };
   try {
     process.env.npm_config_to = 'C:\\temp\\target';
@@ -133,6 +210,7 @@ function run() {
     process.env.npm_config_profile = 'enterprise';
     process.env.npm_config_dry_run = '1';
     process.env.npm_config_overwrite = '1';
+    process.env.npm_config_codeowners = 'octocat,acme/platform';
 
     const parsed = parseArgs([]);
     assert.strictEqual(parsed.to, 'C:\\temp\\target');
@@ -142,6 +220,7 @@ function run() {
     assert.strictEqual(parsed.profile, 'enterprise');
     assert.strictEqual(parsed.dryRun, true);
     assert.strictEqual(parsed.overwrite, true);
+    assert.strictEqual(parsed.codeowners, 'octocat,acme/platform');
 
     process.env.npm_config_to = 'true';
     process.env.npm_config_mode = 'true';
@@ -169,6 +248,9 @@ function run() {
 
     if (previous.overwrite === undefined) delete process.env.npm_config_overwrite;
     else process.env.npm_config_overwrite = previous.overwrite;
+
+    if (previous.codeowners === undefined) delete process.env.npm_config_codeowners;
+    else process.env.npm_config_codeowners = previous.codeowners;
   }
 
   console.log('[baseline-bootstrap:selftest] OK');

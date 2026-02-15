@@ -10,6 +10,7 @@ Reusable, project-agnostic baseline: planning system + docs templates + repo gua
 - `scripts/` small reusable automation (plans + lint gates).
 - `config/` safe env templates and lint/policy config (including branch policy SSOT).
 - `.github/` CI + PR policy enforcement + release/promotion/deploy guard workflows + optional security automation templates.
+- Bootstrap-driven GitHub hardening (rulesets, environments, labels, and CODEOWNERS fallback provisioning).
 - Root policy templates: `.editorconfig`, `CONTRIBUTING.md`, `SECURITY.md`.
 
 ## How to use in a new project
@@ -22,6 +23,7 @@ From this baseline repo:
    - Local-only: `npm run baseline:bootstrap -- -- --to <target-path>`
    - Local-only (profile): `npm run baseline:bootstrap -- -- --to <target-path> --profile enterprise`
    - With GitHub provisioning: `npm run baseline:bootstrap -- -- --to <target-path> --github`
+   - With explicit code owners: `npm run baseline:bootstrap -- -- --to <target-path> --github --codeowners 'owner-login,org/platform-team'`
    - Active repo (protected branches): `npm run baseline:bootstrap -- -- --to <target-path> --mode overlay --overwrite --github --adopt`
 2. Update an existing target repo from the baseline SSOT (no deletes; overwrite baseline-managed files):
    - Preview: `npm run baseline:bootstrap -- -- --to <target-path> --mode overlay --overwrite --dry-run --github`

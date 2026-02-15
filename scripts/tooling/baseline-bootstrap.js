@@ -326,6 +326,12 @@ function defaultBootstrapPolicy() {
         update_existing: false,
         policy_path: 'config/policy/github-labels.json',
       },
+      codeowners: {
+        enabled: true,
+        create_if_missing: true,
+        replace_if_no_rules: true,
+        default_owners: ['$repo_owner_user'],
+      },
       security: {
         enabled: true,
         enable_vulnerability_alerts: true,
@@ -374,6 +380,7 @@ function loadBootstrapPolicy(sourceRoot) {
     ...((cfg.github.rules.merge_queue && cfg.github.rules.merge_queue.parameters) || {}),
   };
   cfg.github.labels = { ...d.github.labels, ...(cfg.github.labels || {}) };
+  cfg.github.codeowners = { ...d.github.codeowners, ...(cfg.github.codeowners || {}) };
   cfg.github.security = { ...d.github.security, ...(cfg.github.security || {}) };
   cfg.github.security.security_and_analysis = {
     ...d.github.security.security_and_analysis,
@@ -398,6 +405,7 @@ function parseArgs(argv) {
   const repoRaw = pickArgValue({ args, npmConfig, keys: ['repo'] });
   const visibilityRaw = pickArgValue({ args, npmConfig, keys: ['visibility'] });
   const mainApproversRaw = pickArgValue({ args, npmConfig, keys: ['main-approvers', 'mainApprovers', 'main_approvers'] });
+  const codeownersRaw = pickArgValue({ args, npmConfig, keys: ['codeowners', 'code-owners', 'code_owners'] });
   const profileRaw = pickArgValue({ args, npmConfig, keys: ['profile'] });
 
   const enableBackportRaw = pickArgValue({ args, npmConfig, keys: ['enableBackport', 'enable-backport', 'enable_backport'] });
@@ -429,6 +437,7 @@ function parseArgs(argv) {
     skipTests: isTruthy(pickArgValue({ args, npmConfig, keys: ['skip-tests', 'skipTests', 'skip_tests', 'noTests', 'no-tests', 'no_tests'] })),
     mergeQueueProduction: isTruthy(pickArgValue({ args, npmConfig, keys: ['merge-queue-production', 'mergeQueueProduction', 'merge_queue_production'] })),
     mainApprovers: toString(nonBooleanString(mainApproversRaw) || ''),
+    codeowners: toString(nonBooleanString(codeownersRaw) || ''),
     enableBackport: enableBackportRaw === undefined ? null : isTruthy(enableBackportRaw),
     enableSecurity: enableSecurityRaw === undefined ? null : isTruthy(enableSecurityRaw),
     enableDeploy: enableDeployRaw === undefined ? null : isTruthy(enableDeployRaw),
@@ -1054,6 +1063,232 @@ function resolvePolicyTemplateToken(raw, { owner, personalLogin }) {
   return v;
 }
 
+function normalizeCodeownerHandleToken(raw, { owner, personalLogin }) {
+  const resolved = resolvePolicyTemplateToken(raw, { owner, personalLogin });
+  let value = toString(resolved).trim();
+  if (!value) return '';
+  value = value.replace(/^@+/, '');
+  if (!value) return '';
+
+  if (value.includes('/')) {
+    const parts = value.split('/').filter(Boolean);
+    if (parts.length !== 2) return '';
+    const org = toString(parts[0]);
+    const slug = toString(parts[1]).toLowerCase();
+    if (!org || !slug) return '';
+    if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(org)) return '';
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,99})$/.test(slug)) return '';
+    return `@${org}/${slug}`;
+  }
+
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(value)) return '';
+  return `@${value}`;
+}
+
+function normalizeCodeownerHandles(raw, { owner, personalLogin }) {
+  const items = Array.isArray(raw)
+    ? raw
+    : toString(raw).split(',').map((v) => toString(v)).filter(Boolean);
+  const out = [];
+  const seen = new Set();
+
+  for (const item of items) {
+    const handle = normalizeCodeownerHandleToken(item, { owner, personalLogin });
+    if (!handle) continue;
+    const key = handle.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(handle);
+  }
+
+  return out;
+}
+
+function codeownersHasActiveRules(content) {
+  const text = toString(content);
+  if (!text) return false;
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    const uncommented = String(line || '').split('#', 1)[0].trim();
+    if (!uncommented) continue;
+    const parts = uncommented.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return true;
+  }
+  return false;
+}
+
+function parseCodeownerHandlesFromContent(content, { owner, personalLogin }) {
+  const text = toString(content);
+  if (!text) return [];
+  const out = [];
+  const seen = new Set();
+  const lines = text.split(/\r?\n/);
+
+  for (const line of lines) {
+    const uncommented = String(line || '').split('#', 1)[0].trim();
+    if (!uncommented) continue;
+    const parts = uncommented.split(/\s+/).filter(Boolean);
+    if (parts.length < 2) continue;
+    for (const token of parts.slice(1)) {
+      if (!token.startsWith('@')) continue;
+      const handle = normalizeCodeownerHandleToken(token, { owner, personalLogin });
+      if (!handle) continue;
+      const key = handle.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(handle);
+    }
+  }
+
+  return out;
+}
+
+function buildGeneratedCodeownersBody(handles) {
+  const list = Array.isArray(handles) ? handles.map((h) => toString(h)).filter(Boolean) : [];
+  return [
+    '# CODEOWNERS generated by baseline bootstrap.',
+    '# Replace or extend ownership rules for your repository domains.',
+    '',
+    `* ${list.join(' ')}`,
+    '',
+    '# Example path-scoped ownership (edit/remove as needed):',
+    '# /.github/** @platform-owners',
+    '# /docs/** @docs-owners',
+    '',
+  ].join('\n');
+}
+
+function detectCodeownersSelfReviewDeadlock({ policy, handles, actorLogin }) {
+  const rules = policy && policy.github && policy.github.rules && policy.github.rules.pull_request
+    ? policy.github.rules.pull_request
+    : {};
+  const requireCodeOwnerReview = !!rules.require_code_owner_review;
+  const requiredApprovals = Number(rules.required_approving_review_count || 0);
+  if (!requireCodeOwnerReview || !Number.isFinite(requiredApprovals) || requiredApprovals <= 0) {
+    return { deadlock: false, reason: 'review-not-required' };
+  }
+
+  const actor = toString(actorLogin).replace(/^@/, '').toLowerCase();
+  if (!actor) return { deadlock: false, reason: 'unknown-actor' };
+
+  const list = Array.isArray(handles) ? handles.map((h) => toString(h)).filter(Boolean) : [];
+  if (list.length === 0) return { deadlock: false, reason: 'no-codeowner-handles' };
+
+  const hasTeamOwners = list.some((h) => h.includes('/'));
+  if (hasTeamOwners) return { deadlock: false, reason: 'team-owner-present' };
+
+  const userOwners = Array.from(new Set(list.map((h) => h.replace(/^@/, '').toLowerCase())));
+  if (userOwners.length === 1 && userOwners[0] === actor) {
+    return { deadlock: true, reason: `single-owner-is-pr-author:${actor}` };
+  }
+
+  return { deadlock: false, reason: 'multiple-user-owners' };
+}
+
+function ensureCodeownersFile({ repoRoot, policy, owner, personalLogin, codeownersOverride, dryRun }) {
+  const cfg = policy && policy.github && policy.github.codeowners && typeof policy.github.codeowners === 'object'
+    ? policy.github.codeowners
+    : {};
+  const enabled = Object.prototype.hasOwnProperty.call(cfg, 'enabled') ? !!cfg.enabled : true;
+  if (!enabled) return { status: 'SKIP', note: 'disabled (policy)' };
+
+  const codeownersPath = path.join(repoRoot, '.github', 'CODEOWNERS');
+  const relCodeownersPath = path.relative(repoRoot, codeownersPath).replace(/\\/g, '/');
+  const createIfMissing = Object.prototype.hasOwnProperty.call(cfg, 'create_if_missing') ? !!cfg.create_if_missing : true;
+  const replaceIfNoRules = Object.prototype.hasOwnProperty.call(cfg, 'replace_if_no_rules') ? !!cfg.replace_if_no_rules : true;
+  const defaultOwners = Array.isArray(cfg.default_owners) ? cfg.default_owners : ['$repo_owner_user'];
+
+  const ownersSourceRaw = toString(codeownersOverride)
+    ? toString(codeownersOverride).split(',').map((v) => toString(v)).filter(Boolean)
+    : defaultOwners;
+  const owners = normalizeCodeownerHandles(ownersSourceRaw, { owner, personalLogin });
+  const ownersSource = toString(codeownersOverride) ? '--codeowners' : 'policy.github.codeowners.default_owners';
+
+  const exists = fs.existsSync(codeownersPath);
+  const current = exists ? fs.readFileSync(codeownersPath, 'utf8') : '';
+  const hasActiveRules = exists ? codeownersHasActiveRules(current) : false;
+
+  if (exists && hasActiveRules) {
+    const existingOwners = parseCodeownerHandlesFromContent(current, { owner, personalLogin });
+    const deadlock = detectCodeownersSelfReviewDeadlock({
+      policy,
+      handles: existingOwners,
+      actorLogin: personalLogin,
+    });
+    return {
+      status: 'SKIP',
+      note: `${relCodeownersPath} already has active rules`,
+      owners: existingOwners,
+      deadlock,
+      wrote: false,
+      source: 'existing',
+    };
+  }
+
+  if (exists && !replaceIfNoRules) {
+    return {
+      status: 'SKIP',
+      note: `${relCodeownersPath} has no active rules (replace disabled)`,
+      owners: [],
+      deadlock: { deadlock: false, reason: 'replace-disabled' },
+      wrote: false,
+      source: 'existing',
+    };
+  }
+
+  if (!exists && !createIfMissing) {
+    return {
+      status: 'SKIP',
+      note: `${relCodeownersPath} missing (create disabled)`,
+      owners: [],
+      deadlock: { deadlock: false, reason: 'create-disabled' },
+      wrote: false,
+      source: 'missing',
+    };
+  }
+
+  if (owners.length === 0) {
+    return {
+      status: 'SKIP',
+      note: `${relCodeownersPath} not written (no valid owners from ${ownersSource})`,
+      owners: [],
+      deadlock: { deadlock: false, reason: 'no-valid-owners' },
+      wrote: false,
+      source: ownersSource,
+    };
+  }
+
+  const body = buildGeneratedCodeownersBody(owners);
+  const deadlock = detectCodeownersSelfReviewDeadlock({
+    policy,
+    handles: owners,
+    actorLogin: personalLogin,
+  });
+
+  if (dryRun) {
+    info(`[dry-run] write ${relCodeownersPath} (${ownersSource})`);
+    return {
+      status: 'OK',
+      note: `dry-run (would write ${relCodeownersPath})`,
+      owners,
+      deadlock,
+      wrote: true,
+      source: ownersSource,
+    };
+  }
+
+  ensureDir(path.dirname(codeownersPath), false);
+  fs.writeFileSync(codeownersPath, body, 'utf8');
+  return {
+    status: 'OK',
+    note: `wrote ${relCodeownersPath}`,
+    owners,
+    deadlock,
+    wrote: true,
+    source: ownersSource,
+  };
+}
+
 function normalizeEnvironmentReviewerSpecs(raw, { owner, personalLogin }) {
   const out = [];
   const seen = new Set();
@@ -1614,7 +1849,8 @@ function printGitHubPostBootstrapChecklist({ host, owner, repo, integration, pro
   } else {
     info('- Merge Queue (optional): bootstrap attempts API enablement; confirm in rulesets if your plan supports it (workflows already support `merge_group`).');
   }
-  info('- CODEOWNERS: add `.github/CODEOWNERS` in the target repo so code owner review rules can apply.');
+  info('- CODEOWNERS: bootstrap provisions a fallback `.github/CODEOWNERS`; customize owners/paths as needed.');
+  info('  - Use `--codeowners=<csv>` (users/teams) to override fallback owners during bootstrap.');
   info('- Docs: see docs/ops/runbooks/BASELINE_BOOTSTRAP.md and docs/ops/runbooks/DEPLOYMENT.md');
 }
 
@@ -1791,6 +2027,7 @@ async function main() {
       '  --skip-tests               Do not run npm install/test in target',
       '  --merge-queue-production   Recommend enabling Merge Queue on production branch (manual)',
       '  --main-approvers=<csv>     Override MAIN_REQUIRED_APPROVER_LOGINS repo var (when --github)',
+      '  --codeowners=<csv>         Ensure .github/CODEOWNERS has fallback owners (users/teams)',
       '  --enableBackport=<0|1>     Set BACKPORT_ENABLED repo var (when --github)',
       '  --enableSecurity=<0|1>     Set SECURITY_ENABLED repo var (when --github)',
       '  --enableDeploy=<0|1>       Set DEPLOY_ENABLED repo var (when --github)',
@@ -2138,6 +2375,51 @@ async function main() {
       step.note = `${actualHost}/${owner}/${repo} (${state})`;
     });
 
+    await summaryStep(runSummary, 'GitHub: codeowners', async (step) => {
+      const result = ensureCodeownersFile({
+        repoRoot: targetRoot,
+        policy,
+        owner,
+        personalLogin,
+        codeownersOverride: args.codeowners,
+        dryRun: args.dryRun,
+      });
+
+      if (!result.wrote && result.source !== 'existing' && (!Array.isArray(result.owners) || result.owners.length === 0)) {
+        warn(
+          `CODEOWNERS was not provisioned (${result.note}). ` +
+          'Set --codeowners=<csv> or policy.github.codeowners.default_owners to valid GitHub users/teams.'
+        );
+      }
+
+      if (result.deadlock && result.deadlock.deadlock) {
+        warn(
+          'Potential review deadlock detected: CODEOWNERS resolves only to the authenticated actor while ' +
+          'required approvals + code-owner review are enabled. Use a separate automation account for PR authoring ' +
+          'or add at least one additional non-author code owner.'
+        );
+      }
+
+      if (result.wrote && !hadCommitBefore) {
+        if (args.dryRun) {
+          info('[dry-run] git add .github/CODEOWNERS');
+          info('[dry-run] git commit -m "chore: bootstrap codeowners defaults"');
+          info(`[dry-run] git push origin ${integration}`);
+          step.note = `${result.note}; dry-run (would commit/push to ${integration})`;
+          return;
+        }
+
+        await run('git', ['add', '.github/CODEOWNERS'], { cwd: targetRoot });
+        await run('git', ['commit', '-m', 'chore: bootstrap codeowners defaults'], { cwd: targetRoot });
+        await run('git', ['push', 'origin', integration], { cwd: targetRoot });
+        step.note = `${result.note}; committed/pushed on ${integration}`;
+        return;
+      }
+
+      if (result.status === 'SKIP') step.status = 'SKIP';
+      step.note = result.note;
+    });
+
     const hardeningLabelsDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'hardeningLabels')
       ? !!profileBootstrapDefaults.hardeningLabels
       : !!(policy.github.labels && policy.github.labels.enabled);
@@ -2406,9 +2688,14 @@ if (require.main === module) {
 
 module.exports = {
   buildRulesetBody,
+  codeownersHasActiveRules,
+  detectCodeownersSelfReviewDeadlock,
   deriveRequiredCheckContexts,
+  ensureCodeownersFile,
   loadBootstrapPolicy,
+  normalizeCodeownerHandles,
   normalizeEnvironmentReviewerSpecs,
+  parseCodeownerHandlesFromContent,
   parseArgs,
   parseRemoteRepoSlug,
   parseWorkflowChecks,

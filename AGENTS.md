@@ -156,6 +156,16 @@ When working on frontend UI/UX:
 - Bootstrap can provision these environments and their deployment branch policies (best-effort; SSOT: `config/policy/bootstrap-policy.json`).
   - Tier templates (`staging`, `production`) are used as policy templates; they are not created by default (`github.environments.create_tier_environments=false`).
 
+## Code Owner Review Automation (Baseline)
+
+- CODEOWNERS SSOT is policy-driven via `config/policy/bootstrap-policy.json` (`github.codeowners`).
+- `baseline:bootstrap --github` ensures fallback `.github/CODEOWNERS` ownership when missing/template-only:
+  - Default owners from `github.codeowners.default_owners` (default: `$repo_owner_user`)
+  - CLI override supported: `--codeowners=<csv>` (users and/or `org/team`)
+- Deadlock prevention is mandatory:
+  - If required approvals + code-owner review are enabled, PR author identity must be different from reviewer identity.
+  - Use a dedicated automation account/token for authored PRs; keep human maintainers/code owners as approvers.
+
 ## Commit & Pull Request Guidelines (Recommended)
 
 - Keep commits and PRs scoped and phase-aligned.

@@ -7,7 +7,7 @@ This baseline kit is a SSOT that can be installed into any new project repo. The
 - Initialize `git` and create baseline branches (SSOT: `config/policy/branch-policy.json`)
 - Optional: provision/configure GitHub (repo, repo settings, rulesets/branch protection, repo variables) using `gh`
 - Optional: configure GitHub Merge Queue via rulesets API when supported (workflows already support `merge_group`)
-- Optional: provision baseline labels, security toggles, and environments (best-effort via API; non-destructive)
+- Optional: provision baseline labels, CODEOWNERS fallback, security toggles, and environments (best-effort via API; non-destructive)
 - Optional: enforce release/deploy governance controls (main approver check, production promotion flow, deploy guard variables)
 - Optional: run `npm install`/`npm test` in the target repo
 
@@ -37,6 +37,7 @@ Bootstrap with an install profile:
 Bootstrap + GitHub provisioning (creates repo if missing, applies repo settings + rulesets + variables):
 
 - `npm run baseline:bootstrap -- -- --to <target-path> --github`
+- `npm run baseline:bootstrap -- -- --to <target-path> --github --codeowners 'owner-login,org/platform-team'`
 
 Update an existing repo from baseline SSOT (overwrite baseline-managed files; never deletes target files):
 
@@ -75,7 +76,8 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - `baseline: production`
 - Pull request review defaults (via rulesets):
   - Required approvals: `1`
-  - Require code owner review: enabled (add `.github/CODEOWNERS` in the target repo)
+  - Require code owner review: enabled
+  - CODEOWNERS fallback: bootstrap ensures `.github/CODEOWNERS` exists with at least one owner from policy/defaults (or `--codeowners=<csv>`)
 - Repo settings (patched):
   - Merge methods (derived from policy and enforced via rulesets):
     - Integration (`dev` by default): squash-only
@@ -102,6 +104,11 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
 - Labels:
   - Baseline label definitions SSOT: `config/policy/github-labels.json`
   - Bootstrap ensures labels exist when `github.labels.enabled=true` (default; non-destructive).
+- CODEOWNERS:
+  - Policy SSOT: `github.codeowners` in `config/policy/bootstrap-policy.json`
+  - Default owners: `github.codeowners.default_owners` (default: `$repo_owner_user`)
+  - CLI override: `--codeowners=<csv>` (users and/or `org/team` handles)
+  - Bootstrap warns on self-review deadlock when rules require code-owner review and all owners resolve to the PR author.
 - Security toggles (best-effort):
   - Bootstrap can enable vulnerability alerts + automated security fixes and patch `security_and_analysis` settings when supported by the repo/plan.
 - Environments (best-effort):
@@ -134,3 +141,8 @@ Recommended toggles:
    - Baseline required check: `Release Policy (main)` (`.github/workflows/release-policy-main.yml`).
    - Set `MAIN_REQUIRED_APPROVER_LOGINS` to one or more comma-separated GitHub logins.
    - Optional: keep `MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK=1` for solo-maintainer repos; set to `0` when you have a separate reviewer pool.
+
+5) Reviewer identity separation (required when approvals are mandatory)
+   - GitHub does not count PR author approval toward required reviews.
+   - For agent-driven PRs, use a separate automation account/token for authoring and keep human maintainers/code owners as reviewers.
+   - If you use one account for both authoring and reviewing, required-review rules can deadlock.

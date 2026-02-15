@@ -72,6 +72,12 @@
       "update_existing": false,
       "policy_path": "config/policy/github-labels.json"
     },
+    "codeowners": {
+      "enabled": true,
+      "create_if_missing": true,
+      "replace_if_no_rules": true,
+      "default_owners": ["$repo_owner_user"]
+    },
     "security": {
       "enabled": true,
       "enable_vulnerability_alerts": true,

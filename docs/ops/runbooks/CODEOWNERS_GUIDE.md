@@ -28,3 +28,9 @@ Suggested entries (replace with your org/team handles):
 Notes:
 - Place CODEOWNERS in `.github/CODEOWNERS` (recommended).
 - Require at least one approving review in branch protection.
+- Baseline bootstrap can provision fallback owners automatically:
+  - Policy: `config/policy/bootstrap-policy.json` -> `github.codeowners.default_owners`
+  - CLI override: `--codeowners=<csv>` (users and/or `org/team`)
+- Keep PR author and reviewer identities separate when approvals are required:
+  - PR author approval does not satisfy required-review rules.
+  - Use a dedicated automation account for PR authoring and keep human code owners as reviewers.
