@@ -308,6 +308,7 @@ function defaultBootstrapPolicy() {
         delete_branch_on_merge: true,
       },
       repo_variables: {
+        AUTOPR_ENABLED: '1',
         MAIN_REQUIRED_APPROVER_LOGINS: '$repo_owner_user',
         MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK: '1',
         PRODUCTION_PROMOTION_REQUIRED: 'enabled',

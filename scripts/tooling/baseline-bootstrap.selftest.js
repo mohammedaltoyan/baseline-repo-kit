@@ -148,6 +148,11 @@ function run() {
     'application-production',
     `expected DEPLOY_ENV_MAP_JSON.application.production to be application-production (got: ${JSON.stringify(deployEnvMap?.application?.production || null)})`
   );
+  assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.AUTOPR_ENABLED || ''),
+    '1',
+    'expected AUTOPR_ENABLED repo variable to default to 1 in bootstrap policy'
+  );
 
   // Ruleset body shape.
   const ruleset = buildRulesetBody({

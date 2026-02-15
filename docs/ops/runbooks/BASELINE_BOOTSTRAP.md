@@ -8,6 +8,7 @@ This baseline kit is a SSOT that can be installed into any new project repo. The
 - Optional: provision/configure GitHub (repo, repo settings, rulesets/branch protection, repo variables) using `gh`
 - Optional: configure GitHub Merge Queue via rulesets API when supported (workflows already support `merge_group`)
 - Optional: provision baseline labels, CODEOWNERS fallback, security toggles, and environments (best-effort via API; non-destructive)
+- Optional: enable Auto-PR (bot authoring) for `codex/**` branches (default: enabled via repo var `AUTOPR_ENABLED=1`)
 - Optional: enforce release/deploy governance controls (main approver check, production promotion flow, deploy guard variables)
 - Optional: run `npm install`/`npm test` in the target repo
 
@@ -90,6 +91,7 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - `BACKPORT_ENABLED` (default: `1`)
   - `SECURITY_ENABLED` (default: `0`)
   - `DEPLOY_ENABLED` (default: `0`)
+  - `AUTOPR_ENABLED` (default: `1`) - enables `.github/workflows/auto-pr.yml` to open PRs as `github-actions[bot]` for `codex/**` branches
   - Deploy environment mapping (used by `.github/workflows/deploy.yml`):
     - `DEPLOY_ENV_MAP_JSON` (JSON mapping: component -> {staging, production})
     - Legacy override (optional; takes precedence): `DEPLOY_ENV_<COMPONENT>_<TIER>`
@@ -146,3 +148,4 @@ Recommended toggles:
    - GitHub does not count PR author approval toward required reviews.
    - For agent-driven PRs, use a separate automation account/token for authoring and keep human maintainers/code owners as reviewers.
    - If you use one account for both authoring and reviewing, required-review rules can deadlock.
+   - Baseline fix: keep PR author as `github-actions[bot]` using Auto-PR workflow (`.github/workflows/auto-pr.yml`) so humans can approve.

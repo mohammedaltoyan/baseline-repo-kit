@@ -165,6 +165,7 @@ When working on frontend UI/UX:
 - Deadlock prevention is mandatory:
   - If required approvals + code-owner review are enabled, PR author identity must be different from reviewer identity.
   - Use a dedicated automation account/token for authored PRs; keep human maintainers/code owners as approvers.
+  - Preferred baseline default: Auto-PR workflow (`.github/workflows/auto-pr.yml`) opens PRs as `github-actions[bot]` for `codex/**` branches (gated by `AUTOPR_ENABLED` repo var).
 
 ## Commit & Pull Request Guidelines (Recommended)
 
