@@ -151,7 +151,8 @@ When working on frontend UI/UX:
 ## Deploy Isolation (GitHub Environments)
 
 - Default deploy workflow targets **component-scoped** GitHub Environments (for isolation) resolved from repo variables:
-  - `DEPLOY_ENV_<COMPONENT>_<TIER>` (example: `DEPLOY_ENV_APPLICATION_STAGING=application-staging`)
+  - `DEPLOY_ENV_MAP_JSON` (preferred; JSON mapping: component -> {staging, production})
+  - Legacy fallback: `DEPLOY_ENV_<COMPONENT>_<TIER>` (example: `DEPLOY_ENV_APPLICATION_STAGING=application-staging`)
 - Bootstrap can provision these environments and their deployment branch policies (best-effort; SSOT: `config/policy/bootstrap-policy.json`).
 
 ## Commit & Pull Request Guidelines (Recommended)

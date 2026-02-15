@@ -40,6 +40,8 @@ jobs:
           TIER: ${{ inputs.environment }}
           COMPONENT: ${{ inputs.component || 'application' }}
 
+          DEPLOY_ENV_MAP_JSON: ${{ vars.DEPLOY_ENV_MAP_JSON }}
+
           DEPLOY_ENV_APPLICATION_STAGING: ${{ vars.DEPLOY_ENV_APPLICATION_STAGING }}
           DEPLOY_ENV_APPLICATION_PRODUCTION: ${{ vars.DEPLOY_ENV_APPLICATION_PRODUCTION }}
           DEPLOY_ENV_DOCS_STAGING: ${{ vars.DEPLOY_ENV_DOCS_STAGING }}
@@ -60,13 +62,27 @@ jobs:
             }
 
             function normalizeComponent(raw) {
-              const v = toString(raw).toLowerCase();
+              let v = toString(raw).toLowerCase();
               if (!v) return 'application';
               if (['app', 'application', 'service'].includes(v)) return 'application';
               if (['docs', 'documentation', 'site'].includes(v)) return 'docs';
               if (['api-ingress', 'api_ingress', 'ingress'].includes(v)) return 'api-ingress';
+              v = v.replace(/_/g, '-');
               if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(v)) return '';
               return v;
+            }
+
+            function parseDeployEnvMap(raw) {
+              const text = toString(raw);
+              if (!text) return null;
+              try {
+                const parsed = JSON.parse(text);
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+                return parsed;
+              } catch (e) {
+                core.warning(`DEPLOY_ENV_MAP_JSON is not valid JSON: ${e.message || e}`);
+                return null;
+              }
             }
 
             const tier = normalizeTier(process.env.TIER);
@@ -82,7 +98,14 @@ jobs:
             }
 
             const key = `DEPLOY_ENV_${component.toUpperCase().replace(/-/g, '_')}_${tier.toUpperCase()}`;
-            const envName = toString(process.env[key]) || `${component}-${tier}`;
+            const map = parseDeployEnvMap(process.env.DEPLOY_ENV_MAP_JSON);
+
+            let envName = '';
+            if (map && typeof map[component] === 'object' && map[component]) {
+              envName = toString(map[component][tier]);
+            }
+            if (!envName) envName = toString(process.env[key]);
+            if (!envName) envName = `${component}-${tier}`;
             if (!envName) {
               core.setFailed(`Unable to resolve GitHub environment (key=${key}).`);
               return;

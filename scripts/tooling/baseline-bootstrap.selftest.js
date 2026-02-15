@@ -62,6 +62,17 @@ function run() {
     `expected required checks to include "release-main-policy" (got: ${contexts.join(', ')})`
   );
 
+  // Deploy environment mapping SSOT (must be valid JSON; used by deploy workflow).
+  const deployEnvMapRaw = policy.github && policy.github.repo_variables && policy.github.repo_variables.DEPLOY_ENV_MAP_JSON;
+  assert.ok(deployEnvMapRaw, 'expected DEPLOY_ENV_MAP_JSON to exist in bootstrap policy repo_variables');
+  const deployEnvMap = JSON.parse(deployEnvMapRaw);
+  assert.ok(deployEnvMap && typeof deployEnvMap === 'object' && !Array.isArray(deployEnvMap), 'DEPLOY_ENV_MAP_JSON should parse to an object');
+  assert.strictEqual(
+    deployEnvMap?.application?.production,
+    'application-production',
+    `expected DEPLOY_ENV_MAP_JSON.application.production to be application-production (got: ${JSON.stringify(deployEnvMap?.application?.production || null)})`
+  );
+
   // Ruleset body shape.
   const ruleset = buildRulesetBody({
     name: 'baseline: integration',

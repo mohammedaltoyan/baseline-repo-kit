@@ -42,7 +42,7 @@ function parseArgs(argv) {
 }
 
 function normalizeComponent(raw) {
-  const v = toString(raw).toLowerCase();
+  const v = toString(raw).toLowerCase().replace(/_/g, '-');
   if (!v) return 'application';
   if (['app', 'application', 'service'].includes(v)) return 'application';
   if (['docs', 'documentation', 'site'].includes(v)) return 'docs';

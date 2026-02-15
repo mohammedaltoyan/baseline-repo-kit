@@ -315,13 +315,11 @@ function defaultBootstrapPolicy() {
         PRODUCTION_DEPLOY_GUARD: 'disabled',
         DOCS_PUBLISH_GUARD: 'disabled',
         API_INGRESS_DEPLOY_GUARD: 'disabled',
-
-        DEPLOY_ENV_APPLICATION_STAGING: 'application-staging',
-        DEPLOY_ENV_APPLICATION_PRODUCTION: 'application-production',
-        DEPLOY_ENV_DOCS_STAGING: 'docs-staging',
-        DEPLOY_ENV_DOCS_PRODUCTION: 'docs-production',
-        DEPLOY_ENV_API_INGRESS_STAGING: 'api-ingress-staging',
-        DEPLOY_ENV_API_INGRESS_PRODUCTION: 'api-ingress-production',
+        DEPLOY_ENV_MAP_JSON: JSON.stringify({
+          application: { staging: 'application-staging', production: 'application-production' },
+          docs: { staging: 'docs-staging', production: 'docs-production' },
+          'api-ingress': { staging: 'api-ingress-staging', production: 'api-ingress-production' },
+        }),
       },
       labels: {
         enabled: true,
@@ -341,6 +339,7 @@ function defaultBootstrapPolicy() {
         enabled: true,
         derive_deploy_component_environments: true,
         derive_deploy_component_prefix: 'DEPLOY_ENV_',
+        derive_deploy_component_map_json_var: 'DEPLOY_ENV_MAP_JSON',
         defaults: [
           { name: 'staging', branches: ['$integration'], wait_timer: 0, can_admins_bypass: true },
           {
@@ -1349,12 +1348,77 @@ async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integra
   const derived = [];
   const deriveEnabled = !!envCfg.derive_deploy_component_environments;
   const derivePrefix = toString(envCfg.derive_deploy_component_prefix || 'DEPLOY_ENV_') || 'DEPLOY_ENV_';
+  const deriveMapJsonVar = toString(envCfg.derive_deploy_component_map_json_var || 'DEPLOY_ENV_MAP_JSON') || 'DEPLOY_ENV_MAP_JSON';
   const prefixUpper = derivePrefix.toUpperCase();
   const repoVarMap = policy && policy.github && policy.github.repo_variables && typeof policy.github.repo_variables === 'object'
     ? policy.github.repo_variables
     : null;
 
   if (deriveEnabled && repoVarMap) {
+    function normalizeTierKey(raw) {
+      const v = toString(raw).toLowerCase();
+      if (!v) return '';
+      if (v === 'staging' || v === 'production') return v;
+      return '';
+    }
+
+    function normalizeComponentKey(raw) {
+      const v = toString(raw).toLowerCase().replace(/_/g, '-');
+      if (!v) return '';
+      if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(v)) return '';
+      return v;
+    }
+
+    function parseDeployEnvMapJson(raw) {
+      const text = toString(raw);
+      if (!text) return [];
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (e) {
+        warn(`Repo variable "${deriveMapJsonVar}" is not valid JSON; skipping deploy environment derivation. ${e.message || e}`);
+        return [];
+      }
+
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
+      const out = [];
+      for (const [rawComponent, rawTiers] of Object.entries(parsed)) {
+        const component = normalizeComponentKey(rawComponent);
+        if (!component) continue;
+        const tiers = rawTiers && typeof rawTiers === 'object' && !Array.isArray(rawTiers) ? rawTiers : null;
+        if (!tiers) continue;
+        for (const [rawTier, rawEnv] of Object.entries(tiers)) {
+          const tier = normalizeTierKey(rawTier);
+          if (!tier) continue;
+          const envName = toString(rawEnv);
+          if (!envName) continue;
+          out.push({ component, tier, envName });
+        }
+      }
+      return out;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(repoVarMap, deriveMapJsonVar)) {
+      const raw = resolveRepoVariablePolicyValue(repoVarMap[deriveMapJsonVar], { owner, personalLogin });
+      const entries = parseDeployEnvMapJson(raw);
+      for (const ent of entries) {
+        const tier = ent.tier;
+        const envName = ent.envName;
+        const template = tier === 'production' ? tierTemplates.production : tierTemplates.staging;
+        if (template && typeof template === 'object') {
+          derived.push({ ...template, name: envName });
+          continue;
+        }
+        derived.push({
+          name: envName,
+          branches: [tier === 'production' ? '$production' : '$integration'],
+          wait_timer: 0,
+          can_admins_bypass: true,
+          ...(tier === 'production' ? { required_reviewers: ['$repo_owner_user'] } : {}),
+        });
+      }
+    }
+
     for (const [rawKey, rawValue] of Object.entries(repoVarMap)) {
       const key = toString(rawKey);
       if (!key) continue;
@@ -1529,7 +1593,7 @@ function printGitHubPostBootstrapChecklist({ host, owner, repo, integration, pro
   info(`  - CLI: gh api /repos/${owner}/${repo}/rulesets`);
   info(`- Actions variables (UI): ${base}/settings/variables/actions`);
   info(`  - CLI: gh variable list -R ${host}/${owner}/${repo}`);
-  info('  - Key gates: MAIN_REQUIRED_APPROVER_LOGINS, MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK, PRODUCTION_PROMOTION_REQUIRED, STAGING_DEPLOY_GUARD, PRODUCTION_DEPLOY_GUARD, DOCS_PUBLISH_GUARD, API_INGRESS_DEPLOY_GUARD, DEPLOY_ENV_<COMPONENT>_<TIER>');
+  info('  - Key gates: MAIN_REQUIRED_APPROVER_LOGINS, MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK, PRODUCTION_PROMOTION_REQUIRED, STAGING_DEPLOY_GUARD, PRODUCTION_DEPLOY_GUARD, DOCS_PUBLISH_GUARD, API_INGRESS_DEPLOY_GUARD, DEPLOY_ENV_MAP_JSON (or legacy DEPLOY_ENV_<COMPONENT>_<TIER>)');
   info(`- Environments (UI): ${base}/settings/environments`);
   info(`  - CLI: gh api /repos/${owner}/${repo}/environments`);
   info(`  - Production promotion workflow: ${base}/actions/workflows/promote-production.yml`);

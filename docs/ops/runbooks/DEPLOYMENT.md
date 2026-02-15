@@ -17,7 +17,7 @@ Preferred: use the baseline bootstrap which provisions environments best-effort:
 - `npm run baseline:bootstrap -- -- --to <repo> --mode overlay --overwrite --github`
 
 By default, bootstrap:
-- Creates component-scoped GitHub Environments (if missing), based on `DEPLOY_ENV_<COMPONENT>_<TIER>` repo variables.
+- Creates component-scoped GitHub Environments (if missing), based on `DEPLOY_ENV_MAP_JSON` (or legacy `DEPLOY_ENV_<COMPONENT>_<TIER>`).
 - Default environment names (policy defaults):
   - `application-staging`, `application-production`
   - `docs-staging`, `docs-production`
@@ -72,7 +72,8 @@ If you choose to use GitHub Actions for deployment:
 - Enable the baseline deployment workflow by setting repo variable: `DEPLOY_ENABLED=1`.
 - Workflow template: `.github/workflows/deploy.yml` (manual dispatch; calls `scripts/deploy/deploy.sh`).
 - Production promotion workflow: `.github/workflows/promote-production.yml` (comment `/approve-prod` on merged production PR, or workflow dispatch).
-- Baseline default: the workflow resolves the GitHub Environment from `DEPLOY_ENV_<COMPONENT>_<TIER>` repo variables (tier is still `staging|production`).
+- Baseline default: the workflow resolves the GitHub Environment from `DEPLOY_ENV_MAP_JSON` (tier is still `staging|production`).
+- Legacy fallback: `DEPLOY_ENV_<COMPONENT>_<TIER>` (and if unset, the workflow falls back to `${component}-${tier}`).
 - Keep permissions minimal (add OIDC `id-token: write` only when you actually use it).
 
 If your org has centralized deployment tooling, keep the workflow as a thin wrapper calling your SSOT deploy script.
