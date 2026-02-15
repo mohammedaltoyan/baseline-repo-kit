@@ -13,7 +13,7 @@
     "lint:deploy-guard": "node scripts/ops/deploy-guard.selftest.js",
     "lint:branch-policy": "node scripts/ops/branch-policy.selftest.js",
     "lint:docs": "node scripts/tooling/docs-clean.js",
-    "lint:installer": "node scripts/tooling/baseline-install.selftest.js",
+    "lint:installer": "node scripts/tooling/install-profiles.selftest.js && node scripts/tooling/baseline-install.selftest.js",
     "lint:bootstrap": "node scripts/tooling/baseline-bootstrap.selftest.js",
     "lint:env": "node scripts/utils/load-env.selftest.js",
     "test:deep": "node scripts/tooling/deep-verify.js",

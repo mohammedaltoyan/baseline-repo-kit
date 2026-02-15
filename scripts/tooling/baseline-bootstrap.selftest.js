@@ -110,6 +110,7 @@ function run() {
     mode: process.env.npm_config_mode,
     github: process.env.npm_config_github,
     mainApprovers: process.env.npm_config_main_approvers,
+    profile: process.env.npm_config_profile,
     dryRun: process.env.npm_config_dry_run,
     overwrite: process.env.npm_config_overwrite,
   };
@@ -118,6 +119,7 @@ function run() {
     process.env.npm_config_mode = 'overlay';
     process.env.npm_config_github = 'true';
     process.env.npm_config_main_approvers = 'octocat,hubot';
+    process.env.npm_config_profile = 'enterprise';
     process.env.npm_config_dry_run = '1';
     process.env.npm_config_overwrite = '1';
 
@@ -126,6 +128,7 @@ function run() {
     assert.strictEqual(parsed.mode, 'overlay');
     assert.strictEqual(parsed.github, true);
     assert.strictEqual(parsed.mainApprovers, 'octocat,hubot');
+    assert.strictEqual(parsed.profile, 'enterprise');
     assert.strictEqual(parsed.dryRun, true);
     assert.strictEqual(parsed.overwrite, true);
 
@@ -146,6 +149,9 @@ function run() {
 
     if (previous.mainApprovers === undefined) delete process.env.npm_config_main_approvers;
     else process.env.npm_config_main_approvers = previous.mainApprovers;
+
+    if (previous.profile === undefined) delete process.env.npm_config_profile;
+    else process.env.npm_config_profile = previous.profile;
 
     if (previous.dryRun === undefined) delete process.env.npm_config_dry_run;
     else process.env.npm_config_dry_run = previous.dryRun;

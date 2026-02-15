@@ -141,6 +141,13 @@ When working on frontend UI/UX:
   - Safe positional form: `npm run baseline:install -- <target-path> [overlay|init] [overwrite] [dry-run] [verbose]`
   - Flag form (safe with modern npm): `npm run baseline:install -- --to <path> --mode overlay --dry-run`
 
+## Profiles (Baseline Install/Bootstrap)
+
+- SSOT: `config/policy/install-profiles.json` defines available baseline install profiles and optional bootstrap defaults.
+- `baseline:install` and `baseline:bootstrap` accept `--profile <name>` to filter which baseline artifacts are installed.
+- Target repos receive a small lock file `config/baseline/baseline.lock.json` to record the selected profile so overlay updates remain deterministic.
+- Profiles may define `bootstrap_defaults` (for example `enableDeploy`, `enableSecurity`, hardening toggles) that apply when bootstrap flags are omitted.
+
 ## Commit & Pull Request Guidelines (Recommended)
 
 - Keep commits and PRs scoped and phase-aligned.

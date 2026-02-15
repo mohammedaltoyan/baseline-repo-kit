@@ -25,6 +25,12 @@ const { isTruthy } = require('../utils/is-truthy');
 const { readJsonSafe, writeJson } = require('../utils/json');
 const { run, runCapture } = require('../utils/exec');
 const { loadBranchPolicyConfig } = require('../ops/branch-policy');
+const {
+  loadInstallProfilesPolicy,
+  normalizeProfileName,
+  readBaselineLock,
+  resolveInstallProfile,
+} = require('./install-profiles');
 
 let ACTIVE_RUN_SUMMARY = null;
 
@@ -383,6 +389,7 @@ function parseArgs(argv) {
   const repoRaw = pickArgValue({ args, npmConfig, keys: ['repo'] });
   const visibilityRaw = pickArgValue({ args, npmConfig, keys: ['visibility'] });
   const mainApproversRaw = pickArgValue({ args, npmConfig, keys: ['main-approvers', 'mainApprovers', 'main_approvers'] });
+  const profileRaw = pickArgValue({ args, npmConfig, keys: ['profile'] });
 
   const enableBackportRaw = pickArgValue({ args, npmConfig, keys: ['enableBackport', 'enable-backport', 'enable_backport'] });
   const enableSecurityRaw = pickArgValue({ args, npmConfig, keys: ['enableSecurity', 'enable-security', 'enable_security'] });
@@ -408,6 +415,7 @@ function parseArgs(argv) {
     visibility: normalizeVisibility(nonBooleanString(visibilityRaw) || ''),
     yes: isTruthy(pickArgValue({ args, npmConfig, keys: ['yes', 'y'] })),
     nonInteractive: isTruthy(pickArgValue({ args, npmConfig, keys: ['non-interactive', 'nonInteractive', 'non_interactive'] })),
+    profile: toString(nonBooleanString(profileRaw) || ''),
     skipEnv: isTruthy(pickArgValue({ args, npmConfig, keys: ['skip-env', 'skipEnv', 'skip_env'] })),
     skipTests: isTruthy(pickArgValue({ args, npmConfig, keys: ['skip-tests', 'skipTests', 'skip_tests', 'noTests', 'no-tests', 'no_tests'] })),
     mergeQueueProduction: isTruthy(pickArgValue({ args, npmConfig, keys: ['merge-queue-production', 'mergeQueueProduction', 'merge_queue_production'] })),
@@ -1623,6 +1631,7 @@ async function main() {
       'Flags:',
       '  --to, -t                   Target path (required)',
       '  --mode                     init|overlay (auto when omitted)',
+      '  --profile                  Install profile (see config/policy/install-profiles.json)',
       '  --overwrite                Overwrite baseline-managed files in target (recommended for updates)',
       '  --dry-run                  Print actions without writing',
       '  --github                   Provision/configure GitHub via gh (optional)',
@@ -1668,8 +1677,42 @@ async function main() {
   ensureDir(targetRoot, args.dryRun);
   await ensureGitAvailable();
 
+  const installProfiles = loadInstallProfilesPolicy(sourceRoot);
+  const profileConfig = installProfiles.config;
+  const lockRelPath = toString(profileConfig && profileConfig.lock_path) || 'config/baseline/baseline.lock.json';
+  const targetLock = readBaselineLock({ targetRoot, lockRelPath });
+
+  const profiles = profileConfig && typeof profileConfig === 'object' && profileConfig.profiles && typeof profileConfig.profiles === 'object'
+    ? profileConfig.profiles
+    : {};
+  const requestedProfileRaw = toString(args.profile);
+  let requestedProfile = '';
+  if (requestedProfileRaw) {
+    requestedProfile = normalizeProfileName(requestedProfileRaw);
+    if (!requestedProfile) die(`Invalid --profile "${requestedProfileRaw}" (expected [a-z0-9][a-z0-9_-]*).`);
+    if (!Object.prototype.hasOwnProperty.call(profiles, requestedProfile)) {
+      const available = Object.keys(profiles).sort().join(', ') || 'standard';
+      die(`Unknown --profile "${requestedProfile}". Available: ${available}`);
+    }
+  }
+
+  const resolvedProfile = resolveInstallProfile({
+    policy: profileConfig,
+    profileArg: requestedProfile,
+    targetLock: (targetLock && targetLock.data) || null,
+  });
+  const profileName = resolvedProfile.name;
+  const profileBootstrapDefaults =
+    resolvedProfile.profile &&
+    typeof resolvedProfile.profile === 'object' &&
+    resolvedProfile.profile.bootstrap_defaults &&
+    typeof resolvedProfile.profile.bootstrap_defaults === 'object'
+      ? resolvedProfile.profile.bootstrap_defaults
+      : {};
+
   info(`Target: ${targetRoot}`);
   info(`Mode: ${mode}${args.overwrite ? ' (overwrite)' : ''}${args.dryRun ? ' (dry-run)' : ''}`);
+  info(`Profile: ${profileName}`);
 
   const requireClean = !!(args.requireClean || args.adopt);
   if (requireClean && fs.existsSync(path.join(targetRoot, '.git'))) {
@@ -1685,12 +1728,12 @@ async function main() {
   // 1) Install/update baseline files into target.
   await summaryStep(runSummary, 'Baseline: install/update', async (step) => {
     const installScript = path.join(sourceRoot, 'scripts', 'tooling', 'baseline-install.js');
-    const installArgs = ['--to', targetRoot, '--mode', mode];
+    const installArgs = ['--to', targetRoot, '--mode', mode, '--profile', profileName];
     if (args.overwrite) installArgs.push('--overwrite');
     if (args.dryRun) installArgs.push('--dry-run');
     if (args.verbose) installArgs.push('--verbose');
 
-    step.note = `mode=${mode}${args.overwrite ? ', overwrite' : ''}${args.dryRun ? ', dry-run' : ''}`;
+    step.note = `mode=${mode}, profile=${profileName}${args.overwrite ? ', overwrite' : ''}${args.dryRun ? ', dry-run' : ''}`;
 
     if (args.dryRun) info(`[dry-run] node ${path.relative(process.cwd(), installScript)} ${installArgs.join(' ')}`);
     else await run(process.execPath, [installScript, ...installArgs], { cwd: sourceRoot });
@@ -1908,9 +1951,19 @@ async function main() {
       // Repository settings (merge methods, delete branch on merge, etc.).
       await ghPatchRepoSettings({ cwd: targetRoot, host: actualHost, owner, repo, policy, dryRun: args.dryRun });
 
-      const enableBackport = args.enableBackport == null ? !!policy.github.enable_backport_default : !!args.enableBackport;
-      const enableSecurity = args.enableSecurity == null ? !!policy.github.enable_security_default : !!args.enableSecurity;
-      const enableDeploy = args.enableDeploy == null ? !!policy.github.enable_deploy_default : !!args.enableDeploy;
+      const enableBackportDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableBackport')
+        ? !!profileBootstrapDefaults.enableBackport
+        : !!policy.github.enable_backport_default;
+      const enableSecurityDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableSecurity')
+        ? !!profileBootstrapDefaults.enableSecurity
+        : !!policy.github.enable_security_default;
+      const enableDeployDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableDeploy')
+        ? !!profileBootstrapDefaults.enableDeploy
+        : !!policy.github.enable_deploy_default;
+
+      const enableBackport = args.enableBackport == null ? enableBackportDefault : !!args.enableBackport;
+      const enableSecurity = args.enableSecurity == null ? enableSecurityDefault : !!args.enableSecurity;
+      const enableDeploy = args.enableDeploy == null ? enableDeployDefault : !!args.enableDeploy;
 
       await ghApplyPolicyRepoVariables({
         cwd: targetRoot,
@@ -1942,9 +1995,19 @@ async function main() {
       step.note = `${actualHost}/${owner}/${repo} (${state})`;
     });
 
-    const hardeningLabels = args.hardeningLabels == null ? !!(policy.github.labels && policy.github.labels.enabled) : !!args.hardeningLabels;
-    const hardeningSecurity = args.hardeningSecurity == null ? !!(policy.github.security && policy.github.security.enabled) : !!args.hardeningSecurity;
-    const hardeningEnvironments = args.hardeningEnvironments == null ? !!(policy.github.environments && policy.github.environments.enabled) : !!args.hardeningEnvironments;
+    const hardeningLabelsDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'hardeningLabels')
+      ? !!profileBootstrapDefaults.hardeningLabels
+      : !!(policy.github.labels && policy.github.labels.enabled);
+    const hardeningSecurityDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'hardeningSecurity')
+      ? !!profileBootstrapDefaults.hardeningSecurity
+      : !!(policy.github.security && policy.github.security.enabled);
+    const hardeningEnvironmentsDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'hardeningEnvironments')
+      ? !!profileBootstrapDefaults.hardeningEnvironments
+      : !!(policy.github.environments && policy.github.environments.enabled);
+
+    const hardeningLabels = args.hardeningLabels == null ? hardeningLabelsDefault : !!args.hardeningLabels;
+    const hardeningSecurity = args.hardeningSecurity == null ? hardeningSecurityDefault : !!args.hardeningSecurity;
+    const hardeningEnvironments = args.hardeningEnvironments == null ? hardeningEnvironmentsDefault : !!args.hardeningEnvironments;
 
     if (hardeningLabels) {
       await summaryStep(runSummary, 'GitHub: labels', async (step) => {
