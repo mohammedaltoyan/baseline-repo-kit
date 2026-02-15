@@ -340,6 +340,7 @@ function defaultBootstrapPolicy() {
         derive_deploy_component_environments: true,
         derive_deploy_component_prefix: 'DEPLOY_ENV_',
         derive_deploy_component_map_json_var: 'DEPLOY_ENV_MAP_JSON',
+        create_tier_environments: false,
         defaults: [
           { name: 'staging', branches: ['$integration'], wait_timer: 0, can_admins_bypass: true },
           {
@@ -1349,6 +1350,9 @@ async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integra
   const deriveEnabled = !!envCfg.derive_deploy_component_environments;
   const derivePrefix = toString(envCfg.derive_deploy_component_prefix || 'DEPLOY_ENV_') || 'DEPLOY_ENV_';
   const deriveMapJsonVar = toString(envCfg.derive_deploy_component_map_json_var || 'DEPLOY_ENV_MAP_JSON') || 'DEPLOY_ENV_MAP_JSON';
+  const createTierEnvironments = Object.prototype.hasOwnProperty.call(envCfg, 'create_tier_environments')
+    ? !!envCfg.create_tier_environments
+    : true;
   const prefixUpper = derivePrefix.toUpperCase();
   const repoVarMap = policy && policy.github && policy.github.repo_variables && typeof policy.github.repo_variables === 'object'
     ? policy.github.repo_variables
@@ -1451,7 +1455,12 @@ async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integra
     }
   }
 
-  const all = [...envs, ...derived];
+  const tierNames = new Set(['staging', 'production']);
+  const baseEnvs = deriveEnabled && !createTierEnvironments
+    ? envs.filter((e) => !tierNames.has(toString(e && e.name).toLowerCase()))
+    : envs;
+
+  const all = [...baseEnvs, ...derived];
   const seen = new Set();
 
   for (const e of all) {

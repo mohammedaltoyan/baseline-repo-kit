@@ -152,8 +152,9 @@ When working on frontend UI/UX:
 
 - Default deploy workflow targets **component-scoped** GitHub Environments (for isolation) resolved from repo variables:
   - `DEPLOY_ENV_MAP_JSON` (preferred; JSON mapping: component -> {staging, production})
-  - Legacy fallback: `DEPLOY_ENV_<COMPONENT>_<TIER>` (example: `DEPLOY_ENV_APPLICATION_STAGING=application-staging`)
+  - Legacy override (takes precedence when set): `DEPLOY_ENV_<COMPONENT>_<TIER>` (example: `DEPLOY_ENV_APPLICATION_STAGING=application-staging`)
 - Bootstrap can provision these environments and their deployment branch policies (best-effort; SSOT: `config/policy/bootstrap-policy.json`).
+  - Tier templates (`staging`, `production`) are used as policy templates; they are not created by default (`github.environments.create_tier_environments=false`).
 
 ## Commit & Pull Request Guidelines (Recommended)
 

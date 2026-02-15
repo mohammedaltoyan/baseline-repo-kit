@@ -12,7 +12,7 @@ on:
         required: false
         default: ""
       component:
-        description: "Deployment component (application|docs|api-ingress)"
+        description: "Deployment component (safe token; default: application)"
         required: false
         default: application
       promotion_source:
@@ -28,6 +28,8 @@ jobs:
     if: ${{ vars.DEPLOY_ENABLED == '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      actions: read
     outputs:
       github_environment: ${{ steps.resolve.outputs.github_environment }}
       tier: ${{ steps.resolve.outputs.tier }}
@@ -41,13 +43,6 @@ jobs:
           COMPONENT: ${{ inputs.component || 'application' }}
 
           DEPLOY_ENV_MAP_JSON: ${{ vars.DEPLOY_ENV_MAP_JSON }}
-
-          DEPLOY_ENV_APPLICATION_STAGING: ${{ vars.DEPLOY_ENV_APPLICATION_STAGING }}
-          DEPLOY_ENV_APPLICATION_PRODUCTION: ${{ vars.DEPLOY_ENV_APPLICATION_PRODUCTION }}
-          DEPLOY_ENV_DOCS_STAGING: ${{ vars.DEPLOY_ENV_DOCS_STAGING }}
-          DEPLOY_ENV_DOCS_PRODUCTION: ${{ vars.DEPLOY_ENV_DOCS_PRODUCTION }}
-          DEPLOY_ENV_API_INGRESS_STAGING: ${{ vars.DEPLOY_ENV_API_INGRESS_STAGING }}
-          DEPLOY_ENV_API_INGRESS_PRODUCTION: ${{ vars.DEPLOY_ENV_API_INGRESS_PRODUCTION }}
         with:
           script: |
             function toString(v) {
@@ -100,14 +95,30 @@ jobs:
             const key = `DEPLOY_ENV_${component.toUpperCase().replace(/-/g, '_')}_${tier.toUpperCase()}`;
             const map = parseDeployEnvMap(process.env.DEPLOY_ENV_MAP_JSON);
 
-            let envName = '';
-            if (map && typeof map[component] === 'object' && map[component]) {
+            let legacyValue = '';
+            try {
+              const res = await github.request(
+                'GET /repos/{owner}/{repo}/actions/variables/{name}',
+                { owner: context.repo.owner, repo: context.repo.repo, name: key }
+              );
+              legacyValue = toString(res && res.data && res.data.value);
+            } catch (e) {
+              // ignore missing legacy var (404); fail on other errors only when we need it.
+              const status = Number(e && e.status);
+              if (Number.isFinite(status) && status !== 404) {
+                core.warning(`Unable to fetch legacy repo variable ${key}: ${e.message || e}`);
+              }
+            }
+
+            let envName = legacyValue;
+            if (!envName && map && typeof map[component] === 'object' && map[component]) {
               envName = toString(map[component][tier]);
             }
-            if (!envName) envName = toString(process.env[key]);
-            if (!envName) envName = `${component}-${tier}`;
             if (!envName) {
-              core.setFailed(`Unable to resolve GitHub environment (key=${key}).`);
+              core.setFailed(
+                `Unable to resolve GitHub environment for component="${component}" tier="${tier}".\n` +
+                `Fix: add an entry to DEPLOY_ENV_MAP_JSON for this component/tier, or set legacy repo variable ${key}.`
+              );
               return;
             }
 
@@ -122,6 +133,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ needs.resolve.outputs.github_environment }}
+    concurrency:
+      group: deploy-${{ needs.resolve.outputs.github_environment }}
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v6

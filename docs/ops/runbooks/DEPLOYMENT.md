@@ -73,7 +73,7 @@ If you choose to use GitHub Actions for deployment:
 - Workflow template: `.github/workflows/deploy.yml` (manual dispatch; calls `scripts/deploy/deploy.sh`).
 - Production promotion workflow: `.github/workflows/promote-production.yml` (comment `/approve-prod` on merged production PR, or workflow dispatch).
 - Baseline default: the workflow resolves the GitHub Environment from `DEPLOY_ENV_MAP_JSON` (tier is still `staging|production`).
-- Legacy fallback: `DEPLOY_ENV_<COMPONENT>_<TIER>` (and if unset, the workflow falls back to `${component}-${tier}`).
+- Legacy override: `DEPLOY_ENV_<COMPONENT>_<TIER>` (when set, it takes precedence over the JSON map).
 - Keep permissions minimal (add OIDC `id-token: write` only when you actually use it).
 
 If your org has centralized deployment tooling, keep the workflow as a thin wrapper calling your SSOT deploy script.

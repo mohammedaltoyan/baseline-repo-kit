@@ -90,7 +90,7 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - `DEPLOY_ENABLED` (default: `0`)
   - Deploy environment mapping (used by `.github/workflows/deploy.yml`):
     - `DEPLOY_ENV_MAP_JSON` (JSON mapping: component -> {staging, production})
-    - Legacy fallback: `DEPLOY_ENV_<COMPONENT>_<TIER>`
+    - Legacy override (optional; takes precedence): `DEPLOY_ENV_<COMPONENT>_<TIER>`
   - `EVIDENCE_SOURCE_BRANCH` (set to integration branch)
   - `MAIN_REQUIRED_APPROVER_LOGINS` (default policy template: `$repo_owner_user`; can be overridden with `--main-approvers=<csv>`)
   - `MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK` (default: `1`, avoids solo-maintainer deadlocks)
@@ -105,8 +105,9 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
 - Security toggles (best-effort):
   - Bootstrap can enable vulnerability alerts + automated security fixes and patch `security_and_analysis` settings when supported by the repo/plan.
 - Environments (best-effort):
-  - Bootstrap can create `staging` + `production` and add deployment branch policies derived from the branch policy SSOT.
-  - Bootstrap can also derive component-scoped deployment environments from `DEPLOY_ENV_MAP_JSON` (or legacy `DEPLOY_ENV_*`) (example: `application-staging`, `application-production`).
+  - Bootstrap can create component-scoped environments derived from `DEPLOY_ENV_MAP_JSON` (and legacy `DEPLOY_ENV_<COMPONENT>_<TIER>` overrides when present) (example: `application-staging`, `application-production`).
+  - Bootstrap adds deployment branch policies derived from the branch policy SSOT (integration branch for `*-staging`, production branch for `*-production`).
+  - Tier templates (`staging`, `production`) are used as policy templates; they are not created by default (policy: `github.environments.create_tier_environments=false`).
   - Bootstrap can apply environment reviewer policies (`required_reviewers`, `prevent_self_review`, `can_admins_bypass`) when configured.
 
 ## Post-bootstrap verification (UI or CLI)

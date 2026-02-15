@@ -8,7 +8,7 @@ on:
         required: false
         default: ""
       component:
-        description: "Deployment component (application|docs|api-ingress)"
+        description: "Deployment component (safe token; default: application)"
         required: false
         default: application
   issue_comment:
