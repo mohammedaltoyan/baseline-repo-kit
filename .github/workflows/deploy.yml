@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "GitHub environment to deploy to (recommended: staging|production)"
+        description: "Deployment tier (staging|production)"
         required: true
         default: staging
       ref:
@@ -24,14 +24,84 @@ permissions:
   contents: read
 
 jobs:
+  resolve:
+    if: ${{ vars.DEPLOY_ENABLED == '1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      github_environment: ${{ steps.resolve.outputs.github_environment }}
+      tier: ${{ steps.resolve.outputs.tier }}
+      component: ${{ steps.resolve.outputs.component }}
+    steps:
+      - name: Resolve GitHub Environment
+        id: resolve
+        uses: actions/github-script@v8
+        env:
+          TIER: ${{ inputs.environment }}
+          COMPONENT: ${{ inputs.component || 'application' }}
+
+          DEPLOY_ENV_APPLICATION_STAGING: ${{ vars.DEPLOY_ENV_APPLICATION_STAGING }}
+          DEPLOY_ENV_APPLICATION_PRODUCTION: ${{ vars.DEPLOY_ENV_APPLICATION_PRODUCTION }}
+          DEPLOY_ENV_DOCS_STAGING: ${{ vars.DEPLOY_ENV_DOCS_STAGING }}
+          DEPLOY_ENV_DOCS_PRODUCTION: ${{ vars.DEPLOY_ENV_DOCS_PRODUCTION }}
+          DEPLOY_ENV_API_INGRESS_STAGING: ${{ vars.DEPLOY_ENV_API_INGRESS_STAGING }}
+          DEPLOY_ENV_API_INGRESS_PRODUCTION: ${{ vars.DEPLOY_ENV_API_INGRESS_PRODUCTION }}
+        with:
+          script: |
+            function toString(v) {
+              return String(v == null ? '' : v).trim();
+            }
+
+            function normalizeTier(raw) {
+              const v = toString(raw).toLowerCase();
+              if (!v) return '';
+              if (v === 'staging' || v === 'production') return v;
+              return '';
+            }
+
+            function normalizeComponent(raw) {
+              const v = toString(raw).toLowerCase();
+              if (!v) return 'application';
+              if (['app', 'application', 'service'].includes(v)) return 'application';
+              if (['docs', 'documentation', 'site'].includes(v)) return 'docs';
+              if (['api-ingress', 'api_ingress', 'ingress'].includes(v)) return 'api-ingress';
+              if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(v)) return '';
+              return v;
+            }
+
+            const tier = normalizeTier(process.env.TIER);
+            if (!tier) {
+              core.setFailed(`Invalid deployment tier "${toString(process.env.TIER)}" (expected staging|production).`);
+              return;
+            }
+
+            const component = normalizeComponent(process.env.COMPONENT);
+            if (!component) {
+              core.setFailed(`Invalid component "${toString(process.env.COMPONENT)}" (expected a safe token like "application" or "docs").`);
+              return;
+            }
+
+            const key = `DEPLOY_ENV_${component.toUpperCase().replace(/-/g, '_')}_${tier.toUpperCase()}`;
+            const envName = toString(process.env[key]) || `${component}-${tier}`;
+            if (!envName) {
+              core.setFailed(`Unable to resolve GitHub environment (key=${key}).`);
+              return;
+            }
+
+            core.info(`Resolved GitHub environment "${envName}" (tier=${tier} component=${component} key=${key})`);
+            core.setOutput('github_environment', envName);
+            core.setOutput('tier', tier);
+            core.setOutput('component', component);
+
   deploy:
+    needs: [resolve]
     if: ${{ vars.DEPLOY_ENABLED == '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ inputs.environment }}
+    environment: ${{ needs.resolve.outputs.github_environment }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.sha }}
 
@@ -44,16 +114,17 @@ jobs:
           PRODUCTION_PROMOTION_REQUIRED: ${{ vars.PRODUCTION_PROMOTION_REQUIRED }}
         run: |
           node scripts/ops/deploy-guard.js \
-            --environment "${{ inputs.environment }}" \
-            --component "${{ inputs.component || 'application' }}" \
+            --environment "${{ needs.resolve.outputs.tier }}" \
+            --component "${{ needs.resolve.outputs.component }}" \
             --promotion-source "${{ inputs.promotion_source || 'direct' }}"
 
       - name: Deploy (hook)
         shell: bash
         env:
-          DEPLOY_ENV: ${{ inputs.environment }}
-          DEPLOY_COMPONENT: ${{ inputs.component || 'application' }}
+          DEPLOY_ENV: ${{ needs.resolve.outputs.tier }}
+          DEPLOY_COMPONENT: ${{ needs.resolve.outputs.component }}
           DEPLOY_PROMOTION_SOURCE: ${{ inputs.promotion_source || 'direct' }}
+          GITHUB_ENVIRONMENT: ${{ needs.resolve.outputs.github_environment }}
         run: |
           set -euo pipefail
 

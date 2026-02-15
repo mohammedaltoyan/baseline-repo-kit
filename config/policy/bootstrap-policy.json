@@ -64,7 +64,14 @@
       "STAGING_DEPLOY_GUARD": "enabled",
       "PRODUCTION_DEPLOY_GUARD": "disabled",
       "DOCS_PUBLISH_GUARD": "disabled",
-      "API_INGRESS_DEPLOY_GUARD": "disabled"
+      "API_INGRESS_DEPLOY_GUARD": "disabled",
+
+      "DEPLOY_ENV_APPLICATION_STAGING": "application-staging",
+      "DEPLOY_ENV_APPLICATION_PRODUCTION": "application-production",
+      "DEPLOY_ENV_DOCS_STAGING": "docs-staging",
+      "DEPLOY_ENV_DOCS_PRODUCTION": "docs-production",
+      "DEPLOY_ENV_API_INGRESS_STAGING": "api-ingress-staging",
+      "DEPLOY_ENV_API_INGRESS_PRODUCTION": "api-ingress-production"
     },
     "labels": {
       "enabled": true,
@@ -82,6 +89,8 @@
     },
     "environments": {
       "enabled": true,
+      "derive_deploy_component_environments": true,
+      "derive_deploy_component_prefix": "DEPLOY_ENV_",
       "defaults": [
         { "name": "staging", "branches": ["$integration"], "wait_timer": 0, "can_admins_bypass": true },
         {

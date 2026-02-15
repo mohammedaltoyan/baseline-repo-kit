@@ -3,7 +3,7 @@ plan_id: PLAN-202602-bootstrap-profiles-deploy-isolation
 title: Profile-driven bootstrap + deploy isolation
 owner: @owner
 status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
-current_step: S10
+current_step: S20
 updated: 2026-02-15
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
@@ -12,8 +12,8 @@ links:
 ---
 
 At-a-Glance
-- Now: S10 - Profile-driven installer/bootstrap
-- Next: S20 - Deploy isolation
+- Now: S20 - Deploy isolation
+- Next: S30 - Docs + selftests
 - Blockers: None
 - ETA: 2026-02-16
 
@@ -22,7 +22,7 @@ Checklist
 - [x] S01 - Scope/guardrails locked
 - [x] S02 - Requirements captured (phase map + mergeable increments)
 - [x] S03 - Design validation (flows, failure messaging, CI behavior; overrides explicit)
-- [ ] S10 - Profile-driven installer (SSOT profiles + baseline lock; bootstrap wiring + tests)
+- [x] S10 - Profile-driven installer (SSOT profiles + baseline lock; bootstrap wiring + tests)
 - [ ] S20 - Deploy isolation (component-scoped GitHub Environments + mapping vars; workflows updated)
 - [ ] S30 - Docs + selftests (runbooks, README, AGENTS)
 - [ ] S98 - Objectives Gate (record "Objectives Evidence:")
@@ -34,4 +34,3 @@ Decisions & Notes
 - PR: <add once opened>
 - CI Evidence: <add for S99>
 - Objectives Evidence: <add for S98>
-

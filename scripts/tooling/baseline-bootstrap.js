@@ -315,6 +315,13 @@ function defaultBootstrapPolicy() {
         PRODUCTION_DEPLOY_GUARD: 'disabled',
         DOCS_PUBLISH_GUARD: 'disabled',
         API_INGRESS_DEPLOY_GUARD: 'disabled',
+
+        DEPLOY_ENV_APPLICATION_STAGING: 'application-staging',
+        DEPLOY_ENV_APPLICATION_PRODUCTION: 'application-production',
+        DEPLOY_ENV_DOCS_STAGING: 'docs-staging',
+        DEPLOY_ENV_DOCS_PRODUCTION: 'docs-production',
+        DEPLOY_ENV_API_INGRESS_STAGING: 'api-ingress-staging',
+        DEPLOY_ENV_API_INGRESS_PRODUCTION: 'api-ingress-production',
       },
       labels: {
         enabled: true,
@@ -332,6 +339,8 @@ function defaultBootstrapPolicy() {
       },
       environments: {
         enabled: true,
+        derive_deploy_component_environments: true,
+        derive_deploy_component_prefix: 'DEPLOY_ENV_',
         defaults: [
           { name: 'staging', branches: ['$integration'], wait_timer: 0, can_admins_bypass: true },
           {
@@ -1322,10 +1331,71 @@ function envPolicyIsUnrestricted(dep) {
 async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integration, production, personalLogin, dryRun }) {
   const envs = Array.isArray(policy.github.environments.defaults) ? policy.github.environments.defaults : [];
   const ctx = { integration, production };
+  const envCfg = policy && policy.github && policy.github.environments && typeof policy.github.environments === 'object'
+    ? policy.github.environments
+    : {};
 
-  for (const e of envs) {
+  function findTierTemplate(tier) {
+    const t = toString(tier).toLowerCase();
+    if (!t) return null;
+    return envs.find((e) => toString(e && e.name).toLowerCase() === t) || null;
+  }
+
+  const tierTemplates = {
+    staging: findTierTemplate('staging'),
+    production: findTierTemplate('production'),
+  };
+
+  const derived = [];
+  const deriveEnabled = !!envCfg.derive_deploy_component_environments;
+  const derivePrefix = toString(envCfg.derive_deploy_component_prefix || 'DEPLOY_ENV_') || 'DEPLOY_ENV_';
+  const prefixUpper = derivePrefix.toUpperCase();
+  const repoVarMap = policy && policy.github && policy.github.repo_variables && typeof policy.github.repo_variables === 'object'
+    ? policy.github.repo_variables
+    : null;
+
+  if (deriveEnabled && repoVarMap) {
+    for (const [rawKey, rawValue] of Object.entries(repoVarMap)) {
+      const key = toString(rawKey);
+      if (!key) continue;
+      if (!key.toUpperCase().startsWith(prefixUpper)) continue;
+
+      const rest = key.slice(derivePrefix.length);
+      const parts = rest.split('_').filter(Boolean);
+      if (parts.length < 2) continue;
+
+      const tierRaw = toString(parts[parts.length - 1]).toUpperCase();
+      if (!['STAGING', 'PRODUCTION'].includes(tierRaw)) continue;
+      const tier = tierRaw.toLowerCase();
+
+      const envName = toString(resolveRepoVariablePolicyValue(rawValue, { owner, personalLogin }));
+      if (!envName) continue;
+
+      const template = tier === 'production' ? tierTemplates.production : tierTemplates.staging;
+      if (template && typeof template === 'object') {
+        derived.push({ ...template, name: envName });
+        continue;
+      }
+
+      derived.push({
+        name: envName,
+        branches: [tier === 'production' ? '$production' : '$integration'],
+        wait_timer: 0,
+        can_admins_bypass: true,
+        ...(tier === 'production' ? { required_reviewers: ['$repo_owner_user'] } : {}),
+      });
+    }
+  }
+
+  const all = [...envs, ...derived];
+  const seen = new Set();
+
+  for (const e of all) {
     const name = toString(e && e.name);
     if (!name) continue;
+    const nameKey = name.toLowerCase();
+    if (seen.has(nameKey)) continue;
+    seen.add(nameKey);
 
     const branches = resolveEnvironmentBranches(e && e.branches, ctx);
     const waitTimer = e && e.wait_timer;
@@ -1459,7 +1529,7 @@ function printGitHubPostBootstrapChecklist({ host, owner, repo, integration, pro
   info(`  - CLI: gh api /repos/${owner}/${repo}/rulesets`);
   info(`- Actions variables (UI): ${base}/settings/variables/actions`);
   info(`  - CLI: gh variable list -R ${host}/${owner}/${repo}`);
-  info('  - Key gates: MAIN_REQUIRED_APPROVER_LOGINS, MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK, PRODUCTION_PROMOTION_REQUIRED, STAGING_DEPLOY_GUARD, PRODUCTION_DEPLOY_GUARD, DOCS_PUBLISH_GUARD, API_INGRESS_DEPLOY_GUARD');
+  info('  - Key gates: MAIN_REQUIRED_APPROVER_LOGINS, MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK, PRODUCTION_PROMOTION_REQUIRED, STAGING_DEPLOY_GUARD, PRODUCTION_DEPLOY_GUARD, DOCS_PUBLISH_GUARD, API_INGRESS_DEPLOY_GUARD, DEPLOY_ENV_<COMPONENT>_<TIER>');
   info(`- Environments (UI): ${base}/settings/environments`);
   info(`  - CLI: gh api /repos/${owner}/${repo}/environments`);
   info(`  - Production promotion workflow: ${base}/actions/workflows/promote-production.yml`);
