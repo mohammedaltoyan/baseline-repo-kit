@@ -12,6 +12,7 @@ Reusable, project-agnostic baseline: planning system + docs templates + repo gua
 - `.github/` CI + PR policy enforcement + release/promotion/deploy guard workflows + optional security automation templates.
 - Bootstrap-driven GitHub hardening (workflow permissions, rulesets, environments, labels, and CODEOWNERS fallback provisioning).
 - Auto-PR + PR Policy support for bot-authored agent PRs (GitHub Actions bot: `github-actions[bot]` / `app/github-actions`) on configurable branch prefixes.
+- Release PR automation: one-button workflow to open/refresh `dev` -> `main` as a bot for strict production releases (`.github/workflows/release-pr-bot.yml`).
 - Root policy templates: `.editorconfig`, `CONTRIBUTING.md`, `SECURITY.md`.
 
 ## How to use in a new project

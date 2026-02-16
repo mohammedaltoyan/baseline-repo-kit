@@ -130,6 +130,22 @@ function shouldBypassPlanStep({ baseRef, integrationBranch, authorLogin, authorT
   return isDependencyAutomationPr({ authorLogin, authorType, headRef });
 }
 
+function isReleasePromotionPr({ baseRef, headRef, integrationBranch, productionBranch }) {
+  const base = String(baseRef || '').trim();
+  const head = String(headRef || '').trim();
+  const integration = String(integrationBranch || '').trim();
+  const production = String(productionBranch || '').trim();
+  if (!base || !head || !integration || !production) return false;
+  return base === production && head === integration;
+}
+
+function shouldBypassPlanStepForReleasePromotion({ baseRef, headRef, integrationBranch, productionBranch }) {
+  // Release promotion PRs are mechanical (integration -> production). By default, these do not require a plan/step,
+  // since every underlying change already carried its own plan.
+  if (!toBool(process.env.RELEASE_PR_BYPASS_PLAN_STEP, false)) return false;
+  return isReleasePromotionPr({ baseRef, headRef, integrationBranch, productionBranch });
+}
+
 function extractPrNumbersFromMergeGroup(evt) {
   const mg = evt && evt.merge_group;
   if (!mg) return [];
@@ -313,14 +329,21 @@ async function main() {
       authorType: hydrated.authorType,
       headRef: hydrated.headRef,
     });
-    if ((planIds.length === 0 || !step) && bypassPlan) {
+    const bypassRelease = shouldBypassPlanStepForReleasePromotion({
+      baseRef: hydrated.baseRef,
+      headRef: hydrated.headRef,
+      integrationBranch: branchPolicy.config.integration_branch,
+      productionBranch: branchPolicy.config.production_branch,
+    });
+    if ((planIds.length === 0 || !step) && (bypassPlan || bypassRelease)) {
       validateBranchPolicy({
         baseRef: hydrated.baseRef,
         headRef: hydrated.headRef,
         prBody: body,
         config: branchPolicy.config,
       });
-      console.log(`[pr-policy-validate] OK PR ${prNumber} (dependency automation: Plan/Step not required)`);
+      const reason = bypassPlan ? 'dependency automation' : 'release promotion';
+      console.log(`[pr-policy-validate] OK PR ${prNumber} (${reason}: Plan/Step not required)`);
       continue;
     }
 

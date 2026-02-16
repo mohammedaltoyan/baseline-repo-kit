@@ -172,6 +172,9 @@ When working on frontend UI/UX:
     - `AUTOPR_ENFORCE_BOT_AUTHOR` (default `1`)
     - `AUTOPR_ALLOWED_AUTHORS` (default `github-actions[bot],app/github-actions`)
     - `AUTOPR_ENFORCE_HEAD_PREFIXES` (default `codex/`; set `*` for all branches)
+  - Release promotion PR automation:
+    - Workflow: `.github/workflows/release-pr-bot.yml` (opens/refreshes `dev` -> `main` as a bot so a human can approve/merge)
+    - Optional redundancy reduction: `RELEASE_PR_BYPASS_PLAN_STEP=1` allows release promotion PRs to omit `Plan:`/`Step:` (recommended default; underlying changes already carried plans).
 
 ## Commit & Pull Request Guidelines (Recommended)
 

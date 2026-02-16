@@ -7,6 +7,7 @@
 
 Exception (recommended):
 - Dependency automation PRs (Dependabot/Renovate) targeting the integration branch may bypass Plan/Step to keep security and dependency updates flowing. This baseline enforces this in `scripts/ops/pr-policy-validate.js`.
+- Release promotion PRs (integration -> production) may bypass Plan/Step when repo variable `RELEASE_PR_BYPASS_PLAN_STEP=1` (recommended; avoids redundant planning for a mechanical promotion PR).
 
 Rule of thumb:
 - `Step: S00` is plan-only (docs/ops/plans changes only).
@@ -21,6 +22,8 @@ Rule of thumb:
   - `AUTOPR_ALLOWED_AUTHORS` (default `github-actions[bot],app/github-actions`)
   - `AUTOPR_ENFORCE_HEAD_PREFIXES` (default `codex/`; set `*` to enforce on all PR branches)
   - When enforced, matching branches must have PR author in `AUTOPR_ALLOWED_AUTHORS` or PR Policy fails.
+- Release promotion Plan/Step bypass (optional):
+  - `RELEASE_PR_BYPASS_PLAN_STEP` (default `1` via bootstrap policy)
 
 ## PR targets (enterprise default)
 
@@ -33,6 +36,8 @@ Rules:
 - No PRs merge directly into `main` except:
   - Release PR: `dev` -> `main`
   - Hotfix PR: `hotfix/*` -> `main` (must include a backport note and be reflected back into `dev`)
+- Optional automation:
+  - Use `Release PR (bot)` workflow (`.github/workflows/release-pr-bot.yml`) to open/refresh the release PR as a bot so a human can approve/merge under required-review rules.
 
 Hotfix backport note (required for `hotfix/*` -> `main`):
 - Add a line in the PR body matching one of the configured markers (SSOT is `config/policy/branch-policy.json`), for example:

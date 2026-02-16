@@ -63,10 +63,28 @@ function run() {
   assert.strictEqual(botRes.status, 0, `expected dependency bot PR to pass (got ${botRes.status})`);
   assert.match(`${botRes.stdout || ''}`, /Plan\/Step not required/i);
 
+  // Release promotion PR (integration -> production) may bypass Plan/Step when enabled.
+  const releaseEvent = {
+    pull_request: {
+      number: 3,
+      body: '',
+      base: { ref: 'main' },
+      head: { ref: 'dev' },
+      user: { login: 'alice', type: 'User' },
+    },
+  };
+  const releaseStrictRes = runValidateWithEvent(releaseEvent, { RELEASE_PR_BYPASS_PLAN_STEP: '0' });
+  assert.notStrictEqual(releaseStrictRes.status, 0, 'expected release PR without Plan/Step to fail when bypass is disabled');
+  assert.match(`${releaseStrictRes.stderr || ''}${releaseStrictRes.stdout || ''}`, /Missing `Plan:/i);
+
+  const releaseBypassRes = runValidateWithEvent(releaseEvent, { RELEASE_PR_BYPASS_PLAN_STEP: '1' });
+  assert.strictEqual(releaseBypassRes.status, 0, `expected release PR bypass to pass (got ${releaseBypassRes.status})`);
+  assert.match(`${releaseBypassRes.stdout || ''}`, /release promotion/i);
+
   // Enforce bot-authored PR for codex/* branches.
   const codexHumanEvent = {
     pull_request: {
-      number: 3,
+      number: 4,
       body: 'Plan: PLAN-202602-enterprise-monorepo\nStep: S99',
       base: { ref: 'dev' },
       head: { ref: 'codex/feature-x' },
@@ -86,7 +104,7 @@ function run() {
 
   const codexBotEvent = {
     pull_request: {
-      number: 4,
+      number: 5,
       body: 'Plan: PLAN-202602-enterprise-monorepo\nStep: S99',
       base: { ref: 'dev' },
       head: { ref: 'codex/feature-y' },

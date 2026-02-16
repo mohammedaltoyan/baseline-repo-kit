@@ -169,6 +169,11 @@ function run() {
     'expected AUTOPR_ENFORCE_HEAD_PREFIXES repo variable default to codex/ in bootstrap policy'
   );
   assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.RELEASE_PR_BYPASS_PLAN_STEP || ''),
+    '1',
+    'expected RELEASE_PR_BYPASS_PLAN_STEP repo variable default to 1 in bootstrap policy'
+  );
+  assert.strictEqual(
     String(policy.github && policy.github.workflow_permissions && policy.github.workflow_permissions.default_workflow_permissions || ''),
     'read',
     'expected workflow_permissions.default_workflow_permissions to default to read in bootstrap policy'

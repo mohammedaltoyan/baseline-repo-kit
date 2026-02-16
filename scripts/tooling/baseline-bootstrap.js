@@ -317,6 +317,7 @@ function defaultBootstrapPolicy() {
         AUTOPR_ENFORCE_BOT_AUTHOR: '1',
         AUTOPR_ALLOWED_AUTHORS: 'github-actions[bot],app/github-actions',
         AUTOPR_ENFORCE_HEAD_PREFIXES: 'codex/',
+        RELEASE_PR_BYPASS_PLAN_STEP: '1',
         MAIN_REQUIRED_APPROVER_LOGINS: '$repo_owner_user',
         MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK: '1',
         PRODUCTION_PROMOTION_REQUIRED: 'enabled',
@@ -1898,7 +1899,7 @@ function printGitHubPostBootstrapChecklist({ host, owner, repo, integration, pro
   info(`  - CLI: gh variable list -R ${host}/${owner}/${repo}`);
   info(`- Actions workflow permissions (UI): ${base}/settings/actions`);
   info('  - Ensure "Allow GitHub Actions to create and approve pull requests" is enabled when using Auto-PR with GITHUB_TOKEN.');
-  info('  - Key gates: AUTOPR_ENFORCE_BOT_AUTHOR, AUTOPR_ALLOWED_AUTHORS, AUTOPR_ENFORCE_HEAD_PREFIXES, MAIN_REQUIRED_APPROVER_LOGINS, MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK, PRODUCTION_PROMOTION_REQUIRED, STAGING_DEPLOY_GUARD, PRODUCTION_DEPLOY_GUARD, DOCS_PUBLISH_GUARD, API_INGRESS_DEPLOY_GUARD, DEPLOY_ENV_MAP_JSON (or legacy DEPLOY_ENV_<COMPONENT>_<TIER>)');
+  info('  - Key gates: AUTOPR_ENFORCE_BOT_AUTHOR, AUTOPR_ALLOWED_AUTHORS, AUTOPR_ENFORCE_HEAD_PREFIXES, RELEASE_PR_BYPASS_PLAN_STEP, MAIN_REQUIRED_APPROVER_LOGINS, MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK, PRODUCTION_PROMOTION_REQUIRED, STAGING_DEPLOY_GUARD, PRODUCTION_DEPLOY_GUARD, DOCS_PUBLISH_GUARD, API_INGRESS_DEPLOY_GUARD, DEPLOY_ENV_MAP_JSON (or legacy DEPLOY_ENV_<COMPONENT>_<TIER>)');
   info(`- Environments (UI): ${base}/settings/environments`);
   info(`  - CLI: gh api /repos/${owner}/${repo}/environments`);
   info(`  - Production promotion workflow: ${base}/actions/workflows/promote-production.yml`);

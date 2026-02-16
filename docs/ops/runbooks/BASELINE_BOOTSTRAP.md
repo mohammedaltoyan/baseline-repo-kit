@@ -99,6 +99,7 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - `AUTOPR_ENFORCE_BOT_AUTHOR` (default: `1`) - PR policy requires bot author for configured branch prefixes
   - `AUTOPR_ALLOWED_AUTHORS` (default: `github-actions[bot],app/github-actions`) - allowed PR author login(s) when bot-author policy is enforced
   - `AUTOPR_ENFORCE_HEAD_PREFIXES` (default: `codex/`) - branch prefix list for bot-author enforcement (`*` to enforce on all branches)
+  - `RELEASE_PR_BYPASS_PLAN_STEP` (default: `1`) - allow release promotion PRs (`dev` -> `main`) to omit `Plan:`/`Step:` (reduces redundancy)
   - Deploy environment mapping (used by `.github/workflows/deploy.yml`):
     - `DEPLOY_ENV_MAP_JSON` (JSON mapping: component -> {staging, production})
     - Legacy override (optional; takes precedence): `DEPLOY_ENV_<COMPONENT>_<TIER>`
@@ -150,6 +151,7 @@ Recommended toggles:
    - Baseline required check: `Release Policy (main)` (`.github/workflows/release-policy-main.yml`).
    - Set `MAIN_REQUIRED_APPROVER_LOGINS` to one or more comma-separated GitHub logins.
    - Optional: keep `MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK=1` for solo-maintainer repos; set to `0` when you have a separate reviewer pool.
+   - Optional: use `Release PR (bot)` workflow (`.github/workflows/release-pr-bot.yml`) to open/refresh the release PR (`dev` -> `main`) as the GitHub Actions bot so a human can approve and merge.
 
 5) Reviewer identity separation (required when approvals are mandatory)
    - GitHub does not count PR author approval toward required reviews.

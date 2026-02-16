@@ -67,6 +67,7 @@
       "AUTOPR_ENFORCE_BOT_AUTHOR": "1",
       "AUTOPR_ALLOWED_AUTHORS": "github-actions[bot],app/github-actions",
       "AUTOPR_ENFORCE_HEAD_PREFIXES": "codex/",
+      "RELEASE_PR_BYPASS_PLAN_STEP": "1",
       "MAIN_REQUIRED_APPROVER_LOGINS": "$repo_owner_user",
       "MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK": "1",
       "PRODUCTION_PROMOTION_REQUIRED": "enabled",
