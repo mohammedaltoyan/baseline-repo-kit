@@ -10,7 +10,7 @@ Reusable, project-agnostic baseline: planning system + docs templates + repo gua
 - `scripts/` small reusable automation (plans + lint gates).
 - `config/` safe env templates and lint/policy config (including branch policy SSOT).
 - `.github/` CI + PR policy enforcement + release/promotion/deploy guard workflows + optional security automation templates.
-- Bootstrap-driven GitHub hardening (rulesets, environments, labels, and CODEOWNERS fallback provisioning).
+- Bootstrap-driven GitHub hardening (workflow permissions, rulesets, environments, labels, and CODEOWNERS fallback provisioning).
 - Root policy templates: `.editorconfig`, `CONTRIBUTING.md`, `SECURITY.md`.
 
 ## How to use in a new project

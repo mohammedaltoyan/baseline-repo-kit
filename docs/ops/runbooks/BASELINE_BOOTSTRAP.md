@@ -5,7 +5,7 @@ This baseline kit is a SSOT that can be installed into any new project repo. The
 - Install/update baseline-managed files into a target repo
 - Create local env scaffolding (no secrets)
 - Initialize `git` and create baseline branches (SSOT: `config/policy/branch-policy.json`)
-- Optional: provision/configure GitHub (repo, repo settings, rulesets/branch protection, repo variables) using `gh`
+- Optional: provision/configure GitHub (repo, repo settings, workflow permissions, rulesets/branch protection, repo variables) using `gh`
 - Optional: configure GitHub Merge Queue via rulesets API when supported (workflows already support `merge_group`)
 - Optional: provision baseline labels, CODEOWNERS fallback, security toggles, and environments (best-effort via API; non-destructive)
 - Optional: enable Auto-PR (bot authoring) for `codex/**` branches (default: enabled via repo var `AUTOPR_ENABLED=1`)
@@ -84,6 +84,10 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
     - Integration (`dev` by default): squash-only
     - Production (`main` by default): merge-commit-only (prevents recurring `dev` -> `main` conflicts caused by squash releases)
   - Delete branch on merge (default: enabled)
+- Workflow permissions (patched):
+  - Policy SSOT: `github.workflow_permissions` in `config/policy/bootstrap-policy.json`
+  - Default token permissions: `read`
+  - Allow GitHub Actions to create/approve PRs: enabled (required for Auto-PR with `GITHUB_TOKEN`)
 - Merge Queue:
   - Recommended by policy for integration branch by default.
   - Bootstrap attempts to configure it via rulesets when supported; when unsupported (plan/org dependent), enable manually in the GitHub UI.
@@ -148,4 +152,6 @@ Recommended toggles:
    - GitHub does not count PR author approval toward required reviews.
    - For agent-driven PRs, use a separate automation account/token for authoring and keep human maintainers/code owners as reviewers.
    - If you use one account for both authoring and reviewing, required-review rules can deadlock.
-   - Baseline fix: keep PR author as `github-actions[bot]` using Auto-PR workflow (`.github/workflows/auto-pr.yml`) so humans can approve.
+  - Baseline fix: keep PR author as `github-actions[bot]` using Auto-PR workflow (`.github/workflows/auto-pr.yml`) so humans can approve.
+  - Bootstrap auto-enables the required Actions setting via policy (`github.workflow_permissions.can_approve_pull_request_reviews=true`) when permissions allow.
+  - Fallback: configure secret `AUTOPR_TOKEN` (bot PAT) if your org policy blocks that Actions setting.

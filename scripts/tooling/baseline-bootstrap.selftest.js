@@ -153,6 +153,16 @@ function run() {
     '1',
     'expected AUTOPR_ENABLED repo variable to default to 1 in bootstrap policy'
   );
+  assert.strictEqual(
+    String(policy.github && policy.github.workflow_permissions && policy.github.workflow_permissions.default_workflow_permissions || ''),
+    'read',
+    'expected workflow_permissions.default_workflow_permissions to default to read in bootstrap policy'
+  );
+  assert.strictEqual(
+    !!(policy.github && policy.github.workflow_permissions && policy.github.workflow_permissions.can_approve_pull_request_reviews),
+    true,
+    'expected workflow_permissions.can_approve_pull_request_reviews=true in bootstrap policy'
+  );
 
   // Ruleset body shape.
   const ruleset = buildRulesetBody({

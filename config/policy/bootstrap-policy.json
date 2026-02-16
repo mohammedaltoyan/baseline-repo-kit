@@ -57,6 +57,11 @@
     "repo_settings": {
       "delete_branch_on_merge": true
     },
+    "workflow_permissions": {
+      "enabled": true,
+      "default_workflow_permissions": "read",
+      "can_approve_pull_request_reviews": true
+    },
     "repo_variables": {
       "AUTOPR_ENABLED": "1",
       "MAIN_REQUIRED_APPROVER_LOGINS": "$repo_owner_user",

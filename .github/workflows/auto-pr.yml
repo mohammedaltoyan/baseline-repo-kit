@@ -54,6 +54,7 @@ jobs:
       - name: Open PR (github-actions[bot])
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOPR_TOKEN: ${{ secrets.AUTOPR_TOKEN }}
 
           AUTOPR_HEAD: ${{ inputs.head || github.ref_name }}
           AUTOPR_BASE: ${{ inputs.base }}
@@ -62,4 +63,3 @@ jobs:
           AUTOPR_TITLE: ${{ inputs.title }}
           AUTOPR_DRAFT: ${{ inputs.draft }}
         run: node scripts/ops/auto-pr-open.js
-

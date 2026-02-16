@@ -10,7 +10,8 @@
  * - Keep it generic: derive base branch from config/policy/branch-policy.json.
  *
  * Inputs (via env; optional unless noted):
- * - GITHUB_TOKEN (required) - token to call GitHub API
+ * - GITHUB_TOKEN (optional) - token to call GitHub API
+ * - AUTOPR_TOKEN (optional; preferred when present) - dedicated bot PAT
  * - GITHUB_REPOSITORY (required) - owner/repo
  * - GITHUB_API_URL (optional; defaults to https://api.github.com)
  * - GITHUB_REF_NAME (optional; defaults to AUTOPR_HEAD or current ref name)
@@ -73,6 +74,20 @@ function parseRepoSlug(value) {
   const full = toString(value);
   const m = /^([^/]+)\/([^/]+)$/.exec(full);
   return m ? { owner: m[1], repo: m[2] } : { owner: '', repo: '' };
+}
+
+function looksLikeActionsPrCreationPermissionError(raw) {
+  const msg = toString(raw).toLowerCase();
+  if (!msg) return false;
+  return (
+    msg.includes('github actions is not permitted to create or approve pull requests') ||
+    (msg.includes('api 403') && msg.includes('/pulls'))
+  );
+}
+
+function selectAuthToken(env = process.env) {
+  const source = env && typeof env === 'object' ? env : {};
+  return toString(source.AUTOPR_TOKEN) || toString(source.GITHUB_TOKEN) || toString(source.GH_TOKEN);
 }
 
 function readJson(filePath) {
@@ -182,7 +197,7 @@ function inferStep({ plan, changedFiles }) {
 
 async function ghJson({ token, apiBase, method, path: apiPath, body }) {
   const t = toString(token);
-  if (!t) throw new Error('GITHUB_TOKEN missing');
+  if (!t) throw new Error('Missing API token (AUTOPR_TOKEN or GITHUB_TOKEN).');
   const base = toString(apiBase) || 'https://api.github.com';
   const url = `${base.replace(/\/$/, '')}${apiPath.startsWith('/') ? '' : '/'}${apiPath}`;
 
@@ -243,7 +258,7 @@ function buildPrBody({ planId, step, head, base }) {
 }
 
 async function main() {
-  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
+  const token = selectAuthToken(process.env);
   const { owner, repo } = parseRepoSlug(process.env.GITHUB_REPOSITORY);
   if (!owner || !repo) die('Missing/invalid GITHUB_REPOSITORY (expected owner/repo).');
 
@@ -322,5 +337,24 @@ async function main() {
   info(`PR created: ${url || '<unknown>'}`);
 }
 
-main().catch((e) => die(e && e.message ? e.message : String(e)));
+if (require.main === module) {
+  main().catch((e) => {
+    const message = e && e.message ? e.message : String(e);
+    if (looksLikeActionsPrCreationPermissionError(message)) {
+      const repoSlug = toString(process.env.GITHUB_REPOSITORY);
+      const settingsUrl = repoSlug ? `https://github.com/${repoSlug}/settings/actions` : '<repo>/settings/actions';
+      die(
+        'GitHub blocked PR creation for Actions token.\n' +
+        'Fix one of:\n' +
+        `- Enable "Allow GitHub Actions to create and approve pull requests" at ${settingsUrl}, or\n` +
+        '- Configure repo secret AUTOPR_TOKEN with a bot PAT (workflow uses AUTOPR_TOKEN when present).'
+      );
+    }
+    die(message);
+  });
+}
 
+module.exports = {
+  looksLikeActionsPrCreationPermissionError,
+  selectAuthToken,
+};

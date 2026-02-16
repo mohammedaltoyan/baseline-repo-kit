@@ -307,6 +307,11 @@ function defaultBootstrapPolicy() {
       repo_settings: {
         delete_branch_on_merge: true,
       },
+      workflow_permissions: {
+        enabled: true,
+        default_workflow_permissions: 'read',
+        can_approve_pull_request_reviews: true,
+      },
       repo_variables: {
         AUTOPR_ENABLED: '1',
         MAIN_REQUIRED_APPROVER_LOGINS: '$repo_owner_user',
@@ -382,6 +387,12 @@ function loadBootstrapPolicy(sourceRoot) {
   };
   cfg.github.labels = { ...d.github.labels, ...(cfg.github.labels || {}) };
   cfg.github.codeowners = { ...d.github.codeowners, ...(cfg.github.codeowners || {}) };
+  cfg.github.workflow_permissions = {
+    ...d.github.workflow_permissions,
+    ...((cfg.github.workflow_permissions && typeof cfg.github.workflow_permissions === 'object')
+      ? cfg.github.workflow_permissions
+      : {}),
+  };
   cfg.github.security = { ...d.github.security, ...(cfg.github.security || {}) };
   cfg.github.security.security_and_analysis = {
     ...d.github.security.security_and_analysis,
@@ -860,6 +871,50 @@ async function ghPatchRepoSettings({ cwd, host, owner, repo, policy, dryRun }) {
   if (!res.ok) {
     throw new Error(`Failed to patch repo settings for ${owner}/${repo}: ${res.stderr || res.stdout || ''}`);
   }
+}
+
+function normalizeWorkflowDefaultPermission(raw) {
+  const v = toString(raw).toLowerCase();
+  if (v === 'read' || v === 'write') return v;
+  return '';
+}
+
+async function ghPatchWorkflowPermissions({ cwd, host, owner, repo, policy, dryRun }) {
+  const cfg = policy && policy.github && policy.github.workflow_permissions && typeof policy.github.workflow_permissions === 'object'
+    ? policy.github.workflow_permissions
+    : null;
+  const enabled = cfg == null || !Object.prototype.hasOwnProperty.call(cfg, 'enabled') ? true : !!cfg.enabled;
+  if (!enabled) return { status: 'SKIP', note: 'disabled (policy)' };
+
+  const payload = {};
+  const defaultPerm = normalizeWorkflowDefaultPermission(cfg && cfg.default_workflow_permissions);
+  if (defaultPerm) payload.default_workflow_permissions = defaultPerm;
+  if (cfg && Object.prototype.hasOwnProperty.call(cfg, 'can_approve_pull_request_reviews')) {
+    payload.can_approve_pull_request_reviews = !!cfg.can_approve_pull_request_reviews;
+  }
+
+  if (Object.keys(payload).length === 0) {
+    return { status: 'SKIP', note: 'no workflow_permissions fields configured in policy' };
+  }
+
+  if (dryRun) {
+    info(`[dry-run] patch workflow permissions: ${JSON.stringify(payload)}`);
+    return { status: 'OK', note: `dry-run ${JSON.stringify(payload)}` };
+  }
+
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/permissions/workflow`;
+  const res = await ghApiJson({ cwd, host, method: 'PUT', endpoint, body: payload });
+  if (!res.ok) {
+    const msg = toString(res.stderr || res.stdout || '').replace(/\s+/g, ' ').trim();
+    warn(`Unable to patch workflow permissions. ${msg}`);
+    warn(
+      'Auto-PR may fail until Actions setting "Allow GitHub Actions to create and approve pull requests" is enabled ' +
+      'or AUTOPR_TOKEN (bot PAT) secret is configured.'
+    );
+    return { status: 'WARN', note: 'workflow permissions patch failed (see warnings)' };
+  }
+
+  return { status: 'OK', note: `patched ${JSON.stringify(payload)}` };
 }
 
 function normalizeHexColor(raw) {
@@ -1838,6 +1893,8 @@ function printGitHubPostBootstrapChecklist({ host, owner, repo, integration, pro
   info(`  - CLI: gh api /repos/${owner}/${repo}/rulesets`);
   info(`- Actions variables (UI): ${base}/settings/variables/actions`);
   info(`  - CLI: gh variable list -R ${host}/${owner}/${repo}`);
+  info(`- Actions workflow permissions (UI): ${base}/settings/actions`);
+  info('  - Ensure "Allow GitHub Actions to create and approve pull requests" is enabled when using Auto-PR with GITHUB_TOKEN.');
   info('  - Key gates: MAIN_REQUIRED_APPROVER_LOGINS, MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK, PRODUCTION_PROMOTION_REQUIRED, STAGING_DEPLOY_GUARD, PRODUCTION_DEPLOY_GUARD, DOCS_PUBLISH_GUARD, API_INGRESS_DEPLOY_GUARD, DEPLOY_ENV_MAP_JSON (or legacy DEPLOY_ENV_<COMPONENT>_<TIER>)');
   info(`- Environments (UI): ${base}/settings/environments`);
   info(`  - CLI: gh api /repos/${owner}/${repo}/environments`);
@@ -2331,6 +2388,20 @@ async function main() {
 
       // Repository settings (merge methods, delete branch on merge, etc.).
       await ghPatchRepoSettings({ cwd: targetRoot, host: actualHost, owner, repo, policy, dryRun: args.dryRun });
+
+      const workflowPermResult = await ghPatchWorkflowPermissions({
+        cwd: targetRoot,
+        host: actualHost,
+        owner,
+        repo,
+        policy,
+        dryRun: args.dryRun,
+      });
+      if (workflowPermResult && workflowPermResult.status === 'WARN') {
+        warn(`Workflow permissions: ${workflowPermResult.note}`);
+      } else if (workflowPermResult && workflowPermResult.status === 'SKIP') {
+        info(`Workflow permissions: ${workflowPermResult.note}`);
+      }
 
       const enableBackportDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableBackport')
         ? !!profileBootstrapDefaults.enableBackport
