@@ -51,7 +51,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Open PR (github-actions[bot])
+      - name: Open PR (actions bot)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AUTOPR_TOKEN: ${{ secrets.AUTOPR_TOKEN }}

@@ -75,7 +75,7 @@ function run() {
   };
   const codexHumanRes = runValidateWithEvent(codexHumanEvent, {
     AUTOPR_ENFORCE_BOT_AUTHOR: '1',
-    AUTOPR_ALLOWED_AUTHORS: 'github-actions[bot]',
+    AUTOPR_ALLOWED_AUTHORS: 'github-actions[bot],app/github-actions',
     AUTOPR_ENFORCE_HEAD_PREFIXES: 'codex/',
   });
   assert.notStrictEqual(codexHumanRes.status, 0, 'expected codex/* human-authored PR to fail bot-author policy');
@@ -90,12 +90,12 @@ function run() {
       body: 'Plan: PLAN-202602-enterprise-monorepo\nStep: S99',
       base: { ref: 'dev' },
       head: { ref: 'codex/feature-y' },
-      user: { login: 'github-actions[bot]', type: 'Bot' },
+      user: { login: 'app/github-actions', type: 'Bot' },
     },
   };
   const codexBotRes = runValidateWithEvent(codexBotEvent, {
     AUTOPR_ENFORCE_BOT_AUTHOR: '1',
-    AUTOPR_ALLOWED_AUTHORS: 'github-actions[bot]',
+    AUTOPR_ALLOWED_AUTHORS: 'github-actions[bot],app/github-actions',
     AUTOPR_ENFORCE_HEAD_PREFIXES: 'codex/',
   });
   assert.strictEqual(codexBotRes.status, 0, `expected codex/* bot-authored PR to pass (got ${codexBotRes.status})`);

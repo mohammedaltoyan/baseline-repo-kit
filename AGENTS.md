@@ -165,12 +165,12 @@ When working on frontend UI/UX:
 - Deadlock prevention is mandatory:
   - If required approvals + code-owner review are enabled, PR author identity must be different from reviewer identity.
   - Use a dedicated automation account/token for authored PRs; keep human maintainers/code owners as approvers.
-  - Preferred baseline default: Auto-PR workflow (`.github/workflows/auto-pr.yml`) opens PRs as `github-actions[bot]` for `codex/**` branches (gated by `AUTOPR_ENABLED` repo var).
+  - Preferred baseline default: Auto-PR workflow (`.github/workflows/auto-pr.yml`) opens PRs as the GitHub Actions bot (`github-actions[bot]` / `app/github-actions`) for `codex/**` branches (gated by `AUTOPR_ENABLED` repo var).
   - Bootstrap SSOT enables required Actions workflow permission (`github.workflow_permissions.can_approve_pull_request_reviews=true`) so `GITHUB_TOKEN` can create PRs.
   - Fallback for restricted org policy: configure repo secret `AUTOPR_TOKEN` (bot PAT); Auto-PR uses it when present.
   - PR Policy can enforce bot-only authorship for agent branches:
     - `AUTOPR_ENFORCE_BOT_AUTHOR` (default `1`)
-    - `AUTOPR_ALLOWED_AUTHORS` (default `github-actions[bot]`)
+    - `AUTOPR_ALLOWED_AUTHORS` (default `github-actions[bot],app/github-actions`)
     - `AUTOPR_ENFORCE_HEAD_PREFIXES` (default `codex/`; set `*` for all branches)
 
 ## Commit & Pull Request Guidelines (Recommended)

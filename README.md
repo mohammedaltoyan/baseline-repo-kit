@@ -11,7 +11,7 @@ Reusable, project-agnostic baseline: planning system + docs templates + repo gua
 - `config/` safe env templates and lint/policy config (including branch policy SSOT).
 - `.github/` CI + PR policy enforcement + release/promotion/deploy guard workflows + optional security automation templates.
 - Bootstrap-driven GitHub hardening (workflow permissions, rulesets, environments, labels, and CODEOWNERS fallback provisioning).
-- Auto-PR + PR Policy support for bot-authored agent PRs (`github-actions[bot]`) on configurable branch prefixes.
+- Auto-PR + PR Policy support for bot-authored agent PRs (GitHub Actions bot: `github-actions[bot]` / `app/github-actions`) on configurable branch prefixes.
 - Root policy templates: `.editorconfig`, `CONTRIBUTING.md`, `SECURITY.md`.
 
 ## How to use in a new project

@@ -160,8 +160,8 @@ function run() {
   );
   assert.strictEqual(
     String(policy.github && policy.github.repo_variables && policy.github.repo_variables.AUTOPR_ALLOWED_AUTHORS || ''),
-    'github-actions[bot]',
-    'expected AUTOPR_ALLOWED_AUTHORS repo variable default to github-actions[bot] in bootstrap policy'
+    'github-actions[bot],app/github-actions',
+    'expected AUTOPR_ALLOWED_AUTHORS repo variable default to github-actions[bot],app/github-actions in bootstrap policy'
   );
   assert.strictEqual(
     String(policy.github && policy.github.repo_variables && policy.github.repo_variables.AUTOPR_ENFORCE_HEAD_PREFIXES || ''),

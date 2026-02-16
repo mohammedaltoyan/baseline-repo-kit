@@ -315,7 +315,7 @@ function defaultBootstrapPolicy() {
       repo_variables: {
         AUTOPR_ENABLED: '1',
         AUTOPR_ENFORCE_BOT_AUTHOR: '1',
-        AUTOPR_ALLOWED_AUTHORS: 'github-actions[bot]',
+        AUTOPR_ALLOWED_AUTHORS: 'github-actions[bot],app/github-actions',
         AUTOPR_ENFORCE_HEAD_PREFIXES: 'codex/',
         MAIN_REQUIRED_APPROVER_LOGINS: '$repo_owner_user',
         MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK: '1',

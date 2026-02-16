@@ -2,7 +2,8 @@
 /**
  * auto-pr-open.js
  *
- * Opens a pull request using GitHub Actions' `GITHUB_TOKEN` (PR author: github-actions[bot]).
+ * Opens a pull request using GitHub Actions' `GITHUB_TOKEN` (PR author: GitHub Actions bot; login may appear as
+ * `github-actions[bot]` or `app/github-actions`).
  *
  * Goals:
  * - Remove self-approval deadlocks (PR author != human code owner).

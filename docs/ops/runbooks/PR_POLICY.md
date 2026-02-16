@@ -18,7 +18,7 @@ Rule of thumb:
 - If you use GitHub Merge Queue, ensure required checks also run on `merge_group` events (this repo ships `merge_group` triggers on the relevant workflows).
 - Bot author enforcement (recommended for agent branches):
   - `AUTOPR_ENFORCE_BOT_AUTHOR` (default `1`)
-  - `AUTOPR_ALLOWED_AUTHORS` (default `github-actions[bot]`)
+  - `AUTOPR_ALLOWED_AUTHORS` (default `github-actions[bot],app/github-actions`)
   - `AUTOPR_ENFORCE_HEAD_PREFIXES` (default `codex/`; set `*` to enforce on all PR branches)
   - When enforced, matching branches must have PR author in `AUTOPR_ALLOWED_AUTHORS` or PR Policy fails.
 

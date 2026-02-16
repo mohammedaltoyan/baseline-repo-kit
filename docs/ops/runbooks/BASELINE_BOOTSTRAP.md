@@ -95,9 +95,9 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - `BACKPORT_ENABLED` (default: `1`)
   - `SECURITY_ENABLED` (default: `0`)
   - `DEPLOY_ENABLED` (default: `0`)
-  - `AUTOPR_ENABLED` (default: `1`) - enables `.github/workflows/auto-pr.yml` to open PRs as `github-actions[bot]` for `codex/**` branches
+  - `AUTOPR_ENABLED` (default: `1`) - enables `.github/workflows/auto-pr.yml` to open PRs as the GitHub Actions bot (`github-actions[bot]` / `app/github-actions`) for `codex/**` branches
   - `AUTOPR_ENFORCE_BOT_AUTHOR` (default: `1`) - PR policy requires bot author for configured branch prefixes
-  - `AUTOPR_ALLOWED_AUTHORS` (default: `github-actions[bot]`) - allowed PR author login(s) when bot-author policy is enforced
+  - `AUTOPR_ALLOWED_AUTHORS` (default: `github-actions[bot],app/github-actions`) - allowed PR author login(s) when bot-author policy is enforced
   - `AUTOPR_ENFORCE_HEAD_PREFIXES` (default: `codex/`) - branch prefix list for bot-author enforcement (`*` to enforce on all branches)
   - Deploy environment mapping (used by `.github/workflows/deploy.yml`):
     - `DEPLOY_ENV_MAP_JSON` (JSON mapping: component -> {staging, production})
@@ -155,6 +155,6 @@ Recommended toggles:
    - GitHub does not count PR author approval toward required reviews.
    - For agent-driven PRs, use a separate automation account/token for authoring and keep human maintainers/code owners as reviewers.
    - If you use one account for both authoring and reviewing, required-review rules can deadlock.
-  - Baseline fix: keep PR author as `github-actions[bot]` using Auto-PR workflow (`.github/workflows/auto-pr.yml`) so humans can approve.
+  - Baseline fix: keep PR author as the GitHub Actions bot (`github-actions[bot]` / `app/github-actions`) using Auto-PR workflow (`.github/workflows/auto-pr.yml`) so humans can approve.
   - Bootstrap auto-enables the required Actions setting via policy (`github.workflow_permissions.can_approve_pull_request_reviews=true`) when permissions allow.
   - Fallback: configure secret `AUTOPR_TOKEN` (bot PAT) if your org policy blocks that Actions setting.

@@ -290,7 +290,7 @@ async function main() {
   const botAuthorEnforce = toBool(process.env.AUTOPR_ENFORCE_BOT_AUTHOR, true);
   const allowedAuthorLogins = parseAuthorLogins(
     process.env.AUTOPR_ALLOWED_AUTHORS,
-    'github-actions[bot]'
+    'github-actions[bot],app/github-actions'
   );
   const headPrefixPolicy = parseHeadPrefixPolicy(
     process.env.AUTOPR_ENFORCE_HEAD_PREFIXES,
