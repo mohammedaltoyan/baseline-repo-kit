@@ -25,4 +25,7 @@ jobs:
       - name: Validate PR metadata (Plan + Step)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOPR_ENFORCE_BOT_AUTHOR: ${{ vars.AUTOPR_ENFORCE_BOT_AUTHOR }}
+          AUTOPR_ALLOWED_AUTHORS: ${{ vars.AUTOPR_ALLOWED_AUTHORS }}
+          AUTOPR_ENFORCE_HEAD_PREFIXES: ${{ vars.AUTOPR_ENFORCE_HEAD_PREFIXES }}
         run: node scripts/ops/pr-policy-validate.js

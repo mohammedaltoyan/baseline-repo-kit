@@ -53,6 +53,59 @@ function parseRepo(full) {
   return m ? { owner: m[1], repo: m[2] } : { owner: '', repo: '' };
 }
 
+function toBool(value, fallback = false) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return !!fallback;
+  if (['1', 'true', 'yes', 'on', 'enabled'].includes(raw)) return true;
+  if (['0', 'false', 'no', 'off', 'disabled'].includes(raw)) return false;
+  return !!fallback;
+}
+
+function parseCsvTokens(raw) {
+  return String(raw || '')
+    .split(/[,\s]+/g)
+    .map((v) => String(v || '').trim())
+    .filter(Boolean);
+}
+
+function parseAuthorLogins(raw, fallback) {
+  const source = String(raw || '').trim() || String(fallback || '').trim();
+  const out = [];
+  const seen = new Set();
+  for (const token of parseCsvTokens(source)) {
+    const login = token.replace(/^@/, '').toLowerCase();
+    if (!login || seen.has(login)) continue;
+    seen.add(login);
+    out.push(login);
+  }
+  return out;
+}
+
+function parseHeadPrefixPolicy(raw, fallback) {
+  const source = String(raw || '').trim() || String(fallback || '').trim();
+  const tokens = parseCsvTokens(source).map((v) => v.toLowerCase());
+  const all = tokens.includes('*') || tokens.includes('all');
+  const prefixes = [];
+  const seen = new Set();
+  for (const token of tokens) {
+    if (token === '*' || token === 'all') continue;
+    if (!token || seen.has(token)) continue;
+    seen.add(token);
+    prefixes.push(token);
+  }
+  return { all, prefixes };
+}
+
+function headMatchesPolicy(headRef, policy) {
+  const head = String(headRef || '').trim().toLowerCase();
+  const cfg = policy && typeof policy === 'object' ? policy : { all: false, prefixes: [] };
+  if (!head) return false;
+  if (cfg.all) return true;
+  const prefixes = Array.isArray(cfg.prefixes) ? cfg.prefixes : [];
+  if (prefixes.length === 0) return true;
+  return prefixes.some((prefix) => head.startsWith(prefix));
+}
+
 function isDependencyAutomationPr({ authorLogin, authorType, headRef }) {
   const login = String(authorLogin || '').trim().toLowerCase();
   const type = String(authorType || '').trim().toLowerCase();
@@ -234,6 +287,15 @@ async function hydrateChangedFiles(context) {
 async function main() {
   const args = parseArgs();
   const branchPolicy = loadBranchPolicyConfig(process.cwd());
+  const botAuthorEnforce = toBool(process.env.AUTOPR_ENFORCE_BOT_AUTHOR, true);
+  const allowedAuthorLogins = parseAuthorLogins(
+    process.env.AUTOPR_ALLOWED_AUTHORS,
+    'github-actions[bot]'
+  );
+  const headPrefixPolicy = parseHeadPrefixPolicy(
+    process.env.AUTOPR_ENFORCE_HEAD_PREFIXES,
+    'codex/'
+  );
 
   const contexts = await resolvePrContexts();
   for (const ctx of contexts) {
@@ -260,6 +322,23 @@ async function main() {
       });
       console.log(`[pr-policy-validate] OK PR ${prNumber} (dependency automation: Plan/Step not required)`);
       continue;
+    }
+
+    if (botAuthorEnforce && headMatchesPolicy(hydrated.headRef, headPrefixPolicy)) {
+      if (allowedAuthorLogins.length === 0) {
+        die('AUTOPR_ALLOWED_AUTHORS resolved empty while AUTOPR_ENFORCE_BOT_AUTHOR=1.');
+      }
+      const authorLogin = String(hydrated.authorLogin || '').trim().toLowerCase();
+      if (!authorLogin) {
+        die(`PR ${prNumber}: missing author login; cannot enforce bot-author policy.`);
+      }
+      if (!allowedAuthorLogins.includes(authorLogin)) {
+        die(
+          `PR ${prNumber}: head=${hydrated.headRef} requires bot-authored PR. ` +
+          `Allowed author(s): ${allowedAuthorLogins.join(', ')}; found: ${authorLogin}. ` +
+          'Close this PR and push the branch without opening a manual PR so Auto-PR can create it.'
+        );
+      }
     }
 
     if (planIds.length === 0) die(`PR ${prNumber}: Missing \`Plan: PLAN-YYYYMM-<slug>\` in PR body.`);
@@ -289,6 +368,10 @@ if (require.main === module) {
 }
 
 module.exports = {
+  headMatchesPolicy,
   isDependencyAutomationPr,
+  parseAuthorLogins,
+  parseHeadPrefixPolicy,
   shouldBypassPlanStep,
+  toBool,
 };

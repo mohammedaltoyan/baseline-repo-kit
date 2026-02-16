@@ -96,6 +96,9 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - `SECURITY_ENABLED` (default: `0`)
   - `DEPLOY_ENABLED` (default: `0`)
   - `AUTOPR_ENABLED` (default: `1`) - enables `.github/workflows/auto-pr.yml` to open PRs as `github-actions[bot]` for `codex/**` branches
+  - `AUTOPR_ENFORCE_BOT_AUTHOR` (default: `1`) - PR policy requires bot author for configured branch prefixes
+  - `AUTOPR_ALLOWED_AUTHORS` (default: `github-actions[bot]`) - allowed PR author login(s) when bot-author policy is enforced
+  - `AUTOPR_ENFORCE_HEAD_PREFIXES` (default: `codex/`) - branch prefix list for bot-author enforcement (`*` to enforce on all branches)
   - Deploy environment mapping (used by `.github/workflows/deploy.yml`):
     - `DEPLOY_ENV_MAP_JSON` (JSON mapping: component -> {staging, production})
     - Legacy override (optional; takes precedence): `DEPLOY_ENV_<COMPONENT>_<TIER>`

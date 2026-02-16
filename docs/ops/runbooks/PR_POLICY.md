@@ -16,6 +16,11 @@ Rule of thumb:
 
 - Enable a PR policy check (this repo ships `.github/workflows/pr-policy.yml` which validates `Plan:` + `Step:`, enforces S00 scope, and validates PR target branches using `config/policy/branch-policy.json`).
 - If you use GitHub Merge Queue, ensure required checks also run on `merge_group` events (this repo ships `merge_group` triggers on the relevant workflows).
+- Bot author enforcement (recommended for agent branches):
+  - `AUTOPR_ENFORCE_BOT_AUTHOR` (default `1`)
+  - `AUTOPR_ALLOWED_AUTHORS` (default `github-actions[bot]`)
+  - `AUTOPR_ENFORCE_HEAD_PREFIXES` (default `codex/`; set `*` to enforce on all PR branches)
+  - When enforced, matching branches must have PR author in `AUTOPR_ALLOWED_AUTHORS` or PR Policy fails.
 
 ## PR targets (enterprise default)
 
