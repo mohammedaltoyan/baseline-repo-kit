@@ -30,102 +30,37 @@ jobs:
     timeout-minutes: 5
     permissions:
       actions: read
+      contents: read
     outputs:
       github_environment: ${{ steps.resolve.outputs.github_environment }}
       tier: ${{ steps.resolve.outputs.tier }}
       component: ${{ steps.resolve.outputs.component }}
+      source: ${{ steps.resolve.outputs.source }}
     steps:
-      - name: Resolve GitHub Environment
+      - name: Guard (internal workflow)
+        shell: bash
+        run: |
+          set -euo pipefail
+          actor="${GITHUB_ACTOR}"
+          if [ "${actor}" != "github-actions[bot]" ] && [ "${actor}" != "github-actions" ]; then
+            echo "::error::This workflow is internal. Use \"Promote (Staging)\" or \"Promote (Production)\" instead."
+            echo "actor=${actor}"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve GitHub Environment (registry -> map -> legacy)
         id: resolve
-        uses: actions/github-script@v8
         env:
           TIER: ${{ inputs.environment }}
           COMPONENT: ${{ inputs.component || 'application' }}
-
+          DEPLOY_SURFACES_PATH: ${{ vars.DEPLOY_SURFACES_PATH || 'config/deploy/deploy-surfaces.json' }}
           DEPLOY_ENV_MAP_JSON: ${{ vars.DEPLOY_ENV_MAP_JSON }}
-        with:
-          script: |
-            function toString(v) {
-              return String(v == null ? '' : v).trim();
-            }
-
-            function normalizeTier(raw) {
-              const v = toString(raw).toLowerCase();
-              if (!v) return '';
-              if (v === 'staging' || v === 'production') return v;
-              return '';
-            }
-
-            function normalizeComponent(raw) {
-              let v = toString(raw).toLowerCase();
-              if (!v) return 'application';
-              if (['app', 'application', 'service'].includes(v)) return 'application';
-              if (['docs', 'documentation', 'site'].includes(v)) return 'docs';
-              if (['api-ingress', 'api_ingress', 'ingress'].includes(v)) return 'api-ingress';
-              v = v.replace(/_/g, '-');
-              if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(v)) return '';
-              return v;
-            }
-
-            function parseDeployEnvMap(raw) {
-              const text = toString(raw);
-              if (!text) return null;
-              try {
-                const parsed = JSON.parse(text);
-                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-                return parsed;
-              } catch (e) {
-                core.warning(`DEPLOY_ENV_MAP_JSON is not valid JSON: ${e.message || e}`);
-                return null;
-              }
-            }
-
-            const tier = normalizeTier(process.env.TIER);
-            if (!tier) {
-              core.setFailed(`Invalid deployment tier "${toString(process.env.TIER)}" (expected staging|production).`);
-              return;
-            }
-
-            const component = normalizeComponent(process.env.COMPONENT);
-            if (!component) {
-              core.setFailed(`Invalid component "${toString(process.env.COMPONENT)}" (expected a safe token like "application" or "docs").`);
-              return;
-            }
-
-            const key = `DEPLOY_ENV_${component.toUpperCase().replace(/-/g, '_')}_${tier.toUpperCase()}`;
-            const map = parseDeployEnvMap(process.env.DEPLOY_ENV_MAP_JSON);
-
-            let legacyValue = '';
-            try {
-              const res = await github.request(
-                'GET /repos/{owner}/{repo}/actions/variables/{name}',
-                { owner: context.repo.owner, repo: context.repo.repo, name: key }
-              );
-              legacyValue = toString(res && res.data && res.data.value);
-            } catch (e) {
-              // ignore missing legacy var (404); fail on other errors only when we need it.
-              const status = Number(e && e.status);
-              if (Number.isFinite(status) && status !== 404) {
-                core.warning(`Unable to fetch legacy repo variable ${key}: ${e.message || e}`);
-              }
-            }
-
-            let envName = legacyValue;
-            if (!envName && map && typeof map[component] === 'object' && map[component]) {
-              envName = toString(map[component][tier]);
-            }
-            if (!envName) {
-              core.setFailed(
-                `Unable to resolve GitHub environment for component="${component}" tier="${tier}".\n` +
-                `Fix: add an entry to DEPLOY_ENV_MAP_JSON for this component/tier, or set legacy repo variable ${key}.`
-              );
-              return;
-            }
-
-            core.info(`Resolved GitHub environment "${envName}" (tier=${tier} component=${component} key=${key})`);
-            core.setOutput('github_environment', envName);
-            core.setOutput('tier', tier);
-            core.setOutput('component', component);
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/ops/deploy-env-resolve.js
 
   deploy:
     needs: [resolve]
@@ -136,15 +71,25 @@ jobs:
     concurrency:
       group: deploy-${{ needs.resolve.outputs.github_environment }}
       cancel-in-progress: false
+    outputs:
+      deployed_sha: ${{ steps.sha.outputs.deployed_sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.sha }}
 
+      - name: Capture deployed SHA
+        id: sha
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "deployed_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Enforce deploy policy guards
         env:
           STAGING_DEPLOY_GUARD: ${{ vars.STAGING_DEPLOY_GUARD }}
+          STAGING_PROMOTION_REQUIRED: ${{ vars.STAGING_PROMOTION_REQUIRED }}
           PRODUCTION_DEPLOY_GUARD: ${{ vars.PRODUCTION_DEPLOY_GUARD }}
           DOCS_PUBLISH_GUARD: ${{ vars.DOCS_PUBLISH_GUARD }}
           API_INGRESS_DEPLOY_GUARD: ${{ vars.API_INGRESS_DEPLOY_GUARD }}
@@ -173,3 +118,29 @@ jobs:
           echo "Missing scripts/deploy/deploy.sh."
           echo "Implement a project-specific deploy hook and re-run this workflow."
           exit 1
+
+  receipt:
+    needs: [resolve, deploy]
+    if: ${{ vars.DEPLOY_ENABLED == '1' && needs.deploy.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (full)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Write deploy receipt (SSOT evidence)
+        env:
+          DEPLOY_RECEIPTS_BRANCH: ${{ vars.DEPLOY_RECEIPTS_BRANCH || vars.EVIDENCE_BRANCH || 'ops/evidence' }}
+          DEPLOY_RECEIPTS_PREFIX: ${{ vars.DEPLOY_RECEIPTS_PREFIX || 'docs/ops/evidence/deploy' }}
+        run: |
+          node scripts/ops/deploy-receipts.js write \
+            --tier "${{ needs.resolve.outputs.tier }}" \
+            --sha "${{ needs.deploy.outputs.deployed_sha }}" \
+            --surface "${{ needs.resolve.outputs.component }}" \
+            --environment "${{ needs.resolve.outputs.github_environment }}" \
+            --run-url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --actor "${{ github.actor }}"

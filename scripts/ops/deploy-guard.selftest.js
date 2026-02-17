@@ -29,6 +29,24 @@ function run() {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 
   result = runCase({
+    args: ['--environment', 'staging', '--promotion-source', 'direct'],
+    env: {
+      STAGING_DEPLOY_GUARD: 'enabled',
+      STAGING_PROMOTION_REQUIRED: 'enabled',
+    },
+  });
+  assert.notStrictEqual(result.status, 0, 'expected staging promotion gate failure');
+
+  result = runCase({
+    args: ['--environment', 'staging', '--promotion-source', 'approved-flow'],
+    env: {
+      STAGING_DEPLOY_GUARD: 'enabled',
+      STAGING_PROMOTION_REQUIRED: 'enabled',
+    },
+  });
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+
+  result = runCase({
     args: ['--environment', 'staging'],
     env: {
       STAGING_DEPLOY_GUARD: 'disabled',

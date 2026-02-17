@@ -38,6 +38,19 @@ function normalizeSurfaceId(raw) {
   return v;
 }
 
+// Normalizes workflow/deploy input to a registry surface_id.
+// Kept consistent with deploy-guard to avoid drift.
+function normalizeComponent(raw) {
+  let v = toString(raw).toLowerCase();
+  if (!v) return 'application';
+  if (['app', 'application', 'service'].includes(v)) return 'application';
+  if (['docs', 'documentation', 'site'].includes(v)) return 'docs';
+  if (['api-ingress', 'api_ingress', 'ingress'].includes(v)) return 'api-ingress';
+  v = v.replace(/_/g, '-');
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(v)) return '';
+  return v;
+}
+
 function parseRegexString(raw) {
   const text = toString(raw);
   if (!text) throw new Error('regex pattern must be a non-empty string');
@@ -298,6 +311,7 @@ module.exports = {
   normalizeTier,
   normalizeApprovalMode,
   normalizeSurfaceId,
+  normalizeComponent,
   normalizePath,
   parseRegexString,
   validateAndNormalizeRegistry,
@@ -307,4 +321,3 @@ module.exports = {
   resolveApprovalMode,
   matchSurfacesForPaths,
 };
-
