@@ -5,9 +5,10 @@ This baseline kit is a SSOT that can be installed into any new project repo. The
 - Install/update baseline-managed files into a target repo
 - Create local env scaffolding (no secrets)
 - Initialize `git` and create baseline branches (SSOT: `config/policy/branch-policy.json`)
-- Optional: provision/configure GitHub (repo, repo settings, rulesets/branch protection, repo variables) using `gh`
+- Optional: provision/configure GitHub (repo, repo settings, workflow permissions, rulesets/branch protection, repo variables) using `gh`
 - Optional: configure GitHub Merge Queue via rulesets API when supported (workflows already support `merge_group`)
-- Optional: provision baseline labels, security toggles, and environments (best-effort via API; non-destructive)
+- Optional: provision baseline labels, CODEOWNERS fallback, security toggles, and environments (best-effort via API; non-destructive)
+- Optional: enable Auto-PR (bot authoring) for `codex/**` branches (default: enabled via repo var `AUTOPR_ENABLED=1`)
 - Optional: enforce release/deploy governance controls (main approver check, production promotion flow, deploy guard variables)
 - Optional: run `npm install`/`npm test` in the target repo
 
@@ -30,9 +31,14 @@ Local-only bootstrap (no GitHub):
 
 - `npm run baseline:bootstrap -- -- --to <target-path>`
 
+Bootstrap with an install profile:
+
+- `npm run baseline:bootstrap -- -- --to <target-path> --profile enterprise`
+
 Bootstrap + GitHub provisioning (creates repo if missing, applies repo settings + rulesets + variables):
 
 - `npm run baseline:bootstrap -- -- --to <target-path> --github`
+- `npm run baseline:bootstrap -- -- --to <target-path> --github --codeowners 'owner-login,org/platform-team'`
 
 Update an existing repo from baseline SSOT (overwrite baseline-managed files; never deletes target files):
 
@@ -71,12 +77,17 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - `baseline: production`
 - Pull request review defaults (via rulesets):
   - Required approvals: `1`
-  - Require code owner review: enabled (add `.github/CODEOWNERS` in the target repo)
+  - Require code owner review: enabled
+  - CODEOWNERS fallback: bootstrap ensures `.github/CODEOWNERS` exists with at least one owner from policy/defaults (or `--codeowners=<csv>`)
 - Repo settings (patched):
   - Merge methods (derived from policy and enforced via rulesets):
     - Integration (`dev` by default): squash-only
     - Production (`main` by default): merge-commit-only (prevents recurring `dev` -> `main` conflicts caused by squash releases)
   - Delete branch on merge (default: enabled)
+- Workflow permissions (patched):
+  - Policy SSOT: `github.workflow_permissions` in `config/policy/bootstrap-policy.json`
+  - Default token permissions: `read`
+  - Allow GitHub Actions to create/approve PRs: enabled (required for Auto-PR with `GITHUB_TOKEN`)
 - Merge Queue:
   - Recommended by policy for integration branch by default.
   - Bootstrap attempts to configure it via rulesets when supported; when unsupported (plan/org dependent), enable manually in the GitHub UI.
@@ -84,6 +95,14 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - `BACKPORT_ENABLED` (default: `1`)
   - `SECURITY_ENABLED` (default: `0`)
   - `DEPLOY_ENABLED` (default: `0`)
+  - `AUTOPR_ENABLED` (default: `1`) - enables `.github/workflows/auto-pr.yml` to open PRs as the GitHub Actions bot (`github-actions[bot]` / `app/github-actions`) for `codex/**` branches
+  - `AUTOPR_ENFORCE_BOT_AUTHOR` (default: `1`) - PR policy requires bot author for configured branch prefixes
+  - `AUTOPR_ALLOWED_AUTHORS` (default: `github-actions[bot],app/github-actions`) - allowed PR author login(s) when bot-author policy is enforced
+  - `AUTOPR_ENFORCE_HEAD_PREFIXES` (default: `codex/`) - branch prefix list for bot-author enforcement (`*` to enforce on all branches)
+  - `RELEASE_PR_BYPASS_PLAN_STEP` (default: `1`) - allow release promotion PRs (`dev` -> `main`) to omit `Plan:`/`Step:` (reduces redundancy)
+  - Deploy environment mapping (used by `.github/workflows/deploy.yml`):
+    - `DEPLOY_ENV_MAP_JSON` (JSON mapping: component -> {staging, production})
+    - Legacy override (optional; takes precedence): `DEPLOY_ENV_<COMPONENT>_<TIER>`
   - `EVIDENCE_SOURCE_BRANCH` (set to integration branch)
   - `MAIN_REQUIRED_APPROVER_LOGINS` (default policy template: `$repo_owner_user`; can be overridden with `--main-approvers=<csv>`)
   - `MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK` (default: `1`, avoids solo-maintainer deadlocks)
@@ -95,10 +114,17 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
 - Labels:
   - Baseline label definitions SSOT: `config/policy/github-labels.json`
   - Bootstrap ensures labels exist when `github.labels.enabled=true` (default; non-destructive).
+- CODEOWNERS:
+  - Policy SSOT: `github.codeowners` in `config/policy/bootstrap-policy.json`
+  - Default owners: `github.codeowners.default_owners` (default: `$repo_owner_user`)
+  - CLI override: `--codeowners=<csv>` (users and/or `org/team` handles)
+  - Bootstrap warns on self-review deadlock when rules require code-owner review and all owners resolve to the PR author.
 - Security toggles (best-effort):
   - Bootstrap can enable vulnerability alerts + automated security fixes and patch `security_and_analysis` settings when supported by the repo/plan.
 - Environments (best-effort):
-  - Bootstrap can create `staging` + `production` and add deployment branch policies derived from the branch policy SSOT.
+  - Bootstrap can create component-scoped environments derived from `DEPLOY_ENV_MAP_JSON` (and legacy `DEPLOY_ENV_<COMPONENT>_<TIER>` overrides when present) (example: `application-staging`, `application-production`).
+  - Bootstrap adds deployment branch policies derived from the branch policy SSOT (integration branch for `*-staging`, production branch for `*-production`).
+  - Tier templates (`staging`, `production`) are used as policy templates; they are not created by default (policy: `github.environments.create_tier_environments=false`).
   - Bootstrap can apply environment reviewer policies (`required_reviewers`, `prevent_self_review`, `can_admins_bypass`) when configured.
 
 ## Post-bootstrap verification (UI or CLI)
@@ -125,3 +151,12 @@ Recommended toggles:
    - Baseline required check: `Release Policy (main)` (`.github/workflows/release-policy-main.yml`).
    - Set `MAIN_REQUIRED_APPROVER_LOGINS` to one or more comma-separated GitHub logins.
    - Optional: keep `MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK=1` for solo-maintainer repos; set to `0` when you have a separate reviewer pool.
+   - Optional: use `Release PR (bot)` workflow (`.github/workflows/release-pr-bot.yml`) to open/refresh the release PR (`dev` -> `main`) as the GitHub Actions bot so a human can approve and merge.
+
+5) Reviewer identity separation (required when approvals are mandatory)
+   - GitHub does not count PR author approval toward required reviews.
+   - For agent-driven PRs, use a separate automation account/token for authoring and keep human maintainers/code owners as reviewers.
+   - If you use one account for both authoring and reviewing, required-review rules can deadlock.
+  - Baseline fix: keep PR author as the GitHub Actions bot (`github-actions[bot]` / `app/github-actions`) using Auto-PR workflow (`.github/workflows/auto-pr.yml`) so humans can approve.
+  - Bootstrap auto-enables the required Actions setting via policy (`github.workflow_permissions.can_approve_pull_request_reviews=true`) when permissions allow.
+  - Fallback: configure secret `AUTOPR_TOKEN` (bot PAT) if your org policy blocks that Actions setting.

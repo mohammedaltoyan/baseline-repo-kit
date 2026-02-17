@@ -2,6 +2,8 @@ name: Release Policy (main)
 
 on:
   pull_request:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
   merge_group:
     types: [checks_requested]
 

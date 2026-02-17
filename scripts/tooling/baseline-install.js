@@ -20,6 +20,15 @@ const path = require('path');
 const { parseFlagArgs } = require('../utils/cli-args');
 const { isTruthy } = require('../utils/is-truthy');
 const { readJson, writeJson } = require('../utils/json');
+const {
+  compileProfileFilters,
+  loadInstallProfilesPolicy,
+  normalizeProfileName,
+  profileAllowsPath,
+  readBaselineLock,
+  resolveInstallProfile,
+  writeBaselineLock,
+} = require('./install-profiles');
 
 function die(msg) {
   console.error(`[baseline-install] ${msg}`);
@@ -278,6 +287,7 @@ function main() {
     posFlags.includes('dryrun') ||
     posFlags.includes('dry_run');
   const verbose = isTruthy(args.verbose) || posFlags.includes('verbose');
+  const profileArg = String(args.profile || '').trim();
 
   const sourceRoot = path.resolve(__dirname, '..', '..');
   const targetRoot = path.resolve(process.cwd(), targetRaw);
@@ -289,13 +299,45 @@ function main() {
     die(`Target is not a directory: ${targetRoot}`);
   }
 
-  const stats = { copied: 0, overwritten: 0, skipped: 0, packageJsonMerged: 0 };
-  const files = walkFiles(sourceRoot).filter((f) => allowedByMode(f.relPosix, mode));
+  const profilePolicy = loadInstallProfilesPolicy(sourceRoot);
+  const lockRelPath = String(profilePolicy.config && profilePolicy.config.lock_path || 'config/baseline/baseline.lock.json')
+    .trim()
+    .replace(/\\/g, '/');
+  const policyRelPath = path.relative(sourceRoot, profilePolicy.path).replace(/\\/g, '/');
+  const lock = readBaselineLock({ targetRoot, lockRelPath });
+
+  if (profileArg) {
+    const normalized = normalizeProfileName(profileArg);
+    const profiles = profilePolicy.config && profilePolicy.config.profiles;
+    if (!normalized) die(`Invalid --profile "${profileArg}" (expected [a-z0-9][a-z0-9_-]*).`);
+    if (!profiles || typeof profiles !== 'object' || !Object.prototype.hasOwnProperty.call(profiles, normalized)) {
+      const available = profiles && typeof profiles === 'object'
+        ? Object.keys(profiles).sort().join(', ')
+        : 'standard';
+      die(`Unknown --profile "${normalized}". Available: ${available}`);
+    }
+  }
+
+  const resolved = resolveInstallProfile({
+    policy: profilePolicy.config,
+    profileArg,
+    targetLock: (lock && lock.data) || null,
+  });
+  const profileName = resolved.name;
+  const profileFilters = compileProfileFilters(resolved.profile);
+
+  const stats = { copied: 0, overwritten: 0, skipped: 0, packageJsonMerged: 0, baselineLockWritten: 0 };
+  const files = walkFiles(sourceRoot)
+    .filter((f) => allowedByMode(f.relPosix, mode))
+    .filter((f) => profileAllowsPath(f.relPosix, profileFilters));
 
   if (verbose) {
-    console.log(`[baseline-install] mode=${mode} overwrite=${overwrite ? '1' : '0'} dryRun=${dryRun ? '1' : '0'}`);
+    console.log(`[baseline-install] mode=${mode} profile=${profileName} overwrite=${overwrite ? '1' : '0'} dryRun=${dryRun ? '1' : '0'}`);
     console.log(`[baseline-install] from=${sourceRoot}`);
     console.log(`[baseline-install] to=${targetRoot}`);
+    if (lock && lock.data && lock.data.profile) {
+      console.log(`[baseline-install] profile lock: ${lock.data.profile} (${lockRelPath})`);
+    }
   }
 
   for (const f of files) {
@@ -331,8 +373,20 @@ function main() {
     }
   }
 
+  const lockRes = writeBaselineLock({
+    targetRoot,
+    lockRelPath,
+    profileName,
+    policyRelPath,
+    dryRun,
+  });
+  if (lockRes && lockRes.wrote) {
+    stats.baselineLockWritten += 1;
+    if (verbose) console.log(`[baseline-install] ${dryRun ? 'dry-run (write)' : 'write'}: ${lockRelPath}`);
+  }
+
   console.log(
-    `[baseline-install] Done (${mode}${dryRun ? ', dry-run' : ''}): copied=${stats.copied}, overwritten=${stats.overwritten}, skipped=${stats.skipped}, packageJsonMerged=${stats.packageJsonMerged}`
+    `[baseline-install] Done (${mode}${dryRun ? ', dry-run' : ''}): copied=${stats.copied}, overwritten=${stats.overwritten}, skipped=${stats.skipped}, packageJsonMerged=${stats.packageJsonMerged}, baselineLockWritten=${stats.baselineLockWritten}`
   );
 }
 

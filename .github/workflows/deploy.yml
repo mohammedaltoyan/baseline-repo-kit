@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "GitHub environment to deploy to (recommended: staging|production)"
+        description: "Deployment tier (staging|production)"
         required: true
         default: staging
       ref:
@@ -12,7 +12,7 @@ on:
         required: false
         default: ""
       component:
-        description: "Deployment component (application|docs|api-ingress)"
+        description: "Deployment component (safe token; default: application)"
         required: false
         default: application
       promotion_source:
@@ -24,14 +24,121 @@ permissions:
   contents: read
 
 jobs:
+  resolve:
+    if: ${{ vars.DEPLOY_ENABLED == '1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      github_environment: ${{ steps.resolve.outputs.github_environment }}
+      tier: ${{ steps.resolve.outputs.tier }}
+      component: ${{ steps.resolve.outputs.component }}
+    steps:
+      - name: Resolve GitHub Environment
+        id: resolve
+        uses: actions/github-script@v8
+        env:
+          TIER: ${{ inputs.environment }}
+          COMPONENT: ${{ inputs.component || 'application' }}
+
+          DEPLOY_ENV_MAP_JSON: ${{ vars.DEPLOY_ENV_MAP_JSON }}
+        with:
+          script: |
+            function toString(v) {
+              return String(v == null ? '' : v).trim();
+            }
+
+            function normalizeTier(raw) {
+              const v = toString(raw).toLowerCase();
+              if (!v) return '';
+              if (v === 'staging' || v === 'production') return v;
+              return '';
+            }
+
+            function normalizeComponent(raw) {
+              let v = toString(raw).toLowerCase();
+              if (!v) return 'application';
+              if (['app', 'application', 'service'].includes(v)) return 'application';
+              if (['docs', 'documentation', 'site'].includes(v)) return 'docs';
+              if (['api-ingress', 'api_ingress', 'ingress'].includes(v)) return 'api-ingress';
+              v = v.replace(/_/g, '-');
+              if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(v)) return '';
+              return v;
+            }
+
+            function parseDeployEnvMap(raw) {
+              const text = toString(raw);
+              if (!text) return null;
+              try {
+                const parsed = JSON.parse(text);
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+                return parsed;
+              } catch (e) {
+                core.warning(`DEPLOY_ENV_MAP_JSON is not valid JSON: ${e.message || e}`);
+                return null;
+              }
+            }
+
+            const tier = normalizeTier(process.env.TIER);
+            if (!tier) {
+              core.setFailed(`Invalid deployment tier "${toString(process.env.TIER)}" (expected staging|production).`);
+              return;
+            }
+
+            const component = normalizeComponent(process.env.COMPONENT);
+            if (!component) {
+              core.setFailed(`Invalid component "${toString(process.env.COMPONENT)}" (expected a safe token like "application" or "docs").`);
+              return;
+            }
+
+            const key = `DEPLOY_ENV_${component.toUpperCase().replace(/-/g, '_')}_${tier.toUpperCase()}`;
+            const map = parseDeployEnvMap(process.env.DEPLOY_ENV_MAP_JSON);
+
+            let legacyValue = '';
+            try {
+              const res = await github.request(
+                'GET /repos/{owner}/{repo}/actions/variables/{name}',
+                { owner: context.repo.owner, repo: context.repo.repo, name: key }
+              );
+              legacyValue = toString(res && res.data && res.data.value);
+            } catch (e) {
+              // ignore missing legacy var (404); fail on other errors only when we need it.
+              const status = Number(e && e.status);
+              if (Number.isFinite(status) && status !== 404) {
+                core.warning(`Unable to fetch legacy repo variable ${key}: ${e.message || e}`);
+              }
+            }
+
+            let envName = legacyValue;
+            if (!envName && map && typeof map[component] === 'object' && map[component]) {
+              envName = toString(map[component][tier]);
+            }
+            if (!envName) {
+              core.setFailed(
+                `Unable to resolve GitHub environment for component="${component}" tier="${tier}".\n` +
+                `Fix: add an entry to DEPLOY_ENV_MAP_JSON for this component/tier, or set legacy repo variable ${key}.`
+              );
+              return;
+            }
+
+            core.info(`Resolved GitHub environment "${envName}" (tier=${tier} component=${component} key=${key})`);
+            core.setOutput('github_environment', envName);
+            core.setOutput('tier', tier);
+            core.setOutput('component', component);
+
   deploy:
+    needs: [resolve]
     if: ${{ vars.DEPLOY_ENABLED == '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ inputs.environment }}
+    environment: ${{ needs.resolve.outputs.github_environment }}
+    concurrency:
+      group: deploy-${{ needs.resolve.outputs.github_environment }}
+      cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.sha }}
 
@@ -44,16 +151,17 @@ jobs:
           PRODUCTION_PROMOTION_REQUIRED: ${{ vars.PRODUCTION_PROMOTION_REQUIRED }}
         run: |
           node scripts/ops/deploy-guard.js \
-            --environment "${{ inputs.environment }}" \
-            --component "${{ inputs.component || 'application' }}" \
+            --environment "${{ needs.resolve.outputs.tier }}" \
+            --component "${{ needs.resolve.outputs.component }}" \
             --promotion-source "${{ inputs.promotion_source || 'direct' }}"
 
       - name: Deploy (hook)
         shell: bash
         env:
-          DEPLOY_ENV: ${{ inputs.environment }}
-          DEPLOY_COMPONENT: ${{ inputs.component || 'application' }}
+          DEPLOY_ENV: ${{ needs.resolve.outputs.tier }}
+          DEPLOY_COMPONENT: ${{ needs.resolve.outputs.component }}
           DEPLOY_PROMOTION_SOURCE: ${{ inputs.promotion_source || 'direct' }}
+          GITHUB_ENVIRONMENT: ${{ needs.resolve.outputs.github_environment }}
         run: |
           set -euo pipefail
 

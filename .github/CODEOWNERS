@@ -1,4 +1,6 @@
-# CODEOWNERS (template) - replace with your org/team handles.
+# CODEOWNERS (template)
+# baseline:bootstrap may replace this file when it has no active rules,
+# using policy defaults or --codeowners=<csv>.
 
 # Plans and planning scripts
 # /docs/ops/plans/**     @your-org/planning-owners

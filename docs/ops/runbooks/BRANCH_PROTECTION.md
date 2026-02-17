@@ -38,6 +38,7 @@ Branch rules (recommended)
   - Only accept changes via:
     - Release PR: `dev` -> `main`
     - Hotfix PR: `hotfix/*` -> `main` (and backport to `dev`)
+  - Optional automation: use `Release PR (bot)` workflow (`.github/workflows/release-pr-bot.yml`) to open/refresh the release PR as a bot, then have a human approve and merge.
   - Enforce allowed PR source branches via CI (SSOT is `config/policy/branch-policy.json`).
   - Enforce required approver logins via `Release Policy (main)` check (repo variable: `MAIN_REQUIRED_APPROVER_LOGINS`).
   - Optional: enable repo variable `BACKPORT_ENABLED=1` to automatically open a backport PR from production -> integration after a hotfix merge (ships as `.github/workflows/hotfix-backport.yml`).

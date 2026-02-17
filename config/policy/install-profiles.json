@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "default_profile": "standard",
+  "lock_path": "config/baseline/baseline.lock.json",
+  "profiles": {
+    "standard": {
+      "description": "Default baseline: governance + plans + docs templates + monorepo scaffolding + optional security/deploy templates (opt-in by vars).",
+      "file_filters": {
+        "deny": []
+      },
+      "bootstrap_defaults": {
+        "enableBackport": 1,
+        "enableSecurity": 0,
+        "enableDeploy": 0,
+        "hardeningLabels": 1,
+        "hardeningSecurity": 1,
+        "hardeningEnvironments": 1
+      }
+    },
+    "enterprise": {
+      "description": "Enterprise default: enable baseline security and deployment toggles by default (still requires project-specific deploy hook implementation).",
+      "file_filters": {
+        "deny": []
+      },
+      "bootstrap_defaults": {
+        "enableBackport": 1,
+        "enableSecurity": 1,
+        "enableDeploy": 1,
+        "hardeningLabels": 1,
+        "hardeningSecurity": 1,
+        "hardeningEnvironments": 1
+      }
+    },
+    "backend": {
+      "description": "Backend-first: omit frontend app scaffolding and frontend-specific standards docs.",
+      "file_filters": {
+        "deny": ["^apps/frontend/", "^docs/product/standards/frontend/"]
+      }
+    },
+    "frontend": {
+      "description": "Frontend-first: omit backend app scaffolding and backend-specific standards docs.",
+      "file_filters": {
+        "deny": ["^apps/backend/", "^docs/product/standards/backend/"]
+      }
+    },
+    "library": {
+      "description": "Library/package repo: omit app scaffolding and app-specific standards docs.",
+      "file_filters": {
+        "deny": ["^apps/", "^docs/product/standards/(backend|frontend)/"]
+      }
+    },
+    "docs": {
+      "description": "Docs-only: omit app and package scaffolding.",
+      "file_filters": {
+        "deny": ["^apps/", "^packages/"]
+      }
+    }
+  }
+}
+
