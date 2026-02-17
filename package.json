@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Reusable baseline kit: docs + ops tooling + repo guardrails (project-agnostic)",
   "scripts": {
-    "test": "npm run lint:plans && npm run lint:pr-policy && npm run lint:auto-pr && npm run lint:release-pr && npm run lint:release-policy && npm run lint:deploy-guard && npm run lint:branch-policy && npm run lint:docs && npm run lint:objectives && npm run lint:structure && npm run lint:installer && npm run lint:bootstrap && npm run lint:env",
+    "test": "npm run lint:plans && npm run lint:pr-policy && npm run lint:auto-pr && npm run lint:release-pr && npm run lint:release-policy && npm run lint:deploy-guard && npm run lint:deploy-registry && npm run lint:branch-policy && npm run lint:docs && npm run lint:objectives && npm run lint:structure && npm run lint:installer && npm run lint:bootstrap && npm run lint:env",
     "lint:structure": "node scripts/tooling/check-structure.js",
     "lint:objectives": "node scripts/ops/objectives-lint.js",
     "lint:objectives:enforce": "OBJECTIVES_ENFORCE_RLS_MISSING=1 node scripts/ops/objectives-lint.js",
@@ -13,6 +13,7 @@
     "lint:release-pr": "node scripts/ops/release-pr-open.selftest.js",
     "lint:release-policy": "node scripts/ops/release-policy-main.selftest.js",
     "lint:deploy-guard": "node scripts/ops/deploy-guard.selftest.js",
+    "lint:deploy-registry": "node scripts/ops/deploy-surface-registry.selftest.js && node scripts/ops/changed-surfaces.selftest.js && node scripts/ops/deploy-receipts.selftest.js && node scripts/ops/env-isolation-lint.selftest.js",
     "lint:branch-policy": "node scripts/ops/branch-policy.selftest.js",
     "lint:docs": "node scripts/tooling/docs-clean.js",
     "lint:installer": "node scripts/tooling/install-profiles.selftest.js && node scripts/tooling/baseline-install.selftest.js",
