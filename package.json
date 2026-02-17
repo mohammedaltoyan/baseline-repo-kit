@@ -13,7 +13,7 @@
     "lint:release-pr": "node scripts/ops/release-pr-open.selftest.js",
     "lint:release-policy": "node scripts/ops/release-policy-main.selftest.js",
     "lint:deploy-guard": "node scripts/ops/deploy-guard.selftest.js",
-    "lint:deploy-registry": "node scripts/ops/deploy-surface-registry.selftest.js && node scripts/ops/deploy-env-resolve.selftest.js && node scripts/ops/changed-surfaces.selftest.js && node scripts/ops/deploy-receipts.selftest.js && node scripts/ops/env-isolation-lint.selftest.js",
+    "lint:deploy-registry": "node scripts/ops/deploy-surface-registry.selftest.js && node scripts/ops/deploy-env-resolve.selftest.js && node scripts/ops/approval-matrix.selftest.js && node scripts/ops/changed-surfaces.selftest.js && node scripts/ops/deploy-receipts.selftest.js && node scripts/ops/env-isolation-lint.selftest.js",
     "lint:branch-policy": "node scripts/ops/branch-policy.selftest.js",
     "lint:docs": "node scripts/tooling/docs-clean.js",
     "lint:installer": "node scripts/tooling/install-profiles.selftest.js && node scripts/tooling/baseline-install.selftest.js",
