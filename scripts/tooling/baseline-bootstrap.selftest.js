@@ -137,6 +137,10 @@ function run() {
     contexts.includes('release-main-policy'),
     `expected required checks to include "release-main-policy" (got: ${contexts.join(', ')})`
   );
+  assert.ok(
+    contexts.includes('env-isolation-lint'),
+    `expected required checks to include "env-isolation-lint" (got: ${contexts.join(', ')})`
+  );
 
   // Deploy environment mapping SSOT (must be valid JSON; used by deploy workflow).
   const deployEnvMapRaw = policy.github && policy.github.repo_variables && policy.github.repo_variables.DEPLOY_ENV_MAP_JSON;
@@ -172,6 +176,51 @@ function run() {
     String(policy.github && policy.github.repo_variables && policy.github.repo_variables.RELEASE_PR_BYPASS_PLAN_STEP || ''),
     '1',
     'expected RELEASE_PR_BYPASS_PLAN_STEP repo variable default to 1 in bootstrap policy'
+  );
+  assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK || ''),
+    '0',
+    'expected MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK repo variable default to 0 in bootstrap policy'
+  );
+  assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.STAGING_PROMOTION_REQUIRED || ''),
+    'enabled',
+    'expected STAGING_PROMOTION_REQUIRED repo variable default to enabled in bootstrap policy'
+  );
+  assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.STAGING_APPROVAL_MODE_DEFAULT || ''),
+    'commit',
+    'expected STAGING_APPROVAL_MODE_DEFAULT repo variable default to commit in bootstrap policy'
+  );
+  assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.PRODUCTION_APPROVAL_MODE_DEFAULT || ''),
+    'commit',
+    'expected PRODUCTION_APPROVAL_MODE_DEFAULT repo variable default to commit in bootstrap policy'
+  );
+  assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.PRODUCTION_REQUIRES_STAGING_SUCCESS || ''),
+    'enabled',
+    'expected PRODUCTION_REQUIRES_STAGING_SUCCESS repo variable default to enabled in bootstrap policy'
+  );
+  assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.DEPLOY_SURFACES_PATH || ''),
+    'config/deploy/deploy-surfaces.json',
+    'expected DEPLOY_SURFACES_PATH repo variable default to config/deploy/deploy-surfaces.json in bootstrap policy'
+  );
+  assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.DEPLOY_RECEIPTS_BRANCH || ''),
+    'ops/evidence',
+    'expected DEPLOY_RECEIPTS_BRANCH repo variable default to ops/evidence in bootstrap policy'
+  );
+  assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.DEPLOY_RECEIPTS_PREFIX || ''),
+    'docs/ops/evidence/deploy',
+    'expected DEPLOY_RECEIPTS_PREFIX repo variable default to docs/ops/evidence/deploy in bootstrap policy'
+  );
+  assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.ENV_ISOLATION_LINT_ENABLED || ''),
+    '0',
+    'expected ENV_ISOLATION_LINT_ENABLED repo variable default to 0 in bootstrap policy'
   );
   assert.strictEqual(
     String(policy.github && policy.github.workflow_permissions && policy.github.workflow_permissions.default_workflow_permissions || ''),

@@ -1,0 +1,34 @@
+name: Env Isolation Lint
+
+on:
+  pull_request:
+  pull_request_review:
+    types: [submitted]
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: env-isolation-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Run lint (fast when disabled)
+        env:
+          ENV_ISOLATION_LINT_ENABLED: ${{ vars.ENV_ISOLATION_LINT_ENABLED }}
+          ENV_ISOLATION_TOKEN: ${{ secrets.ENV_ISOLATION_TOKEN }}
+          DEPLOY_SURFACES_PATH: ${{ vars.DEPLOY_SURFACES_PATH || 'config/deploy/deploy-surfaces.json' }}
+        run: node scripts/ops/env-isolation-lint.js
+
