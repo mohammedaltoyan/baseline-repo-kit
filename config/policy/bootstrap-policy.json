@@ -119,8 +119,7 @@
           "branches": ["$production"],
           "wait_timer": 0,
           "prevent_self_review": false,
-          "can_admins_bypass": true,
-          "required_reviewers": ["$repo_owner_user"]
+          "can_admins_bypass": true
         }
       ]
     }
