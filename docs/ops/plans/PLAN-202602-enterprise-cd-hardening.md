@@ -3,7 +3,7 @@ plan_id: PLAN-202602-enterprise-cd-hardening
 title: Enterprise CD Hardening (Registry SSOT + Dynamic Approvals + Isolated Envs)
 owner: @owner
 status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
-current_step: S40
+current_step: S50
 updated: 2026-02-17
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
@@ -12,8 +12,8 @@ links:
 ---
 
 At-a-Glance
-- Now: S40 - Optional env isolation lint workflow + bootstrap vars/required checks
-- Next: S50 - Bootstrap environments from registry + docs/AGENTS updates
+- Now: S50 - Bootstrap environments from registry + docs/AGENTS updates
+- Next: S98 - Objectives Gate
 - Blockers: None
 - ETA: 2026-02-20
 
@@ -25,7 +25,7 @@ Checklist
 - [x] S10 - Registry SSOT + scripts: deploy-surface-registry, changed-surfaces, deploy-receipts, env-isolation-lint (disabled by flag) + selftests
 - [x] S20 - Deploy leaf: registry-aware env resolution + internal-only guard + receipts writeback + staging promotion guard
 - [x] S30 - Promote workflows: staging orchestrator + production refactor (dynamic approvals + receipts gate)
-- [ ] S40 - Env isolation lint workflow + required-check wiring + bootstrap vars (lint remains disabled by default)
+- [x] S40 - Env isolation lint workflow + required-check wiring + bootstrap vars (lint remains disabled by default)
 - [ ] S50 - Bootstrap: create deploy-surfaces.json from example + provision deploy+approval environments from registry + docs/AGENTS updates
 - [ ] S98 - Objectives Gate (record "Objectives Evidence:")
 - [ ] S99 - Tests Gate (record CI/local evidence)
