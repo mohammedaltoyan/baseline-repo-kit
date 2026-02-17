@@ -8,7 +8,7 @@ on:
         required: false
         default: ""
       component:
-        description: "Deployment component (application|docs|api-ingress)"
+        description: "Deployment component (safe token; default: application)"
         required: false
         default: application
   issue_comment:
@@ -54,11 +54,12 @@ jobs:
             }
 
             function normalizeComponent(raw) {
-              const v = toString(raw).toLowerCase();
+              let v = toString(raw).toLowerCase();
               if (!v) return 'application';
               if (['app', 'application', 'service'].includes(v)) return 'application';
               if (['docs', 'documentation', 'site'].includes(v)) return 'docs';
               if (['api-ingress', 'api_ingress', 'ingress'].includes(v)) return 'api-ingress';
+              v = v.replace(/_/g, '-');
               return v;
             }
 

@@ -141,6 +141,41 @@ When working on frontend UI/UX:
   - Safe positional form: `npm run baseline:install -- <target-path> [overlay|init] [overwrite] [dry-run] [verbose]`
   - Flag form (safe with modern npm): `npm run baseline:install -- --to <path> --mode overlay --dry-run`
 
+## Profiles (Baseline Install/Bootstrap)
+
+- SSOT: `config/policy/install-profiles.json` defines available baseline install profiles and optional bootstrap defaults.
+- `baseline:install` and `baseline:bootstrap` accept `--profile <name>` to filter which baseline artifacts are installed.
+- Target repos receive a small lock file `config/baseline/baseline.lock.json` to record the selected profile so overlay updates remain deterministic.
+- Profiles may define `bootstrap_defaults` (for example `enableDeploy`, `enableSecurity`, hardening toggles) that apply when bootstrap flags are omitted.
+
+## Deploy Isolation (GitHub Environments)
+
+- Default deploy workflow targets **component-scoped** GitHub Environments (for isolation) resolved from repo variables:
+  - `DEPLOY_ENV_MAP_JSON` (preferred; JSON mapping: component -> {staging, production})
+  - Legacy override (takes precedence when set): `DEPLOY_ENV_<COMPONENT>_<TIER>` (example: `DEPLOY_ENV_APPLICATION_STAGING=application-staging`)
+- Bootstrap can provision these environments and their deployment branch policies (best-effort; SSOT: `config/policy/bootstrap-policy.json`).
+  - Tier templates (`staging`, `production`) are used as policy templates; they are not created by default (`github.environments.create_tier_environments=false`).
+
+## Code Owner Review Automation (Baseline)
+
+- CODEOWNERS SSOT is policy-driven via `config/policy/bootstrap-policy.json` (`github.codeowners`).
+- `baseline:bootstrap --github` ensures fallback `.github/CODEOWNERS` ownership when missing/template-only:
+  - Default owners from `github.codeowners.default_owners` (default: `$repo_owner_user`)
+  - CLI override supported: `--codeowners=<csv>` (users and/or `org/team`)
+- Deadlock prevention is mandatory:
+  - If required approvals + code-owner review are enabled, PR author identity must be different from reviewer identity.
+  - Use a dedicated automation account/token for authored PRs; keep human maintainers/code owners as approvers.
+  - Preferred baseline default: Auto-PR workflow (`.github/workflows/auto-pr.yml`) opens PRs as the GitHub Actions bot (`github-actions[bot]` / `app/github-actions`) for `codex/**` branches (gated by `AUTOPR_ENABLED` repo var).
+  - Bootstrap SSOT enables required Actions workflow permission (`github.workflow_permissions.can_approve_pull_request_reviews=true`) so `GITHUB_TOKEN` can create PRs.
+  - Fallback for restricted org policy: configure repo secret `AUTOPR_TOKEN` (bot PAT); Auto-PR uses it when present.
+  - PR Policy can enforce bot-only authorship for agent branches:
+    - `AUTOPR_ENFORCE_BOT_AUTHOR` (default `1`)
+    - `AUTOPR_ALLOWED_AUTHORS` (default `github-actions[bot],app/github-actions`)
+    - `AUTOPR_ENFORCE_HEAD_PREFIXES` (default `codex/`; set `*` for all branches)
+  - Release promotion PR automation:
+    - Workflow: `.github/workflows/release-pr-bot.yml` (opens/refreshes `dev` -> `main` as a bot so a human can approve/merge)
+    - Optional redundancy reduction: `RELEASE_PR_BYPASS_PLAN_STEP=1` allows release promotion PRs to omit `Plan:`/`Step:` (recommended default; underlying changes already carried plans).
+
 ## Commit & Pull Request Guidelines (Recommended)
 
 - Keep commits and PRs scoped and phase-aligned.

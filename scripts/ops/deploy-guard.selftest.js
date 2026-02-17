@@ -81,6 +81,24 @@ function run() {
   });
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 
+  // Component normalization: underscores are accepted and normalized (api_ingress -> api-ingress).
+  result = runCase({
+    args: ['--environment', 'staging', '--component', 'api_ingress'],
+    env: {
+      STAGING_DEPLOY_GUARD: 'enabled',
+      API_INGRESS_DEPLOY_GUARD: 'enabled',
+    },
+  });
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+
+  result = runCase({
+    args: ['--environment', 'staging', '--component', 'admin_ui'],
+    env: {
+      STAGING_DEPLOY_GUARD: 'enabled',
+    },
+  });
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+
   console.log('[deploy-guard:selftest] OK');
 }
 

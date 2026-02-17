@@ -57,19 +57,36 @@
     "repo_settings": {
       "delete_branch_on_merge": true
     },
+    "workflow_permissions": {
+      "enabled": true,
+      "default_workflow_permissions": "read",
+      "can_approve_pull_request_reviews": true
+    },
     "repo_variables": {
+      "AUTOPR_ENABLED": "1",
+      "AUTOPR_ENFORCE_BOT_AUTHOR": "1",
+      "AUTOPR_ALLOWED_AUTHORS": "github-actions[bot],app/github-actions",
+      "AUTOPR_ENFORCE_HEAD_PREFIXES": "codex/",
+      "RELEASE_PR_BYPASS_PLAN_STEP": "1",
       "MAIN_REQUIRED_APPROVER_LOGINS": "$repo_owner_user",
       "MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK": "1",
       "PRODUCTION_PROMOTION_REQUIRED": "enabled",
       "STAGING_DEPLOY_GUARD": "enabled",
       "PRODUCTION_DEPLOY_GUARD": "disabled",
       "DOCS_PUBLISH_GUARD": "disabled",
-      "API_INGRESS_DEPLOY_GUARD": "disabled"
+      "API_INGRESS_DEPLOY_GUARD": "disabled",
+      "DEPLOY_ENV_MAP_JSON": "{\"application\":{\"staging\":\"application-staging\",\"production\":\"application-production\"},\"docs\":{\"staging\":\"docs-staging\",\"production\":\"docs-production\"},\"api-ingress\":{\"staging\":\"api-ingress-staging\",\"production\":\"api-ingress-production\"}}"
     },
     "labels": {
       "enabled": true,
       "update_existing": false,
       "policy_path": "config/policy/github-labels.json"
+    },
+    "codeowners": {
+      "enabled": true,
+      "create_if_missing": true,
+      "replace_if_no_rules": true,
+      "default_owners": ["$repo_owner_user"]
     },
     "security": {
       "enabled": true,
@@ -82,6 +99,10 @@
     },
     "environments": {
       "enabled": true,
+      "derive_deploy_component_environments": true,
+      "derive_deploy_component_prefix": "DEPLOY_ENV_",
+      "derive_deploy_component_map_json_var": "DEPLOY_ENV_MAP_JSON",
+      "create_tier_environments": false,
       "defaults": [
         { "name": "staging", "branches": ["$integration"], "wait_timer": 0, "can_admins_bypass": true },
         {
