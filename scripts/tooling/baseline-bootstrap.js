@@ -26,6 +26,13 @@ const { isTruthy } = require('../utils/is-truthy');
 const { readJsonSafe, writeJson } = require('../utils/json');
 const { run, runCapture } = require('../utils/exec');
 const { loadBranchPolicyConfig } = require('../ops/branch-policy');
+const { loadRegistryFromFile, resolveDeployEnvName, resolveApprovalEnvName } = require('../ops/deploy-surface-registry');
+const {
+  loadInstallProfilesPolicy,
+  normalizeProfileName,
+  readBaselineLock,
+  resolveInstallProfile,
+} = require('./install-profiles');
 
 let ACTIVE_RUN_SUMMARY = null;
 
@@ -255,7 +262,7 @@ function defaultBootstrapPolicy() {
       host: 'github.com',
       default_visibility: 'private',
       set_default_branch_to_integration: true,
-      enable_backport_default: true,
+      enable_backport_default: false,
       enable_security_default: false,
       enable_deploy_default: false,
       recommend_merge_queue_integration: true,
@@ -264,6 +271,7 @@ function defaultBootstrapPolicy() {
         '.github/workflows/ci.yml',
         '.github/workflows/pr-policy.yml',
         '.github/workflows/release-policy-main.yml',
+        '.github/workflows/env-isolation-lint.yml',
       ],
       rulesets: {
         integration: { name: 'baseline: integration', enforcement: 'active' },
@@ -296,25 +304,54 @@ function defaultBootstrapPolicy() {
         },
         required_status_checks: {
           do_not_enforce_on_create: true,
-          strict_required_status_checks_policy: true,
+          strict_required_status_checks_policy: false,
         },
       },
       repo_settings: {
         delete_branch_on_merge: true,
       },
+      workflow_permissions: {
+        enabled: true,
+        default_workflow_permissions: 'read',
+        can_approve_pull_request_reviews: true,
+      },
       repo_variables: {
+        AUTOPR_ENABLED: '1',
+        AUTOPR_ENFORCE_BOT_AUTHOR: '1',
+        AUTOPR_ALLOWED_AUTHORS: 'github-actions[bot],app/github-actions',
+        AUTOPR_ENFORCE_HEAD_PREFIXES: 'codex/',
+        RELEASE_PR_BYPASS_PLAN_STEP: '1',
         MAIN_REQUIRED_APPROVER_LOGINS: '$repo_owner_user',
-        MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK: '1',
+        MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK: '0',
         PRODUCTION_PROMOTION_REQUIRED: 'enabled',
+        STAGING_PROMOTION_REQUIRED: 'enabled',
         STAGING_DEPLOY_GUARD: 'enabled',
-        PRODUCTION_DEPLOY_GUARD: 'disabled',
+        PRODUCTION_DEPLOY_GUARD: 'enabled',
         DOCS_PUBLISH_GUARD: 'disabled',
         API_INGRESS_DEPLOY_GUARD: 'disabled',
+        STAGING_APPROVAL_MODE_DEFAULT: 'commit',
+        PRODUCTION_APPROVAL_MODE_DEFAULT: 'commit',
+        PRODUCTION_REQUIRES_STAGING_SUCCESS: 'enabled',
+        DEPLOY_SURFACES_PATH: 'config/deploy/deploy-surfaces.json',
+        DEPLOY_RECEIPTS_BRANCH: 'ops/evidence',
+        DEPLOY_RECEIPTS_PREFIX: 'docs/ops/evidence/deploy',
+        ENV_ISOLATION_LINT_ENABLED: '1',
+        DEPLOY_ENV_MAP_JSON: JSON.stringify({
+          application: { staging: 'application-staging', production: 'application-production' },
+          docs: { staging: 'docs-staging', production: 'docs-production' },
+          'api-ingress': { staging: 'api-ingress-staging', production: 'api-ingress-production' },
+        }),
       },
       labels: {
         enabled: true,
         update_existing: false,
         policy_path: 'config/policy/github-labels.json',
+      },
+      codeowners: {
+        enabled: true,
+        create_if_missing: true,
+        replace_if_no_rules: true,
+        default_owners: ['$repo_owner_user'],
       },
       security: {
         enabled: true,
@@ -327,6 +364,10 @@ function defaultBootstrapPolicy() {
       },
       environments: {
         enabled: true,
+        derive_deploy_component_environments: true,
+        derive_deploy_component_prefix: 'DEPLOY_ENV_',
+        derive_deploy_component_map_json_var: 'DEPLOY_ENV_MAP_JSON',
+        create_tier_environments: false,
         defaults: [
           { name: 'staging', branches: ['$integration'], wait_timer: 0, can_admins_bypass: true },
           {
@@ -335,7 +376,6 @@ function defaultBootstrapPolicy() {
             wait_timer: 0,
             prevent_self_review: false,
             can_admins_bypass: true,
-            required_reviewers: ['$repo_owner_user'],
           },
         ],
       },
@@ -360,6 +400,13 @@ function loadBootstrapPolicy(sourceRoot) {
     ...((cfg.github.rules.merge_queue && cfg.github.rules.merge_queue.parameters) || {}),
   };
   cfg.github.labels = { ...d.github.labels, ...(cfg.github.labels || {}) };
+  cfg.github.codeowners = { ...d.github.codeowners, ...(cfg.github.codeowners || {}) };
+  cfg.github.workflow_permissions = {
+    ...d.github.workflow_permissions,
+    ...((cfg.github.workflow_permissions && typeof cfg.github.workflow_permissions === 'object')
+      ? cfg.github.workflow_permissions
+      : {}),
+  };
   cfg.github.security = { ...d.github.security, ...(cfg.github.security || {}) };
   cfg.github.security.security_and_analysis = {
     ...d.github.security.security_and_analysis,
@@ -384,6 +431,8 @@ function parseArgs(argv) {
   const repoRaw = pickArgValue({ args, npmConfig, keys: ['repo'] });
   const visibilityRaw = pickArgValue({ args, npmConfig, keys: ['visibility'] });
   const mainApproversRaw = pickArgValue({ args, npmConfig, keys: ['main-approvers', 'mainApprovers', 'main_approvers'] });
+  const codeownersRaw = pickArgValue({ args, npmConfig, keys: ['codeowners', 'code-owners', 'code_owners'] });
+  const profileRaw = pickArgValue({ args, npmConfig, keys: ['profile'] });
 
   const enableBackportRaw = pickArgValue({ args, npmConfig, keys: ['enableBackport', 'enable-backport', 'enable_backport'] });
   const enableSecurityRaw = pickArgValue({ args, npmConfig, keys: ['enableSecurity', 'enable-security', 'enable_security'] });
@@ -409,10 +458,12 @@ function parseArgs(argv) {
     visibility: normalizeVisibility(nonBooleanString(visibilityRaw) || ''),
     yes: isTruthy(pickArgValue({ args, npmConfig, keys: ['yes', 'y'] })),
     nonInteractive: isTruthy(pickArgValue({ args, npmConfig, keys: ['non-interactive', 'nonInteractive', 'non_interactive'] })),
+    profile: toString(nonBooleanString(profileRaw) || ''),
     skipEnv: isTruthy(pickArgValue({ args, npmConfig, keys: ['skip-env', 'skipEnv', 'skip_env'] })),
     skipTests: isTruthy(pickArgValue({ args, npmConfig, keys: ['skip-tests', 'skipTests', 'skip_tests', 'noTests', 'no-tests', 'no_tests'] })),
     mergeQueueProduction: isTruthy(pickArgValue({ args, npmConfig, keys: ['merge-queue-production', 'mergeQueueProduction', 'merge_queue_production'] })),
     mainApprovers: toString(nonBooleanString(mainApproversRaw) || ''),
+    codeowners: toString(nonBooleanString(codeownersRaw) || ''),
     enableBackport: enableBackportRaw === undefined ? null : isTruthy(enableBackportRaw),
     enableSecurity: enableSecurityRaw === undefined ? null : isTruthy(enableSecurityRaw),
     enableDeploy: enableDeployRaw === undefined ? null : isTruthy(enableDeployRaw),
@@ -836,6 +887,50 @@ async function ghPatchRepoSettings({ cwd, host, owner, repo, policy, dryRun }) {
   }
 }
 
+function normalizeWorkflowDefaultPermission(raw) {
+  const v = toString(raw).toLowerCase();
+  if (v === 'read' || v === 'write') return v;
+  return '';
+}
+
+async function ghPatchWorkflowPermissions({ cwd, host, owner, repo, policy, dryRun }) {
+  const cfg = policy && policy.github && policy.github.workflow_permissions && typeof policy.github.workflow_permissions === 'object'
+    ? policy.github.workflow_permissions
+    : null;
+  const enabled = cfg == null || !Object.prototype.hasOwnProperty.call(cfg, 'enabled') ? true : !!cfg.enabled;
+  if (!enabled) return { status: 'SKIP', note: 'disabled (policy)' };
+
+  const payload = {};
+  const defaultPerm = normalizeWorkflowDefaultPermission(cfg && cfg.default_workflow_permissions);
+  if (defaultPerm) payload.default_workflow_permissions = defaultPerm;
+  if (cfg && Object.prototype.hasOwnProperty.call(cfg, 'can_approve_pull_request_reviews')) {
+    payload.can_approve_pull_request_reviews = !!cfg.can_approve_pull_request_reviews;
+  }
+
+  if (Object.keys(payload).length === 0) {
+    return { status: 'SKIP', note: 'no workflow_permissions fields configured in policy' };
+  }
+
+  if (dryRun) {
+    info(`[dry-run] patch workflow permissions: ${JSON.stringify(payload)}`);
+    return { status: 'OK', note: `dry-run ${JSON.stringify(payload)}` };
+  }
+
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/permissions/workflow`;
+  const res = await ghApiJson({ cwd, host, method: 'PUT', endpoint, body: payload });
+  if (!res.ok) {
+    const msg = toString(res.stderr || res.stdout || '').replace(/\s+/g, ' ').trim();
+    warn(`Unable to patch workflow permissions. ${msg}`);
+    warn(
+      'Auto-PR may fail until Actions setting "Allow GitHub Actions to create and approve pull requests" is enabled ' +
+      'or AUTOPR_TOKEN (bot PAT) secret is configured.'
+    );
+    return { status: 'WARN', note: 'workflow permissions patch failed (see warnings)' };
+  }
+
+  return { status: 'OK', note: `patched ${JSON.stringify(payload)}` };
+}
+
 function normalizeHexColor(raw) {
   const v = toString(raw).replace(/^#/, '').toLowerCase();
   if (/^[0-9a-f]{6}$/.test(v)) return v;
@@ -1036,6 +1131,232 @@ function resolvePolicyTemplateToken(raw, { owner, personalLogin }) {
     return '';
   }
   return v;
+}
+
+function normalizeCodeownerHandleToken(raw, { owner, personalLogin }) {
+  const resolved = resolvePolicyTemplateToken(raw, { owner, personalLogin });
+  let value = toString(resolved).trim();
+  if (!value) return '';
+  value = value.replace(/^@+/, '');
+  if (!value) return '';
+
+  if (value.includes('/')) {
+    const parts = value.split('/').filter(Boolean);
+    if (parts.length !== 2) return '';
+    const org = toString(parts[0]);
+    const slug = toString(parts[1]).toLowerCase();
+    if (!org || !slug) return '';
+    if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(org)) return '';
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,99})$/.test(slug)) return '';
+    return `@${org}/${slug}`;
+  }
+
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(value)) return '';
+  return `@${value}`;
+}
+
+function normalizeCodeownerHandles(raw, { owner, personalLogin }) {
+  const items = Array.isArray(raw)
+    ? raw
+    : toString(raw).split(',').map((v) => toString(v)).filter(Boolean);
+  const out = [];
+  const seen = new Set();
+
+  for (const item of items) {
+    const handle = normalizeCodeownerHandleToken(item, { owner, personalLogin });
+    if (!handle) continue;
+    const key = handle.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(handle);
+  }
+
+  return out;
+}
+
+function codeownersHasActiveRules(content) {
+  const text = toString(content);
+  if (!text) return false;
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    const uncommented = String(line || '').split('#', 1)[0].trim();
+    if (!uncommented) continue;
+    const parts = uncommented.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return true;
+  }
+  return false;
+}
+
+function parseCodeownerHandlesFromContent(content, { owner, personalLogin }) {
+  const text = toString(content);
+  if (!text) return [];
+  const out = [];
+  const seen = new Set();
+  const lines = text.split(/\r?\n/);
+
+  for (const line of lines) {
+    const uncommented = String(line || '').split('#', 1)[0].trim();
+    if (!uncommented) continue;
+    const parts = uncommented.split(/\s+/).filter(Boolean);
+    if (parts.length < 2) continue;
+    for (const token of parts.slice(1)) {
+      if (!token.startsWith('@')) continue;
+      const handle = normalizeCodeownerHandleToken(token, { owner, personalLogin });
+      if (!handle) continue;
+      const key = handle.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(handle);
+    }
+  }
+
+  return out;
+}
+
+function buildGeneratedCodeownersBody(handles) {
+  const list = Array.isArray(handles) ? handles.map((h) => toString(h)).filter(Boolean) : [];
+  return [
+    '# CODEOWNERS generated by baseline bootstrap.',
+    '# Replace or extend ownership rules for your repository domains.',
+    '',
+    `* ${list.join(' ')}`,
+    '',
+    '# Example path-scoped ownership (edit/remove as needed):',
+    '# /.github/** @platform-owners',
+    '# /docs/** @docs-owners',
+    '',
+  ].join('\n');
+}
+
+function detectCodeownersSelfReviewDeadlock({ policy, handles, actorLogin }) {
+  const rules = policy && policy.github && policy.github.rules && policy.github.rules.pull_request
+    ? policy.github.rules.pull_request
+    : {};
+  const requireCodeOwnerReview = !!rules.require_code_owner_review;
+  const requiredApprovals = Number(rules.required_approving_review_count || 0);
+  if (!requireCodeOwnerReview || !Number.isFinite(requiredApprovals) || requiredApprovals <= 0) {
+    return { deadlock: false, reason: 'review-not-required' };
+  }
+
+  const actor = toString(actorLogin).replace(/^@/, '').toLowerCase();
+  if (!actor) return { deadlock: false, reason: 'unknown-actor' };
+
+  const list = Array.isArray(handles) ? handles.map((h) => toString(h)).filter(Boolean) : [];
+  if (list.length === 0) return { deadlock: false, reason: 'no-codeowner-handles' };
+
+  const hasTeamOwners = list.some((h) => h.includes('/'));
+  if (hasTeamOwners) return { deadlock: false, reason: 'team-owner-present' };
+
+  const userOwners = Array.from(new Set(list.map((h) => h.replace(/^@/, '').toLowerCase())));
+  if (userOwners.length === 1 && userOwners[0] === actor) {
+    return { deadlock: true, reason: `single-owner-is-pr-author:${actor}` };
+  }
+
+  return { deadlock: false, reason: 'multiple-user-owners' };
+}
+
+function ensureCodeownersFile({ repoRoot, policy, owner, personalLogin, codeownersOverride, dryRun }) {
+  const cfg = policy && policy.github && policy.github.codeowners && typeof policy.github.codeowners === 'object'
+    ? policy.github.codeowners
+    : {};
+  const enabled = Object.prototype.hasOwnProperty.call(cfg, 'enabled') ? !!cfg.enabled : true;
+  if (!enabled) return { status: 'SKIP', note: 'disabled (policy)' };
+
+  const codeownersPath = path.join(repoRoot, '.github', 'CODEOWNERS');
+  const relCodeownersPath = path.relative(repoRoot, codeownersPath).replace(/\\/g, '/');
+  const createIfMissing = Object.prototype.hasOwnProperty.call(cfg, 'create_if_missing') ? !!cfg.create_if_missing : true;
+  const replaceIfNoRules = Object.prototype.hasOwnProperty.call(cfg, 'replace_if_no_rules') ? !!cfg.replace_if_no_rules : true;
+  const defaultOwners = Array.isArray(cfg.default_owners) ? cfg.default_owners : ['$repo_owner_user'];
+
+  const ownersSourceRaw = toString(codeownersOverride)
+    ? toString(codeownersOverride).split(',').map((v) => toString(v)).filter(Boolean)
+    : defaultOwners;
+  const owners = normalizeCodeownerHandles(ownersSourceRaw, { owner, personalLogin });
+  const ownersSource = toString(codeownersOverride) ? '--codeowners' : 'policy.github.codeowners.default_owners';
+
+  const exists = fs.existsSync(codeownersPath);
+  const current = exists ? fs.readFileSync(codeownersPath, 'utf8') : '';
+  const hasActiveRules = exists ? codeownersHasActiveRules(current) : false;
+
+  if (exists && hasActiveRules) {
+    const existingOwners = parseCodeownerHandlesFromContent(current, { owner, personalLogin });
+    const deadlock = detectCodeownersSelfReviewDeadlock({
+      policy,
+      handles: existingOwners,
+      actorLogin: personalLogin,
+    });
+    return {
+      status: 'SKIP',
+      note: `${relCodeownersPath} already has active rules`,
+      owners: existingOwners,
+      deadlock,
+      wrote: false,
+      source: 'existing',
+    };
+  }
+
+  if (exists && !replaceIfNoRules) {
+    return {
+      status: 'SKIP',
+      note: `${relCodeownersPath} has no active rules (replace disabled)`,
+      owners: [],
+      deadlock: { deadlock: false, reason: 'replace-disabled' },
+      wrote: false,
+      source: 'existing',
+    };
+  }
+
+  if (!exists && !createIfMissing) {
+    return {
+      status: 'SKIP',
+      note: `${relCodeownersPath} missing (create disabled)`,
+      owners: [],
+      deadlock: { deadlock: false, reason: 'create-disabled' },
+      wrote: false,
+      source: 'missing',
+    };
+  }
+
+  if (owners.length === 0) {
+    return {
+      status: 'SKIP',
+      note: `${relCodeownersPath} not written (no valid owners from ${ownersSource})`,
+      owners: [],
+      deadlock: { deadlock: false, reason: 'no-valid-owners' },
+      wrote: false,
+      source: ownersSource,
+    };
+  }
+
+  const body = buildGeneratedCodeownersBody(owners);
+  const deadlock = detectCodeownersSelfReviewDeadlock({
+    policy,
+    handles: owners,
+    actorLogin: personalLogin,
+  });
+
+  if (dryRun) {
+    info(`[dry-run] write ${relCodeownersPath} (${ownersSource})`);
+    return {
+      status: 'OK',
+      note: `dry-run (would write ${relCodeownersPath})`,
+      owners,
+      deadlock,
+      wrote: true,
+      source: ownersSource,
+    };
+  }
+
+  ensureDir(path.dirname(codeownersPath), false);
+  fs.writeFileSync(codeownersPath, body, 'utf8');
+  return {
+    status: 'OK',
+    note: `wrote ${relCodeownersPath}`,
+    owners,
+    deadlock,
+    wrote: true,
+    source: ownersSource,
+  };
 }
 
 function normalizeEnvironmentReviewerSpecs(raw, { owner, personalLogin }) {
@@ -1315,10 +1636,206 @@ function envPolicyIsUnrestricted(dep) {
 async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integration, production, personalLogin, dryRun }) {
   const envs = Array.isArray(policy.github.environments.defaults) ? policy.github.environments.defaults : [];
   const ctx = { integration, production };
+  const envCfg = policy && policy.github && policy.github.environments && typeof policy.github.environments === 'object'
+    ? policy.github.environments
+    : {};
 
-  for (const e of envs) {
+  function findTierTemplate(tier) {
+    const t = toString(tier).toLowerCase();
+    if (!t) return null;
+    return envs.find((e) => toString(e && e.name).toLowerCase() === t) || null;
+  }
+
+  const tierTemplates = {
+    staging: findTierTemplate('staging'),
+    production: findTierTemplate('production'),
+  };
+
+  const derived = [];
+  const deriveEnabled = !!envCfg.derive_deploy_component_environments;
+  const derivePrefix = toString(envCfg.derive_deploy_component_prefix || 'DEPLOY_ENV_') || 'DEPLOY_ENV_';
+  const deriveMapJsonVar = toString(envCfg.derive_deploy_component_map_json_var || 'DEPLOY_ENV_MAP_JSON') || 'DEPLOY_ENV_MAP_JSON';
+  const createTierEnvironments = Object.prototype.hasOwnProperty.call(envCfg, 'create_tier_environments')
+    ? !!envCfg.create_tier_environments
+    : true;
+  const prefixUpper = derivePrefix.toUpperCase();
+  const repoVarMap = policy && policy.github && policy.github.repo_variables && typeof policy.github.repo_variables === 'object'
+    ? policy.github.repo_variables
+    : null;
+
+  if (deriveEnabled && repoVarMap) {
+    const derivedSurfaceIds = new Set();
+
+    function normalizeTierKey(raw) {
+      const v = toString(raw).toLowerCase();
+      if (!v) return '';
+      if (v === 'staging' || v === 'production') return v;
+      return '';
+    }
+
+    function normalizeComponentKey(raw) {
+      const v = toString(raw).toLowerCase().replace(/_/g, '-');
+      if (!v) return '';
+      if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(v)) return '';
+      return v;
+    }
+
+    function addDeployEnv({ tier, surfaceId, envName }) {
+      const t = normalizeTierKey(tier);
+      const s = normalizeComponentKey(surfaceId);
+      const e = toString(envName);
+      if (!t || !s || !e) return;
+      derivedSurfaceIds.add(s);
+      derived.push({
+        name: e,
+        branches: [t === 'production' ? '$production' : '$integration'],
+        wait_timer: 0,
+        can_admins_bypass: true,
+      });
+    }
+
+    function addApprovalEnv({ name }) {
+      const envName = toString(name);
+      if (!envName) return;
+      derived.push({
+        name: envName,
+        branches: ['$integration', '$production'],
+        wait_timer: 0,
+        prevent_self_review: false,
+        can_admins_bypass: true,
+        required_reviewers: ['$repo_owner_user'],
+      });
+    }
+
+    function deriveApprovalEnvsFromDefaults() {
+      // Fail-safe names when registry is absent.
+      addApprovalEnv({ name: 'staging-approval' });
+      addApprovalEnv({ name: 'production-approval' });
+
+      for (const surfaceId of Array.from(derivedSurfaceIds)) {
+        addApprovalEnv({ name: `staging-approval-${surfaceId}` });
+        addApprovalEnv({ name: `production-approval-${surfaceId}` });
+      }
+    }
+
+    function deriveFromRegistry() {
+      const rel = Object.prototype.hasOwnProperty.call(repoVarMap, 'DEPLOY_SURFACES_PATH')
+        ? toString(resolveRepoVariablePolicyValue(repoVarMap.DEPLOY_SURFACES_PATH, { owner, personalLogin }))
+        : '';
+      const registryRel = rel || 'config/deploy/deploy-surfaces.json';
+      const registryAbs = path.join(cwd, ...registryRel.replace(/\\/g, '/').split('/').filter(Boolean));
+      if (!fs.existsSync(registryAbs)) return { used: false, registryRel };
+      try {
+        const loaded = loadRegistryFromFile(registryAbs);
+        const registry = loaded && loaded.registry ? loaded.registry : null;
+        if (!registry) return { used: false, registryRel };
+
+        for (const row of Array.isArray(registry.surfaces) ? registry.surfaces : []) {
+          const surfaceId = toString(row && row.surface_id);
+          if (!surfaceId) continue;
+          for (const tier of ['staging', 'production']) {
+            const envName = resolveDeployEnvName({ registry, surfaceId, tier });
+            addDeployEnv({ tier, surfaceId, envName });
+          }
+        }
+
+        // Commit-level approval environments.
+        addApprovalEnv({ name: resolveApprovalEnvName({ registry, tier: 'staging', approvalMode: 'commit' }) });
+        addApprovalEnv({ name: resolveApprovalEnvName({ registry, tier: 'production', approvalMode: 'commit' }) });
+
+        // Surface-level approval environments.
+        for (const surfaceId of Array.from(derivedSurfaceIds)) {
+          addApprovalEnv({ name: resolveApprovalEnvName({ registry, tier: 'staging', approvalMode: 'surface', surfaceId }) });
+          addApprovalEnv({ name: resolveApprovalEnvName({ registry, tier: 'production', approvalMode: 'surface', surfaceId }) });
+        }
+
+        return { used: true, registryRel };
+      } catch (e) {
+        warn(`Unable to derive environments from deploy surfaces registry (${registryRel}). ${e && e.message ? e.message : e}`);
+        return { used: false, registryRel };
+      }
+    }
+
+    function parseDeployEnvMapJson(raw) {
+      const text = toString(raw);
+      if (!text) return [];
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (e) {
+        warn(`Repo variable "${deriveMapJsonVar}" is not valid JSON; skipping deploy environment derivation. ${e.message || e}`);
+        return [];
+      }
+
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
+      const out = [];
+      for (const [rawComponent, rawTiers] of Object.entries(parsed)) {
+        const component = normalizeComponentKey(rawComponent);
+        if (!component) continue;
+        const tiers = rawTiers && typeof rawTiers === 'object' && !Array.isArray(rawTiers) ? rawTiers : null;
+        if (!tiers) continue;
+        for (const [rawTier, rawEnv] of Object.entries(tiers)) {
+          const tier = normalizeTierKey(rawTier);
+          if (!tier) continue;
+          const envName = toString(rawEnv);
+          if (!envName) continue;
+          out.push({ component, tier, envName });
+        }
+      }
+      return out;
+    }
+
+    const reg = deriveFromRegistry();
+    if (!reg.used) {
+      if (Object.prototype.hasOwnProperty.call(repoVarMap, deriveMapJsonVar)) {
+        const raw = resolveRepoVariablePolicyValue(repoVarMap[deriveMapJsonVar], { owner, personalLogin });
+        const entries = parseDeployEnvMapJson(raw);
+        for (const ent of entries) {
+          addDeployEnv({ tier: ent.tier, surfaceId: ent.component, envName: ent.envName });
+        }
+      }
+
+      for (const [rawKey, rawValue] of Object.entries(repoVarMap)) {
+        const key = toString(rawKey);
+        if (!key) continue;
+        if (!key.toUpperCase().startsWith(prefixUpper)) continue;
+
+        const rest = key.slice(derivePrefix.length);
+        const parts = rest.split('_').filter(Boolean);
+        if (parts.length < 2) continue;
+
+        const tierRaw = toString(parts[parts.length - 1]).toUpperCase();
+        if (!['STAGING', 'PRODUCTION'].includes(tierRaw)) continue;
+        const tier = tierRaw.toLowerCase();
+
+        const componentRaw = parts.slice(0, -1).join('_');
+        const component = normalizeComponentKey(componentRaw);
+        if (!component) continue;
+
+        const envName = toString(resolveRepoVariablePolicyValue(rawValue, { owner, personalLogin }));
+        if (!envName) continue;
+
+        addDeployEnv({ tier, surfaceId: component, envName });
+      }
+
+      deriveApprovalEnvsFromDefaults();
+    }
+  }
+
+  const tierNames = new Set(['staging', 'production']);
+  const baseEnvs = deriveEnabled && !createTierEnvironments
+    ? envs.filter((e) => !tierNames.has(toString(e && e.name).toLowerCase()))
+    : envs;
+
+  const all = [...baseEnvs, ...derived];
+  const seen = new Set();
+
+  for (const e of all) {
     const name = toString(e && e.name);
     if (!name) continue;
+    const nameKey = name.toLowerCase();
+    if (seen.has(nameKey)) continue;
+    seen.add(nameKey);
 
     const branches = resolveEnvironmentBranches(e && e.branches, ctx);
     const waitTimer = e && e.wait_timer;
@@ -1452,7 +1969,9 @@ function printGitHubPostBootstrapChecklist({ host, owner, repo, integration, pro
   info(`  - CLI: gh api /repos/${owner}/${repo}/rulesets`);
   info(`- Actions variables (UI): ${base}/settings/variables/actions`);
   info(`  - CLI: gh variable list -R ${host}/${owner}/${repo}`);
-  info('  - Key gates: MAIN_REQUIRED_APPROVER_LOGINS, MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK, PRODUCTION_PROMOTION_REQUIRED, STAGING_DEPLOY_GUARD, PRODUCTION_DEPLOY_GUARD, DOCS_PUBLISH_GUARD, API_INGRESS_DEPLOY_GUARD');
+  info(`- Actions workflow permissions (UI): ${base}/settings/actions`);
+  info('  - Ensure "Allow GitHub Actions to create and approve pull requests" is enabled when using Auto-PR with GITHUB_TOKEN.');
+  info('  - Key gates: AUTOPR_ENFORCE_BOT_AUTHOR, AUTOPR_ALLOWED_AUTHORS, AUTOPR_ENFORCE_HEAD_PREFIXES, RELEASE_PR_BYPASS_PLAN_STEP, MAIN_REQUIRED_APPROVER_LOGINS, MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK, PRODUCTION_PROMOTION_REQUIRED, STAGING_DEPLOY_GUARD, PRODUCTION_DEPLOY_GUARD, DOCS_PUBLISH_GUARD, API_INGRESS_DEPLOY_GUARD, DEPLOY_ENV_MAP_JSON (or legacy DEPLOY_ENV_<COMPONENT>_<TIER>)');
   info(`- Environments (UI): ${base}/settings/environments`);
   info(`  - CLI: gh api /repos/${owner}/${repo}/environments`);
   info(`  - Production promotion workflow: ${base}/actions/workflows/promote-production.yml`);
@@ -1464,7 +1983,8 @@ function printGitHubPostBootstrapChecklist({ host, owner, repo, integration, pro
   } else {
     info('- Merge Queue (optional): bootstrap attempts API enablement; confirm in rulesets if your plan supports it (workflows already support `merge_group`).');
   }
-  info('- CODEOWNERS: add `.github/CODEOWNERS` in the target repo so code owner review rules can apply.');
+  info('- CODEOWNERS: bootstrap provisions a fallback `.github/CODEOWNERS`; customize owners/paths as needed.');
+  info('  - Use `--codeowners=<csv>` (users/teams) to override fallback owners during bootstrap.');
   info('- Docs: see docs/ops/runbooks/BASELINE_BOOTSTRAP.md and docs/ops/runbooks/DEPLOYMENT.md');
 }
 
@@ -1637,6 +2157,7 @@ async function main() {
       'Flags:',
       '  --to, -t                   Target path (required)',
       '  --mode                     init|overlay (auto when omitted)',
+      '  --profile                  Install profile (see config/policy/install-profiles.json)',
       '  --overwrite                Overwrite baseline-managed files in target (recommended for updates)',
       '  --dry-run                  Print actions without writing',
       '  --github                   Provision/configure GitHub via gh (optional)',
@@ -1653,6 +2174,7 @@ async function main() {
       '  --skip-tests               Do not run npm install/test in target',
       '  --merge-queue-production   Recommend enabling Merge Queue on production branch (manual)',
       '  --main-approvers=<csv>     Override MAIN_REQUIRED_APPROVER_LOGINS repo var (when --github)',
+      '  --codeowners=<csv>         Ensure .github/CODEOWNERS has fallback owners (users/teams)',
       '  --enableBackport=<0|1>     Set BACKPORT_ENABLED repo var (when --github)',
       '  --enableSecurity=<0|1>     Set SECURITY_ENABLED repo var (when --github)',
       '  --enableDeploy=<0|1>       Set DEPLOY_ENABLED repo var (when --github)',
@@ -1682,8 +2204,42 @@ async function main() {
   ensureDir(targetRoot, args.dryRun);
   await ensureGitAvailable();
 
+  const installProfiles = loadInstallProfilesPolicy(sourceRoot);
+  const profileConfig = installProfiles.config;
+  const lockRelPath = toString(profileConfig && profileConfig.lock_path) || 'config/baseline/baseline.lock.json';
+  const targetLock = readBaselineLock({ targetRoot, lockRelPath });
+
+  const profiles = profileConfig && typeof profileConfig === 'object' && profileConfig.profiles && typeof profileConfig.profiles === 'object'
+    ? profileConfig.profiles
+    : {};
+  const requestedProfileRaw = toString(args.profile);
+  let requestedProfile = '';
+  if (requestedProfileRaw) {
+    requestedProfile = normalizeProfileName(requestedProfileRaw);
+    if (!requestedProfile) die(`Invalid --profile "${requestedProfileRaw}" (expected [a-z0-9][a-z0-9_-]*).`);
+    if (!Object.prototype.hasOwnProperty.call(profiles, requestedProfile)) {
+      const available = Object.keys(profiles).sort().join(', ') || 'standard';
+      die(`Unknown --profile "${requestedProfile}". Available: ${available}`);
+    }
+  }
+
+  const resolvedProfile = resolveInstallProfile({
+    policy: profileConfig,
+    profileArg: requestedProfile,
+    targetLock: (targetLock && targetLock.data) || null,
+  });
+  const profileName = resolvedProfile.name;
+  const profileBootstrapDefaults =
+    resolvedProfile.profile &&
+    typeof resolvedProfile.profile === 'object' &&
+    resolvedProfile.profile.bootstrap_defaults &&
+    typeof resolvedProfile.profile.bootstrap_defaults === 'object'
+      ? resolvedProfile.profile.bootstrap_defaults
+      : {};
+
   info(`Target: ${targetRoot}`);
   info(`Mode: ${mode}${args.overwrite ? ' (overwrite)' : ''}${args.dryRun ? ' (dry-run)' : ''}`);
+  info(`Profile: ${profileName}`);
 
   const requireClean = !!(args.requireClean || args.adopt);
   if (requireClean && fs.existsSync(path.join(targetRoot, '.git'))) {
@@ -1699,12 +2255,12 @@ async function main() {
   // 1) Install/update baseline files into target.
   await summaryStep(runSummary, 'Baseline: install/update', async (step) => {
     const installScript = path.join(sourceRoot, 'scripts', 'tooling', 'baseline-install.js');
-    const installArgs = ['--to', targetRoot, '--mode', mode];
+    const installArgs = ['--to', targetRoot, '--mode', mode, '--profile', profileName];
     if (args.overwrite) installArgs.push('--overwrite');
     if (args.dryRun) installArgs.push('--dry-run');
     if (args.verbose) installArgs.push('--verbose');
 
-    step.note = `mode=${mode}${args.overwrite ? ', overwrite' : ''}${args.dryRun ? ', dry-run' : ''}`;
+    step.note = `mode=${mode}, profile=${profileName}${args.overwrite ? ', overwrite' : ''}${args.dryRun ? ', dry-run' : ''}`;
 
     if (args.dryRun) info(`[dry-run] node ${path.relative(process.cwd(), installScript)} ${installArgs.join(' ')}`);
     else await run(process.execPath, [installScript, ...installArgs], { cwd: sourceRoot });
@@ -1712,6 +2268,20 @@ async function main() {
 
   // Effective bootstrap policy is the target repo's SSOT once installed.
   const policy = loadBootstrapPolicy(targetRoot).config;
+
+  const enableBackportDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableBackport')
+    ? !!profileBootstrapDefaults.enableBackport
+    : !!policy.github.enable_backport_default;
+  const enableSecurityDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableSecurity')
+    ? !!profileBootstrapDefaults.enableSecurity
+    : !!policy.github.enable_security_default;
+  const enableDeployDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableDeploy')
+    ? !!profileBootstrapDefaults.enableDeploy
+    : !!policy.github.enable_deploy_default;
+
+  const enableBackport = args.enableBackport == null ? enableBackportDefault : !!args.enableBackport;
+  const enableSecurity = args.enableSecurity == null ? enableSecurityDefault : !!args.enableSecurity;
+  const enableDeploy = args.enableDeploy == null ? enableDeployDefault : !!args.enableDeploy;
 
   // 2) Env scaffold (non-destructive).
   if (args.skipEnv) {
@@ -1751,6 +2321,48 @@ async function main() {
       info('Env: created config/env/.env.local (placeholder).');
     });
   }
+
+  // 2b) Deploy surface registry scaffold (non-destructive; only when deploy is enabled).
+  await summaryStep(runSummary, 'Deploy: surface registry', async (step) => {
+    if (!enableDeploy) {
+      step.status = 'SKIP';
+      step.note = 'deploy disabled';
+      return;
+    }
+
+    const repoVars = policy.github && policy.github.repo_variables && typeof policy.github.repo_variables === 'object'
+      ? policy.github.repo_variables
+      : {};
+    const destRel = Object.prototype.hasOwnProperty.call(repoVars, 'DEPLOY_SURFACES_PATH')
+      ? toString(repoVars.DEPLOY_SURFACES_PATH)
+      : 'config/deploy/deploy-surfaces.json';
+    const exampleRel = 'config/deploy/deploy-surfaces.example.json';
+    const destAbs = path.join(targetRoot, ...destRel.replace(/\\/g, '/').split('/').filter(Boolean));
+    const exampleAbs = path.join(targetRoot, ...exampleRel.split('/'));
+
+    if (fs.existsSync(destAbs)) {
+      step.status = 'SKIP';
+      step.note = `${destRel} already exists`;
+      return;
+    }
+
+    if (!fs.existsSync(exampleAbs)) {
+      step.status = 'WARN';
+      step.note = `missing template: ${exampleRel}`;
+      warn(`Deploy registry template missing: ${exampleRel}.`);
+      return;
+    }
+
+    if (args.dryRun) {
+      step.note = `dry-run (create ${destRel} from template)`;
+      info(`[dry-run] create ${destRel} from ${exampleRel}`);
+      return;
+    }
+
+    ensureDir(path.dirname(destAbs), false);
+    fs.copyFileSync(exampleAbs, destAbs);
+    step.note = `created ${destRel} from template`;
+  });
 
   // 3) Git init/commit/branches (idempotent).
   const branchPolicyLoaded = loadBranchPolicyConfig(targetRoot);
@@ -1922,9 +2534,19 @@ async function main() {
       // Repository settings (merge methods, delete branch on merge, etc.).
       await ghPatchRepoSettings({ cwd: targetRoot, host: actualHost, owner, repo, policy, dryRun: args.dryRun });
 
-      const enableBackport = args.enableBackport == null ? !!policy.github.enable_backport_default : !!args.enableBackport;
-      const enableSecurity = args.enableSecurity == null ? !!policy.github.enable_security_default : !!args.enableSecurity;
-      const enableDeploy = args.enableDeploy == null ? !!policy.github.enable_deploy_default : !!args.enableDeploy;
+      const workflowPermResult = await ghPatchWorkflowPermissions({
+        cwd: targetRoot,
+        host: actualHost,
+        owner,
+        repo,
+        policy,
+        dryRun: args.dryRun,
+      });
+      if (workflowPermResult && workflowPermResult.status === 'WARN') {
+        warn(`Workflow permissions: ${workflowPermResult.note}`);
+      } else if (workflowPermResult && workflowPermResult.status === 'SKIP') {
+        info(`Workflow permissions: ${workflowPermResult.note}`);
+      }
 
       await ghApplyPolicyRepoVariables({
         cwd: targetRoot,
@@ -1956,9 +2578,64 @@ async function main() {
       step.note = `${actualHost}/${owner}/${repo} (${state})`;
     });
 
-    const hardeningLabels = args.hardeningLabels == null ? !!(policy.github.labels && policy.github.labels.enabled) : !!args.hardeningLabels;
-    const hardeningSecurity = args.hardeningSecurity == null ? !!(policy.github.security && policy.github.security.enabled) : !!args.hardeningSecurity;
-    const hardeningEnvironments = args.hardeningEnvironments == null ? !!(policy.github.environments && policy.github.environments.enabled) : !!args.hardeningEnvironments;
+    await summaryStep(runSummary, 'GitHub: codeowners', async (step) => {
+      const result = ensureCodeownersFile({
+        repoRoot: targetRoot,
+        policy,
+        owner,
+        personalLogin,
+        codeownersOverride: args.codeowners,
+        dryRun: args.dryRun,
+      });
+
+      if (!result.wrote && result.source !== 'existing' && (!Array.isArray(result.owners) || result.owners.length === 0)) {
+        warn(
+          `CODEOWNERS was not provisioned (${result.note}). ` +
+          'Set --codeowners=<csv> or policy.github.codeowners.default_owners to valid GitHub users/teams.'
+        );
+      }
+
+      if (result.deadlock && result.deadlock.deadlock) {
+        warn(
+          'Potential review deadlock detected: CODEOWNERS resolves only to the authenticated actor while ' +
+          'required approvals + code-owner review are enabled. Use a separate automation account for PR authoring ' +
+          'or add at least one additional non-author code owner.'
+        );
+      }
+
+      if (result.wrote && !hadCommitBefore) {
+        if (args.dryRun) {
+          info('[dry-run] git add .github/CODEOWNERS');
+          info('[dry-run] git commit -m "chore: bootstrap codeowners defaults"');
+          info(`[dry-run] git push origin ${integration}`);
+          step.note = `${result.note}; dry-run (would commit/push to ${integration})`;
+          return;
+        }
+
+        await run('git', ['add', '.github/CODEOWNERS'], { cwd: targetRoot });
+        await run('git', ['commit', '-m', 'chore: bootstrap codeowners defaults'], { cwd: targetRoot });
+        await run('git', ['push', 'origin', integration], { cwd: targetRoot });
+        step.note = `${result.note}; committed/pushed on ${integration}`;
+        return;
+      }
+
+      if (result.status === 'SKIP') step.status = 'SKIP';
+      step.note = result.note;
+    });
+
+    const hardeningLabelsDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'hardeningLabels')
+      ? !!profileBootstrapDefaults.hardeningLabels
+      : !!(policy.github.labels && policy.github.labels.enabled);
+    const hardeningSecurityDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'hardeningSecurity')
+      ? !!profileBootstrapDefaults.hardeningSecurity
+      : !!(policy.github.security && policy.github.security.enabled);
+    const hardeningEnvironmentsDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'hardeningEnvironments')
+      ? !!profileBootstrapDefaults.hardeningEnvironments
+      : !!(policy.github.environments && policy.github.environments.enabled);
+
+    const hardeningLabels = args.hardeningLabels == null ? hardeningLabelsDefault : !!args.hardeningLabels;
+    const hardeningSecurity = args.hardeningSecurity == null ? hardeningSecurityDefault : !!args.hardeningSecurity;
+    const hardeningEnvironments = args.hardeningEnvironments == null ? hardeningEnvironmentsDefault : !!args.hardeningEnvironments;
 
     if (hardeningLabels) {
       await summaryStep(runSummary, 'GitHub: labels', async (step) => {
@@ -2214,9 +2891,14 @@ if (require.main === module) {
 
 module.exports = {
   buildRulesetBody,
+  codeownersHasActiveRules,
+  detectCodeownersSelfReviewDeadlock,
   deriveRequiredCheckContexts,
+  ensureCodeownersFile,
   loadBootstrapPolicy,
+  normalizeCodeownerHandles,
   normalizeEnvironmentReviewerSpecs,
+  parseCodeownerHandlesFromContent,
   parseArgs,
   parseRemoteRepoSlug,
   parseWorkflowChecks,

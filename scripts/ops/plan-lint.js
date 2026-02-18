@@ -21,6 +21,62 @@ const ALLOWED_STATUS = new Set([
 function die(msg) { console.error(`[plan-lint] ${msg}`); process.exit(1); }
 function warn(msg) { console.warn(`[plan-lint] Warning: ${msg}`); }
 function read(file) { try { return fs.readFileSync(file, 'utf8'); } catch { return null; } }
+function toBool(value, fallback = false) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return !!fallback;
+  if (['1', 'true', 'yes', 'on', 'enabled'].includes(raw)) return true;
+  if (['0', 'false', 'no', 'off', 'disabled'].includes(raw)) return false;
+  return !!fallback;
+}
+function readEventJson() {
+  const evtPath = process.env.GITHUB_EVENT_PATH;
+  if (!evtPath || !fs.existsSync(evtPath)) return null;
+  try {
+    return JSON.parse(stripBom(fs.readFileSync(evtPath, 'utf8')));
+  } catch {
+    return null;
+  }
+}
+function isDependencyAutomationPrEvent(evt) {
+  const pr = evt && evt.pull_request;
+  if (!pr) return false;
+  const login = String(pr.user && pr.user.login || '').trim().toLowerCase();
+  const type = String(pr.user && pr.user.type || '').trim().toLowerCase();
+  const headRef = String(pr.head && pr.head.ref || '').trim().toLowerCase();
+
+  const isBot = type === 'bot' || login.endsWith('[bot]') || login.startsWith('app/');
+  if (!isBot) return false;
+
+  return (
+    login.includes('dependabot') ||
+    login.includes('renovate') ||
+    headRef.startsWith('dependabot/') ||
+    headRef.startsWith('renovate/')
+  );
+}
+function loadBranchPolicy() {
+  const file = path.join(root, 'config', 'policy', 'branch-policy.json');
+  if (!fs.existsSync(file)) return { integration: '', production: '' };
+  try {
+    const parsed = JSON.parse(stripBom(fs.readFileSync(file, 'utf8')));
+    return {
+      integration: String(parsed && parsed.integration_branch || '').trim(),
+      production: String(parsed && parsed.production_branch || '').trim(),
+    };
+  } catch {
+    return { integration: '', production: '' };
+  }
+}
+function isReleasePromotionPrEvent(evt, policy) {
+  const pr = evt && evt.pull_request;
+  if (!pr) return false;
+  const integration = String(policy && policy.integration || '').trim();
+  const production = String(policy && policy.production || '').trim();
+  if (!integration || !production) return false;
+  const baseRef = String(pr.base && pr.base.ref || '').trim();
+  const headRef = String(pr.head && pr.head.ref || '').trim();
+  return baseRef === production && headRef === integration;
+}
 
 function parseFrontmatter(content) {
   if (!content) return {};
@@ -100,6 +156,18 @@ if (onlyPlan) {
 if (files.length === 0) {
   const isPR = String(process.env.GITHUB_EVENT_NAME || '').startsWith('pull_request');
   if (isPR) {
+    const evt = readEventJson();
+    if (isDependencyAutomationPrEvent(evt)) {
+      warn('No canonical plans found; allowing zero-plan dependency automation PR context.');
+      process.exit(0);
+    }
+    if (toBool(process.env.RELEASE_PR_BYPASS_PLAN_STEP, false)) {
+      const branchPolicy = loadBranchPolicy();
+      if (isReleasePromotionPrEvent(evt, branchPolicy)) {
+        warn('No canonical plans found; allowing zero-plan release promotion PR context.');
+        process.exit(0);
+      }
+    }
     die('No canonical plans found for PR context. Add a PLAN-YYYYMM-<slug>.md and reference it in the PR body.');
   }
   warn('No canonical plans detected (non-PR context). Skipping plan lint; ensure PRs include a canonical plan.');
@@ -144,4 +212,3 @@ if (focusBody) {
 }
 
 console.log(`[plan-lint] OK ? plans: ${files.length}, active: ${activePlans.length}, queued: ${0}`);
-

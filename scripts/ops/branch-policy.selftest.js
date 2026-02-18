@@ -42,6 +42,22 @@ function run() {
     config: cfg,
   });
 
+  // Explicitly disabling hotfix prefixes should make production dev-only.
+  assert.throws(
+    () => validateBranchPolicy({
+      baseRef: 'main',
+      headRef: 'hotfix/urgent',
+      prBody: 'Plan: PLAN-209901-x\nStep: S10\nBackport: PR-123',
+      config: {
+        ...cfg,
+        hotfix_branch_prefixes: [],
+        require_hotfix_backport_note: false,
+        hotfix_backport_markers: [],
+      },
+    }),
+    /must come from dev/i
+  );
+
   // Any other base branch is rejected.
   assert.throws(
     () => validateBranchPolicy({ baseRef: 'release', headRef: 'feat/x', prBody: 'Plan: PLAN-209901-x\nStep: S10', config: cfg }),

@@ -3,17 +3,20 @@
   "version": "1.0.0",
   "description": "Reusable baseline kit: docs + ops tooling + repo guardrails (project-agnostic)",
   "scripts": {
-    "test": "npm run lint:plans && npm run lint:pr-policy && npm run lint:release-policy && npm run lint:deploy-guard && npm run lint:branch-policy && npm run lint:docs && npm run lint:objectives && npm run lint:structure && npm run lint:installer && npm run lint:bootstrap && npm run lint:env && npm run lint:engine",
+    "test": "npm run lint:plans && npm run lint:pr-policy && npm run lint:auto-pr && npm run lint:release-pr && npm run lint:release-policy && npm run lint:deploy-guard && npm run lint:deploy-registry && npm run lint:branch-policy && npm run lint:docs && npm run lint:objectives && npm run lint:structure && npm run lint:installer && npm run lint:bootstrap && npm run lint:env && npm run lint:engine",
     "lint:structure": "node scripts/tooling/check-structure.js",
     "lint:objectives": "node scripts/ops/objectives-lint.js",
     "lint:objectives:enforce": "OBJECTIVES_ENFORCE_RLS_MISSING=1 node scripts/ops/objectives-lint.js",
-    "lint:plans": "node scripts/ops/plan-lint.js",
+    "lint:plans": "node scripts/ops/plan-lint.selftest.js && node scripts/ops/plan-lint.js",
     "lint:pr-policy": "node scripts/ops/pr-policy.selftest.js && node scripts/ops/pr-policy-validate.selftest.js",
+    "lint:auto-pr": "node scripts/ops/auto-pr-open.selftest.js",
+    "lint:release-pr": "node scripts/ops/release-pr-open.selftest.js",
     "lint:release-policy": "node scripts/ops/release-policy-main.selftest.js",
     "lint:deploy-guard": "node scripts/ops/deploy-guard.selftest.js",
+    "lint:deploy-registry": "node scripts/ops/deploy-surface-registry.selftest.js && node scripts/ops/deploy-env-resolve.selftest.js && node scripts/ops/approval-matrix.selftest.js && node scripts/ops/changed-surfaces.selftest.js && node scripts/ops/deploy-receipts.selftest.js && node scripts/ops/env-isolation-lint.selftest.js",
     "lint:branch-policy": "node scripts/ops/branch-policy.selftest.js",
     "lint:docs": "node scripts/tooling/docs-clean.js",
-    "lint:installer": "node scripts/tooling/baseline-install.selftest.js",
+    "lint:installer": "node scripts/tooling/install-profiles.selftest.js && node scripts/tooling/baseline-install.selftest.js",
     "lint:bootstrap": "node scripts/tooling/baseline-bootstrap.selftest.js",
     "lint:env": "node scripts/utils/load-env.selftest.js",
     "lint:engine": "node scripts/tooling/baseline-engine.selftest.js && node scripts/tooling/baseline-engine.merge.selftest.js && node scripts/tooling/baseline-engine.capabilities.selftest.js",
@@ -47,8 +50,8 @@
     "pr:ready": "node scripts/ops/pr-ready.js"
   },
   "dependencies": {
-    "dotenv": "^17.2.3",
-    "yaml": "^2.8.1"
+    "dotenv": "^17.3.1",
+    "yaml": "^2.8.2"
   },
   "engines": {
     "node": ">=22.0.0"

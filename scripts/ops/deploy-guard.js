@@ -2,6 +2,8 @@
 /* eslint-disable no-console */
 'use strict';
 
+const { normalizeComponent } = require('./deploy-surface-registry');
+
 function toString(value) {
   return String(value == null ? '' : value).trim();
 }
@@ -41,15 +43,6 @@ function parseArgs(argv) {
   return out;
 }
 
-function normalizeComponent(raw) {
-  const v = toString(raw).toLowerCase();
-  if (!v) return 'application';
-  if (['app', 'application', 'service'].includes(v)) return 'application';
-  if (['docs', 'documentation', 'site'].includes(v)) return 'docs';
-  if (['api-ingress', 'api_ingress', 'ingress'].includes(v)) return 'api-ingress';
-  return v;
-}
-
 function fail(message) {
   console.error(`[deploy-guard] ${message}`);
   process.exit(1);
@@ -68,10 +61,22 @@ function main() {
   }
 
   const component = normalizeComponent(args.component);
+  if (!component) {
+    fail(`Invalid --component "${toString(args.component)}" (expected a safe token like "application", "docs").`);
+  }
   const promotionSource = toString(args.promotionSource).toLowerCase();
 
   if (environment === 'staging' && !isEnabled(process.env.STAGING_DEPLOY_GUARD)) {
     fail('STAGING_DEPLOY_GUARD is not enabled. Refusing staging deployment.');
+  }
+
+  if (environment === 'staging') {
+    if (isEnabled(process.env.STAGING_PROMOTION_REQUIRED) && promotionSource !== 'approved-flow') {
+      fail(
+        'STAGING_PROMOTION_REQUIRED is enabled. ' +
+        'Use the "Promote (Staging)" workflow (or /approve-staging) so deployment is maintainer-approved.'
+      );
+    }
   }
 
   if (environment === 'production') {

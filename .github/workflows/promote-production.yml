@@ -4,13 +4,25 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Git ref/sha to deploy (optional; defaults to production branch HEAD)"
+        description: "Git ref/sha to deploy (optional; defaults to integration branch HEAD when gating is enabled)"
+        required: false
+        default: ""
+      base_ref:
+        description: "Optional base ref for surface auto-detection (compare base...ref). When omitted, uses the first parent of ref."
         required: false
         default: ""
       component:
-        description: "Deployment component (application|docs|api-ingress)"
+        description: "Fallback single surface when registry is missing (safe token; default: application). Ignored when surfaces provided."
         required: false
         default: application
+      surfaces:
+        description: "Optional surfaces CSV override (e.g. application,docs)."
+        required: false
+        default: ""
+      approval_mode:
+        description: "Approval mode override (commit|surface). Optional: uses repo var default then registry default."
+        required: false
+        default: ""
   issue_comment:
     types: [created]
 
@@ -21,7 +33,7 @@ permissions:
   pull-requests: read
 
 jobs:
-  authorize:
+  prepare:
     if: >-
       ${{
         github.event_name == 'workflow_dispatch'
@@ -31,20 +43,29 @@ jobs:
         )
       }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     outputs:
-      authorized: ${{ steps.resolve.outputs.authorized }}
-      workflow_ref: ${{ steps.resolve.outputs.workflow_ref }}
-      deploy_ref: ${{ steps.resolve.outputs.deploy_ref }}
-      component: ${{ steps.resolve.outputs.component }}
-      issue_number: ${{ steps.resolve.outputs.issue_number }}
+      workflow_ref: ${{ steps.req.outputs.workflow_ref }}
+      deploy_ref: ${{ steps.req.outputs.deploy_ref }}
+      issue_number: ${{ steps.req.outputs.issue_number }}
+      surfaces_json: ${{ steps.surfaces.outputs.surfaces_json }}
+      approval_mode: ${{ steps.approvals.outputs.approval_mode }}
+      approval_env_commit: ${{ steps.approvals.outputs.approval_env_commit }}
+      surface_approval_matrix_json: ${{ steps.approvals.outputs.surface_approval_matrix_json }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Resolve promotion request
-        id: resolve
+      - name: Resolve promotion request (auth + ref)
+        id: req
         uses: actions/github-script@v8
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+          INPUT_BASE_REF: ${{ inputs.base_ref }}
+          INPUT_COMPONENT: ${{ inputs.component }}
+          INPUT_SURFACES: ${{ inputs.surfaces }}
+          INPUT_APPROVAL_MODE: ${{ inputs.approval_mode }}
+          REQUIRES_STAGING: ${{ vars.PRODUCTION_REQUIRES_STAGING_SUCCESS }}
         with:
           script: |
             const fs = require('fs');
@@ -53,22 +74,21 @@ jobs:
               return String(v == null ? '' : v).trim();
             }
 
-            function normalizeComponent(raw) {
-              const v = toString(raw).toLowerCase();
-              if (!v) return 'application';
-              if (['app', 'application', 'service'].includes(v)) return 'application';
-              if (['docs', 'documentation', 'site'].includes(v)) return 'docs';
-              if (['api-ingress', 'api_ingress', 'ingress'].includes(v)) return 'api-ingress';
-              return v;
-            }
-
-            function loadProductionBranch() {
+            function loadBranches() {
               try {
                 const cfg = JSON.parse(fs.readFileSync('config/policy/branch-policy.json', 'utf8'));
-                return toString(cfg && cfg.production_branch) || 'main';
+                return {
+                  integration: toString(cfg && cfg.integration_branch) || 'dev',
+                  production: toString(cfg && cfg.production_branch) || 'main',
+                };
               } catch {
-                return 'main';
+                return { integration: 'dev', production: 'main' };
               }
+            }
+
+            function isEnabled(v) {
+              const s = toString(v).toLowerCase();
+              return ['1', 'true', 'yes', 'on', 'enabled'].includes(s);
             }
 
             async function hasMaintainerPermission(actor) {
@@ -82,16 +102,23 @@ jobs:
             }
 
             const actor = toString(context.actor);
-            const productionBranch = loadProductionBranch();
+            const branches = loadBranches();
             const authorized = await hasMaintainerPermission(actor);
             if (!authorized) {
               core.setFailed(`Actor "${actor}" is not authorized to promote production (requires write/maintain/admin).`);
               return;
             }
 
+            const integrationBranch = branches.integration;
+            const productionBranch = branches.production;
+            const requiresStaging = isEnabled(process.env.REQUIRES_STAGING);
+
             let deployRef = '';
-            let component = 'application';
+            let baseRef = '';
             let issueNumber = '';
+            let surfacesOverride = '';
+            let component = '';
+            let approvalModeInput = '';
 
             if (context.eventName === 'issue_comment') {
               const issue = context.payload.issue || {};
@@ -104,39 +131,203 @@ jobs:
               issueNumber = toString(issue.number);
               const body = toString(context.payload.comment && context.payload.comment.body);
               const parts = body.split(/\s+/g).filter(Boolean);
-              component = normalizeComponent(parts[1] || 'application');
+              // /approve-prod [surfacesCsv]
+              surfacesOverride = toString(parts[1] || '');
 
               const pr = await github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: Number(issueNumber),
               });
-              const baseRef = toString(pr && pr.data && pr.data.base && pr.data.base.ref);
-              if (baseRef !== productionBranch) {
-                core.setFailed(`PR #${issueNumber} targets "${baseRef}". Expected production branch "${productionBranch}".`);
+              const baseRefName = toString(pr && pr.data && pr.data.base && pr.data.base.ref);
+              if (baseRefName !== productionBranch) {
+                core.setFailed(`PR #${issueNumber} targets "${baseRefName}". Expected production branch "${productionBranch}".`);
                 return;
               }
               if (!pr.data.merged) {
                 core.setFailed(`PR #${issueNumber} is not merged. Merge it before running /approve-prod.`);
                 return;
               }
-              deployRef = toString(pr.data.merge_commit_sha) || toString(pr.data.head && pr.data.head.sha);
+
+              // IMPORTANT: use PR head SHA so this matches the staged integration SHA for release PRs (merge commits differ).
+              deployRef = toString(pr.data.head && pr.data.head.sha) || toString(pr.data.merge_commit_sha);
             } else {
-              deployRef = toString(core.getInput('ref'));
-              component = normalizeComponent(core.getInput('component'));
+              const inputRef = toString(process.env.INPUT_REF);
+              const inputBaseRef = toString(process.env.INPUT_BASE_REF);
+              surfacesOverride = toString(process.env.INPUT_SURFACES);
+              component = toString(process.env.INPUT_COMPONENT);
+              approvalModeInput = toString(process.env.INPUT_APPROVAL_MODE);
+
+              const defaultRef = requiresStaging ? integrationBranch : productionBranch;
+              const resolved = inputRef || defaultRef;
+
+              const commit = await github.rest.repos.getCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: resolved,
+              });
+              deployRef = toString(commit && commit.data && commit.data.sha) || resolved;
+
+              if (inputBaseRef) {
+                const baseCommit = await github.rest.repos.getCommit({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: inputBaseRef,
+                });
+                baseRef = toString(baseCommit && baseCommit.data && baseCommit.data.sha) || inputBaseRef;
+              } else {
+                const parents = Array.isArray(commit && commit.data && commit.data.parents) ? commit.data.parents : [];
+                baseRef = toString(parents[0] && parents[0].sha) || '';
+              }
             }
 
-            core.setOutput('authorized', 'true');
             core.setOutput('workflow_ref', productionBranch);
             core.setOutput('deploy_ref', deployRef);
-            core.setOutput('component', component || 'application');
+            core.setOutput('base_ref', baseRef);
             core.setOutput('issue_number', issueNumber);
+            core.setOutput('surfaces_override', surfacesOverride);
+            core.setOutput('component', component || 'application');
+            core.setOutput('approval_mode_input', approvalModeInput);
+            core.setOutput('requires_staging', requiresStaging ? '1' : '0');
 
-  dispatch:
-    needs: [authorize]
-    if: ${{ needs.authorize.outputs.authorized == 'true' }}
+      - name: Compare files (dispatch mode; used for surface auto-detection)
+        id: compare
+        if: ${{ steps.req.outputs.issue_number == '' && steps.req.outputs.surfaces_override == '' }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            function toString(v) {
+              return String(v == null ? '' : v).trim();
+            }
+            const base = toString('${{ steps.req.outputs.base_ref }}');
+            const head = toString('${{ steps.req.outputs.deploy_ref }}');
+            if (!base || !head) {
+              core.setOutput('files_json', '[]');
+              core.info('Missing base/head; skipping compare');
+              return;
+            }
+            const res = await github.rest.repos.compareCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base,
+              head,
+            });
+            const files = Array.isArray(res && res.data && res.data.files) ? res.data.files : [];
+            const names = files.map((f) => String(f && f.filename || '').trim()).filter(Boolean);
+            core.setOutput('files_json', JSON.stringify(names));
+            core.info(`compare files=${names.length} base=${base} head=${head}`);
+
+      - name: Resolve affected surfaces
+        id: surfaces
+        shell: bash
+        env:
+          DEPLOY_SURFACES_PATH: ${{ vars.DEPLOY_SURFACES_PATH || 'config/deploy/deploy-surfaces.json' }}
+          GITHUB_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.req.outputs.issue_number }}
+          SURFACES_OVERRIDE: ${{ steps.req.outputs.surfaces_override }}
+          FALLBACK_COMPONENT: ${{ steps.req.outputs.component }}
+          FILES_JSON: ${{ steps.compare.outputs.files_json }}
+        run: |
+          set -euo pipefail
+
+          registry_exists=0
+          if [ -f "${DEPLOY_SURFACES_PATH}" ]; then
+            registry_exists=1
+          fi
+
+          if [ -n "${SURFACES_OVERRIDE}" ]; then
+            surfaces_json="$(node -e "const { normalizeSurfaceId } = require('./scripts/ops/deploy-surface-registry'); const csv=process.env.SURFACES_OVERRIDE||''; const out=csv.split(',').map(s=>normalizeSurfaceId(s)).filter(Boolean); process.stdout.write(JSON.stringify(out));")"
+          elif [ -n "${ISSUE_NUMBER}" ]; then
+            surfaces_json="$(node scripts/ops/changed-surfaces.js --pr "${ISSUE_NUMBER}" --token "${GITHUB_TOKEN}" --registry "${DEPLOY_SURFACES_PATH}")"
+          else
+            if [ -z "${FILES_JSON}" ]; then
+              echo "::error::Unable to auto-detect surfaces: missing FILES_JSON."
+              exit 1
+            fi
+            surfaces_json="$(node scripts/ops/changed-surfaces.js --files-json "${FILES_JSON}" --registry "${DEPLOY_SURFACES_PATH}")"
+          fi
+
+          if [ "${surfaces_json}" = "[]" ]; then
+            if [ "${registry_exists}" = "1" ]; then
+              echo "::error::No surfaces matched for this promotion request. Update deploy-surfaces.json or provide a surfaces override."
+              exit 1
+            fi
+            surfaces_json="$(node -e "const { normalizeComponent } = require('./scripts/ops/deploy-surface-registry'); const c=normalizeComponent(process.env.FALLBACK_COMPONENT||'application'); if (!c) process.exit(2); process.stdout.write(JSON.stringify([c]));")"
+          fi
+
+          if [ "${surfaces_json}" = "[]" ]; then
+            echo "::error::No surfaces resolved."
+            exit 1
+          fi
+
+          echo "surfaces_json=${surfaces_json}" >> "$GITHUB_OUTPUT"
+          echo "Resolved surfaces: ${surfaces_json}"
+
+      - name: Enforce staging prerequisite (receipts gate)
+        if: ${{ steps.req.outputs.requires_staging == '1' }}
+        env:
+          DEPLOY_REF: ${{ steps.req.outputs.deploy_ref }}
+          SURFACES_JSON: ${{ steps.surfaces.outputs.surfaces_json }}
+          DEPLOY_RECEIPTS_BRANCH: ${{ vars.DEPLOY_RECEIPTS_BRANCH || vars.EVIDENCE_BRANCH || 'ops/evidence' }}
+          DEPLOY_RECEIPTS_PREFIX: ${{ vars.DEPLOY_RECEIPTS_PREFIX || 'docs/ops/evidence/deploy' }}
+        run: |
+          set -euo pipefail
+          surfaces_csv="$(node -e "const arr=JSON.parse(process.env.SURFACES_JSON||'[]'); process.stdout.write(arr.join(','));")"
+          if [ -z "${surfaces_csv}" ]; then
+            echo "::error::No surfaces to verify for staging receipts gate."
+            exit 1
+          fi
+          node scripts/ops/deploy-receipts.js verify \
+            --tier staging \
+            --sha "${DEPLOY_REF}" \
+            --surfaces "${surfaces_csv}"
+
+      - name: Resolve approval mode + environment matrix
+        id: approvals
+        env:
+          TIER: production
+          SURFACES_JSON: ${{ steps.surfaces.outputs.surfaces_json }}
+          APPROVAL_MODE: ${{ steps.req.outputs.approval_mode_input }}
+          REPO_VAR_APPROVAL_MODE: ${{ vars.PRODUCTION_APPROVAL_MODE_DEFAULT }}
+          DEPLOY_SURFACES_PATH: ${{ vars.DEPLOY_SURFACES_PATH || 'config/deploy/deploy-surfaces.json' }}
+        run: |
+          node scripts/ops/approval-matrix.js \
+            --tier "${TIER}" \
+            --surfaces-json "${SURFACES_JSON}" \
+            --approval-mode "${APPROVAL_MODE}" \
+            --repo-var-approval-mode "${REPO_VAR_APPROVAL_MODE}"
+
+  approve_commit:
+    needs: [prepare]
+    if: ${{ needs.prepare.outputs.approval_mode == 'commit' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 60
+    environment: ${{ needs.prepare.outputs.approval_env_commit }}
+    steps:
+      - run: echo "Production commit-level approval granted."
+
+  approve_surface:
+    needs: [prepare]
+    if: ${{ needs.prepare.outputs.approval_mode == 'surface' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.surface_approval_matrix_json) }}
+    environment: ${{ matrix.approval_env }}
+    steps:
+      - run: echo "Production surface-level approval granted for ${{ matrix.surface }}"
+
+  dispatch_commit:
+    needs: [prepare, approve_commit]
+    if: ${{ needs.prepare.outputs.approval_mode == 'commit' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        surface: ${{ fromJSON(needs.prepare.outputs.surfaces_json) }}
     steps:
       - name: Dispatch deployment workflow (production)
         uses: actions/github-script@v8
@@ -146,32 +337,89 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'deploy.yml',
-              ref: '${{ needs.authorize.outputs.workflow_ref }}',
+              ref: '${{ needs.prepare.outputs.workflow_ref }}',
               inputs: {
                 environment: 'production',
-                ref: '${{ needs.authorize.outputs.deploy_ref }}',
-                component: '${{ needs.authorize.outputs.component }}',
+                ref: '${{ needs.prepare.outputs.deploy_ref }}',
+                component: '${{ matrix.surface }}',
                 promotion_source: 'approved-flow',
               },
             });
-            core.info(
-              `Production deployment dispatched for ref=${'${{ needs.authorize.outputs.deploy_ref }}' || '${{ needs.authorize.outputs.workflow_ref }}'} ` +
-              `component=${'${{ needs.authorize.outputs.component }}'}`
-            );
+            core.info(`Production deployment dispatched surface=${'${{ matrix.surface }}'} ref=${'${{ needs.prepare.outputs.deploy_ref }}'}`);
 
-      - name: Comment on PR (audit trail)
-        if: ${{ needs.authorize.outputs.issue_number != '' }}
+  dispatch_surface:
+    needs: [prepare, approve_surface]
+    if: ${{ needs.prepare.outputs.approval_mode == 'surface' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        surface: ${{ fromJSON(needs.prepare.outputs.surfaces_json) }}
+    steps:
+      - name: Dispatch deployment workflow (production)
         uses: actions/github-script@v8
         with:
           script: |
-            const issueNumber = Number('${{ needs.authorize.outputs.issue_number }}');
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy.yml',
+              ref: '${{ needs.prepare.outputs.workflow_ref }}',
+              inputs: {
+                environment: 'production',
+                ref: '${{ needs.prepare.outputs.deploy_ref }}',
+                component: '${{ matrix.surface }}',
+                promotion_source: 'approved-flow',
+              },
+            });
+            core.info(`Production deployment dispatched surface=${'${{ matrix.surface }}'} ref=${'${{ needs.prepare.outputs.deploy_ref }}'}`);
+
+  audit_commit:
+    needs: [prepare, dispatch_commit]
+    if: ${{ needs.prepare.outputs.approval_mode == 'commit' && needs.prepare.outputs.issue_number != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Comment on PR (audit trail)
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issueNumber = Number('${{ needs.prepare.outputs.issue_number }}');
             if (!issueNumber) return;
+            const surfaces = JSON.parse('${{ needs.prepare.outputs.surfaces_json }}');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
               body:
                 `Production promotion approved by @${context.actor}.\n` +
-                `- Component: \`${'${{ needs.authorize.outputs.component }}'}\`\n` +
-                `- Ref: \`${'${{ needs.authorize.outputs.deploy_ref }}'}\``,
+                `- Approval mode: \`commit\`\n` +
+                `- Surfaces: \`${surfaces.join(', ')}\`\n` +
+                `- Ref: \`${'${{ needs.prepare.outputs.deploy_ref }}'}\``,
             });
+
+  audit_surface:
+    needs: [prepare, dispatch_surface]
+    if: ${{ needs.prepare.outputs.approval_mode == 'surface' && needs.prepare.outputs.issue_number != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Comment on PR (audit trail)
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issueNumber = Number('${{ needs.prepare.outputs.issue_number }}');
+            if (!issueNumber) return;
+            const surfaces = JSON.parse('${{ needs.prepare.outputs.surfaces_json }}');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body:
+                `Production promotion approved by @${context.actor}.\n` +
+                `- Approval mode: \`surface\`\n` +
+                `- Surfaces: \`${surfaces.join(', ')}\`\n` +
+                `- Ref: \`${'${{ needs.prepare.outputs.deploy_ref }}'}\``,
+            });
+

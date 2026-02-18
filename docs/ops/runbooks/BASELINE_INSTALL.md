@@ -18,12 +18,19 @@ Key properties:
 
 If you want a fully guided end-to-end setup (git + optional GitHub provisioning + optional tests), use `docs/ops/runbooks/BASELINE_BOOTSTRAP.md` (`npm run baseline:bootstrap`) instead.
 
+## Profiles + baseline lock (recommended)
+
+- SSOT: `config/policy/install-profiles.json` defines install profiles and their file filters.
+- Use `--profile <name>` to install a subset of the baseline (example: `backend`, `frontend`, `library`, `docs`, `enterprise`).
+- The installer writes `config/baseline/baseline.lock.json` into the target repo to record the selected profile so overlay updates remain deterministic.
+
 ## Install into a new repo (recommended)
 
 From this baseline kit repo:
 
 - Initialize a new target folder:
   - `npm run baseline:install -- <target-path> init`
+  - Example (profile): `npm run baseline:install -- --to <target-path> --mode init --profile enterprise`
 - In the target repo:
   - `npm install`
   - `npm test`

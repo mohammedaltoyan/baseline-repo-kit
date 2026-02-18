@@ -1,0 +1,45 @@
+name: Release PR (bot)
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: "PR title override (optional)"
+        required: false
+        default: ""
+      draft:
+        description: "Open as draft (0|1)"
+        required: false
+        default: "0"
+      update_existing:
+        description: "Update existing open release PR (0|1)"
+        required: false
+        default: "1"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Open/refresh release PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_PR_TITLE: ${{ inputs.title }}
+          RELEASE_PR_DRAFT: ${{ inputs.draft }}
+          RELEASE_PR_UPDATE_EXISTING: ${{ inputs.update_existing }}
+        run: node scripts/ops/release-pr-open.js
+

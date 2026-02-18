@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "GitHub environment to deploy to (recommended: staging|production)"
+        description: "Deployment tier (staging|production)"
         required: true
         default: staging
       ref:
@@ -12,7 +12,7 @@ on:
         required: false
         default: ""
       component:
-        description: "Deployment component (application|docs|api-ingress)"
+        description: "Deployment component (safe token; default: application)"
         required: false
         default: application
       promotion_source:
@@ -24,36 +24,89 @@ permissions:
   contents: read
 
 jobs:
+  resolve:
+    if: ${{ vars.DEPLOY_ENABLED == '1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      github_environment: ${{ steps.resolve.outputs.github_environment }}
+      tier: ${{ steps.resolve.outputs.tier }}
+      component: ${{ steps.resolve.outputs.component }}
+      source: ${{ steps.resolve.outputs.source }}
+    steps:
+      - name: Guard (internal workflow)
+        shell: bash
+        run: |
+          set -euo pipefail
+          actor="${GITHUB_ACTOR}"
+          if [ "${actor}" != "github-actions[bot]" ] && [ "${actor}" != "github-actions" ]; then
+            echo "::error::This workflow is internal. Use \"Promote (Staging)\" or \"Promote (Production)\" instead."
+            echo "actor=${actor}"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve GitHub Environment (registry -> map -> legacy)
+        id: resolve
+        env:
+          TIER: ${{ inputs.environment }}
+          COMPONENT: ${{ inputs.component || 'application' }}
+          DEPLOY_SURFACES_PATH: ${{ vars.DEPLOY_SURFACES_PATH || 'config/deploy/deploy-surfaces.json' }}
+          DEPLOY_ENV_MAP_JSON: ${{ vars.DEPLOY_ENV_MAP_JSON }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/ops/deploy-env-resolve.js
+
   deploy:
+    needs: [resolve]
     if: ${{ vars.DEPLOY_ENABLED == '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ inputs.environment }}
+    environment: ${{ needs.resolve.outputs.github_environment }}
+    concurrency:
+      group: deploy-${{ needs.resolve.outputs.github_environment }}
+      cancel-in-progress: false
+    outputs:
+      deployed_sha: ${{ steps.sha.outputs.deployed_sha }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.sha }}
+
+      - name: Capture deployed SHA
+        id: sha
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "deployed_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Enforce deploy policy guards
         env:
           STAGING_DEPLOY_GUARD: ${{ vars.STAGING_DEPLOY_GUARD }}
+          STAGING_PROMOTION_REQUIRED: ${{ vars.STAGING_PROMOTION_REQUIRED }}
           PRODUCTION_DEPLOY_GUARD: ${{ vars.PRODUCTION_DEPLOY_GUARD }}
           DOCS_PUBLISH_GUARD: ${{ vars.DOCS_PUBLISH_GUARD }}
           API_INGRESS_DEPLOY_GUARD: ${{ vars.API_INGRESS_DEPLOY_GUARD }}
           PRODUCTION_PROMOTION_REQUIRED: ${{ vars.PRODUCTION_PROMOTION_REQUIRED }}
         run: |
           node scripts/ops/deploy-guard.js \
-            --environment "${{ inputs.environment }}" \
-            --component "${{ inputs.component || 'application' }}" \
+            --environment "${{ needs.resolve.outputs.tier }}" \
+            --component "${{ needs.resolve.outputs.component }}" \
             --promotion-source "${{ inputs.promotion_source || 'direct' }}"
 
       - name: Deploy (hook)
         shell: bash
         env:
-          DEPLOY_ENV: ${{ inputs.environment }}
-          DEPLOY_COMPONENT: ${{ inputs.component || 'application' }}
+          DEPLOY_ENV: ${{ needs.resolve.outputs.tier }}
+          DEPLOY_COMPONENT: ${{ needs.resolve.outputs.component }}
           DEPLOY_PROMOTION_SOURCE: ${{ inputs.promotion_source || 'direct' }}
+          GITHUB_ENVIRONMENT: ${{ needs.resolve.outputs.github_environment }}
         run: |
           set -euo pipefail
 
@@ -65,3 +118,29 @@ jobs:
           echo "Missing scripts/deploy/deploy.sh."
           echo "Implement a project-specific deploy hook and re-run this workflow."
           exit 1
+
+  receipt:
+    needs: [resolve, deploy]
+    if: ${{ vars.DEPLOY_ENABLED == '1' && needs.deploy.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (full)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Write deploy receipt (SSOT evidence)
+        env:
+          DEPLOY_RECEIPTS_BRANCH: ${{ vars.DEPLOY_RECEIPTS_BRANCH || vars.EVIDENCE_BRANCH || 'ops/evidence' }}
+          DEPLOY_RECEIPTS_PREFIX: ${{ vars.DEPLOY_RECEIPTS_PREFIX || 'docs/ops/evidence/deploy' }}
+        run: |
+          node scripts/ops/deploy-receipts.js write \
+            --tier "${{ needs.resolve.outputs.tier }}" \
+            --sha "${{ needs.deploy.outputs.deployed_sha }}" \
+            --surface "${{ needs.resolve.outputs.component }}" \
+            --environment "${{ needs.resolve.outputs.github_environment }}" \
+            --run-url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --actor "${{ github.actor }}"

@@ -42,9 +42,9 @@ If your system has multiple override scopes (multi-tenant, multi-client, multi-s
 - Prefer frequent, small PRs over long-lived branches.
 - Slice work into plan phases so each PR is independently reviewable/testable (often 1 plan step/phase per PR).
 - Branch naming (recommended): include the plan id + intent so parallel work stays readable, e.g. `feat/PLAN-YYYYMM-<slug>-<short>`.
-- Branch policy SSOT: `config/policy/branch-policy.json` defines the integration + production branches and allowed PR targets/sources (default: `dev` -> `main`, hotfix via `hotfix/*`). Keep PRs targeting the integration branch except for release/hotfix.
+- Branch policy SSOT: `config/policy/branch-policy.json` defines the integration + production branches and allowed PR targets/sources. Baseline hardened default in this repo is release-only (`dev` -> `main`) with hotfix prefixes disabled. Keep PRs targeting the integration branch except for release.
 - Merge method policy (baseline default): integration PRs are squash-only; production PRs are merge-commit-only (prevents recurring integration -> production conflicts caused by squash releases). Enforced via GitHub rulesets provisioned by `npm run baseline:bootstrap -- -- --to <target-path> --github` using `config/policy/bootstrap-policy.json`.
-- Optional hotfix backport automation (recommended): enable repo var `BACKPORT_ENABLED=1` to auto-open a production -> integration backport PR after a hotfix merge (ships as `.github/workflows/hotfix-backport.yml`).
+- Optional hotfix backport automation (only when hotfix prefixes are enabled): set repo var `BACKPORT_ENABLED=1` to auto-open a production -> integration backport PR after a hotfix merge (ships as `.github/workflows/hotfix-backport.yml`).
 - Keep your branch up to date with the base/integration branch (merge-based; do not rewrite published history):
   - Use your repo's canonical integration branch (commonly `origin/<default-branch>`; some orgs use `origin/dev`).
   - Before opening a PR (and before re-requesting review): `git fetch origin` then `git merge origin/<integration-branch>`.
@@ -173,6 +173,67 @@ When working on frontend UI/UX:
 - If `security.require_pinned_action_refs=true`, generated workflow action refs must be full SHA pins and doctor must fail otherwise.
 - Deployment OIDC behavior must be settings-driven (`deployments.oidc`) with secure defaults and no hardcoded cloud vendor assumptions.
 - Backward compatibility default: new modules/features are opt-in unless an explicit migration enables them.
+
+## Profiles (Baseline Install/Bootstrap)
+
+- SSOT: `config/policy/install-profiles.json` defines available baseline install profiles and optional bootstrap defaults.
+- `baseline:install` and `baseline:bootstrap` accept `--profile <name>` to filter which baseline artifacts are installed.
+- Target repos receive a small lock file `config/baseline/baseline.lock.json` to record the selected profile so overlay updates remain deterministic.
+- Profiles may define `bootstrap_defaults` (for example `enableDeploy`, `enableSecurity`, hardening toggles) that apply when bootstrap flags are omitted.
+
+## Deploy Isolation + Approvals (GitHub Environments)
+
+SSOT (recommended):
+- Deploy surface registry: `config/deploy/deploy-surfaces.json` (project-owned; created from `config/deploy/deploy-surfaces.example.json` by bootstrap when deploy is enabled).
+  - Defines surfaces (`surface_id`), change matchers (`paths_include_re`, `paths_exclude_re`), environment naming, approval environment naming, and optional allowed secret/var keys.
+
+Workflows:
+- Leaf executor: `.github/workflows/deploy.yml`
+  - Internal-only: refuses direct human runs (expects to be dispatched by promote workflows).
+  - Runs each deploy job in a **surface+tier GitHub Environment** (secrets isolation boundary).
+  - Writes auditable deploy receipts to an evidence branch on success (`DEPLOY_RECEIPTS_BRANCH`, `DEPLOY_RECEIPTS_PREFIX`).
+- Orchestrators:
+  - `.github/workflows/promote-staging.yml` requires an explicit GitHub Environment approval click before staging deploys.
+  - `.github/workflows/promote-production.yml` requires an explicit GitHub Environment approval click before production deploys and can enforce staging receipts for the same SHA.
+
+Approval modes (dynamic):
+- `commit`: one approval unlocks all affected surfaces for the promotion run.
+- `surface`: one approval per affected surface.
+- Precedence: workflow input `approval_mode` > repo var default (`STAGING_APPROVAL_MODE_DEFAULT`, `PRODUCTION_APPROVAL_MODE_DEFAULT`) > registry default.
+
+Fallback (when registry is missing):
+- Deploy environment name resolution falls back to:
+  - `DEPLOY_ENV_MAP_JSON` (preferred legacy SSOT; JSON mapping: component -> {staging, production})
+  - Legacy override (takes precedence when set): `DEPLOY_ENV_<COMPONENT>_<TIER>`
+- Promote workflows fall back to a single `component` input when they cannot auto-detect surfaces.
+
+Isolation lint (API-based):
+- Script: `scripts/ops/env-isolation-lint.js`
+- Workflow: `.github/workflows/env-isolation-lint.yml` (required check; fail-closed when enabled)
+- Hardened default: `ENV_ISOLATION_LINT_ENABLED=1`; auth token resolution order is `ENV_ISOLATION_TOKEN` then `GITHUB_TOKEN` (workflow needs `actions: read`). If no usable token exists, lint fails closed.
+
+## Code Owner Review Automation (Baseline)
+
+- CODEOWNERS SSOT is policy-driven via `config/policy/bootstrap-policy.json` (`github.codeowners`).
+- `baseline:bootstrap --github` ensures fallback `.github/CODEOWNERS` ownership when missing/template-only:
+  - Default owners from `github.codeowners.default_owners` (default: `$repo_owner_user`)
+  - CLI override supported: `--codeowners=<csv>` (users and/or `org/team`)
+- Deadlock prevention is mandatory:
+  - If required approvals + code-owner review are enabled, PR author identity must be different from reviewer identity.
+  - Use a dedicated automation account/token for authored PRs; keep human maintainers/code owners as approvers.
+  - Preferred baseline default: Auto-PR workflow (`.github/workflows/auto-pr.yml`) opens PRs as the GitHub Actions bot (`github-actions[bot]` / `app/github-actions`) for `codex/**` branches (gated by `AUTOPR_ENABLED` repo var).
+  - Bootstrap SSOT enables required Actions workflow permission (`github.workflow_permissions.can_approve_pull_request_reviews=true`) so `GITHUB_TOKEN` can create PRs.
+  - Fallback for restricted org policy: configure repo secret `AUTOPR_TOKEN` (bot PAT); Auto-PR uses it when present.
+  - PR Policy can enforce bot-only authorship for agent branches:
+    - `AUTOPR_ENFORCE_BOT_AUTHOR` (default `1`)
+    - `AUTOPR_ALLOWED_AUTHORS` (default `github-actions[bot],app/github-actions`)
+    - `AUTOPR_ENFORCE_HEAD_PREFIXES` (default `codex/`; set `*` for all branches)
+  - Release promotion PR automation:
+    - Workflow: `.github/workflows/release-pr-bot.yml` (opens/refreshes `dev` -> `main` as a bot so a human can approve/merge)
+    - Optional redundancy reduction: `RELEASE_PR_BYPASS_PLAN_STEP=1` allows release promotion PRs to omit `Plan:`/`Step:` (recommended default; underlying changes already carried plans).
+  - Plan lint compatibility for automation PRs:
+    - `scripts/ops/plan-lint.js` allows zero-plan PR context for dependency automation PRs (Dependabot/Renovate), preventing CI deadlocks when no active canonical plans currently exist.
+    - `scripts/ops/plan-lint.js` also allows zero-plan release promotion PRs when `RELEASE_PR_BYPASS_PLAN_STEP=1`.
 
 ## Commit & Pull Request Guidelines (Recommended)
 

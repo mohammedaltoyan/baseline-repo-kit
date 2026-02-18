@@ -29,6 +29,24 @@ function run() {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 
   result = runCase({
+    args: ['--environment', 'staging', '--promotion-source', 'direct'],
+    env: {
+      STAGING_DEPLOY_GUARD: 'enabled',
+      STAGING_PROMOTION_REQUIRED: 'enabled',
+    },
+  });
+  assert.notStrictEqual(result.status, 0, 'expected staging promotion gate failure');
+
+  result = runCase({
+    args: ['--environment', 'staging', '--promotion-source', 'approved-flow'],
+    env: {
+      STAGING_DEPLOY_GUARD: 'enabled',
+      STAGING_PROMOTION_REQUIRED: 'enabled',
+    },
+  });
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+
+  result = runCase({
     args: ['--environment', 'staging'],
     env: {
       STAGING_DEPLOY_GUARD: 'disabled',
@@ -77,6 +95,24 @@ function run() {
     env: {
       STAGING_DEPLOY_GUARD: 'enabled',
       DOCS_PUBLISH_GUARD: 'enabled',
+    },
+  });
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+
+  // Component normalization: underscores are accepted and normalized (api_ingress -> api-ingress).
+  result = runCase({
+    args: ['--environment', 'staging', '--component', 'api_ingress'],
+    env: {
+      STAGING_DEPLOY_GUARD: 'enabled',
+      API_INGRESS_DEPLOY_GUARD: 'enabled',
+    },
+  });
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+
+  result = runCase({
+    args: ['--environment', 'staging', '--component', 'admin_ui'],
+    env: {
+      STAGING_DEPLOY_GUARD: 'enabled',
     },
   });
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
