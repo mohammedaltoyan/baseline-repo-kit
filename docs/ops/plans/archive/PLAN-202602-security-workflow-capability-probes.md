@@ -2,9 +2,10 @@
 plan_id: PLAN-202602-security-workflow-capability-probes
 title: Harden security workflow capability detection
 owner: @mohammedaltoyan
-status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
+status: superseded # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
+superseded_by: PLAN-202602-enterprise-cd-hardening
 current_step: S00
-updated: 2026-02-06
+updated: 2026-02-18
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
 links:

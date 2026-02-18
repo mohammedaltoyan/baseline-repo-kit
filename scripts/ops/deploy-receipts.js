@@ -99,6 +99,12 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function resolveMaxAttempts(rawValue) {
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed) || parsed < 1) return 6;
+  return Math.max(1, Math.floor(parsed));
+}
+
 async function writeReceiptToBranch({
   cwd,
   branch,
@@ -111,7 +117,7 @@ async function writeReceiptToBranch({
   const rp = ensureSafeRelPath(normalizeRel(relPath));
   if (!rp) throw new Error('relPath is required');
 
-  const attempts = Number.isFinite(Number(maxAttempts)) ? Number(maxAttempts) : 6;
+  const attempts = resolveMaxAttempts(maxAttempts);
 
   gitEnsureUser(cwd);
 
@@ -276,4 +282,5 @@ module.exports = {
   buildReceipt,
   verifyReceiptsInRef,
   verifyReceiptsInBranch,
+  resolveMaxAttempts,
 };
