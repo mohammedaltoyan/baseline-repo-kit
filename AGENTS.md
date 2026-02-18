@@ -140,6 +140,27 @@ When working on frontend UI/UX:
 - Optional installer to overlay this kit onto another repo:
   - Safe positional form: `npm run baseline:install -- <target-path> [overlay|init] [overwrite] [dry-run] [verbose]`
   - Flag form (safe with modern npm): `npm run baseline:install -- --to <path> --mode overlay --dry-run`
+- Baseline Engine v2.2 (settings-driven, capability-aware):
+  - `npm run baseline:init -- --target <target-path>`
+  - `npm run baseline:ui -- --target <target-path>`
+  - `npm run baseline:diff -- --target <target-path>`
+  - `npm run baseline:apply -- --target <target-path>`
+  - `npm run baseline:upgrade -- --target <target-path>`
+  - `npm run baseline:doctor -- --target <target-path>`
+  - `npm run baseline:verify -- --target <target-path>`
+
+## Baseline Engine v2.2 (Must)
+
+- Baseline behavior must be generated from settings (`.baseline/config.yaml`) and capability probes (`.baseline/capabilities/github.json`), not hardcoded in scripts/workflows.
+- Managed upgrades must be migration-based (`scripts/tooling/migrations/<semver>/`) with explicit state tracking in `.baseline/state.json`.
+- Generated file ownership and merge strategy must be tracked in `.baseline/managed-files.json`.
+- New baseline features must ship as modules under `tooling/apps/baseline-engine/modules/` with:
+  - `module.json`
+  - `schema.fragment.json`
+  - `capability_requirements.json`
+  - `generators/`
+  - `migrations/`
+- Backward compatibility default: new modules/features are opt-in unless an explicit migration enables them.
 
 ## Commit & Pull Request Guidelines (Recommended)
 

@@ -10,7 +10,27 @@ Reusable, project-agnostic baseline: planning system + docs templates + repo gua
 - `scripts/` small reusable automation (plans + lint gates).
 - `config/` safe env templates and lint/policy config (including branch policy SSOT).
 - `.github/` CI + PR policy enforcement + release/promotion/deploy guard workflows + optional security automation templates.
+- `tooling/apps/baseline-engine/` settings-driven baseline engine (v2.2).
+- `apps/baseline-control/` web-first control panel for dynamic baseline settings.
 - Root policy templates: `.editorconfig`, `CONTRIBUTING.md`, `SECURITY.md`.
+
+## Baseline Engine (v2.2)
+
+Use the engine when you need fully dynamic, capability-aware setup and upgrades:
+
+1. Initialize target baseline state:
+   - `npm run baseline:init -- --target <target-path>`
+2. Launch web UI:
+   - `npm run baseline:ui -- --target <target-path>`
+3. Preview generated changes:
+   - `npm run baseline:diff -- --target <target-path>`
+4. Apply generated changes (PR-first by default):
+   - `npm run baseline:apply -- --target <target-path>`
+5. Run managed upgrades:
+   - `npm run baseline:upgrade -- --target <target-path>`
+6. Health checks:
+   - `npm run baseline:doctor -- --target <target-path>`
+   - `npm run baseline:verify -- --target <target-path>`
 
 ## How to use in a new project
 

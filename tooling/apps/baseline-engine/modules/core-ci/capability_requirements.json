@@ -1,0 +1,4 @@
+{
+  "requires": ["rulesets", "merge_queue"],
+  "degrade_strategy": "warn"
+}

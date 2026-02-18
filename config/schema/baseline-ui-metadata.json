@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "sections": [
+    {
+      "id": "platform",
+      "title": "Platform",
+      "description": "Core provider and capability detection settings."
+    },
+    {
+      "id": "policy",
+      "title": "Policy Profile",
+      "description": "Repository governance strictness and approval behavior."
+    },
+    {
+      "id": "branching",
+      "title": "Branching",
+      "description": "Topology, protected branches, and reviewer thresholds."
+    },
+    {
+      "id": "ci",
+      "title": "CI/CD",
+      "description": "Two-lane execution and change classification."
+    },
+    {
+      "id": "deployments",
+      "title": "Deployments",
+      "description": "Components, environments, and approval matrix."
+    },
+    {
+      "id": "planning",
+      "title": "Planning Gates",
+      "description": "Plan requirements and audited automation exemptions."
+    },
+    {
+      "id": "updates",
+      "title": "Upgrades",
+      "description": "Release channel and apply mode behavior."
+    },
+    {
+      "id": "modules",
+      "title": "Modules",
+      "description": "Enabled baseline modules and extension model."
+    }
+  ],
+  "fields": {
+    "platform.provider": {
+      "section": "platform",
+      "what_this_controls": "Selects the baseline provider adapter used for capability probing and workflow generation.",
+      "why_it_matters": "Provider adapters control which automation APIs are used and which governance features can be enforced.",
+      "default_behavior": "Defaults to github.",
+      "tradeoffs": "GitHub-first ships fastest and most robustly now; multi-provider adapters can be added later as modules.",
+      "prerequisites": "A reachable GitHub repository and auth token for capability probing.",
+      "apply_impact": "Regenerates provider-specific workflows and capability snapshots."
+    },
+    "policy.profile": {
+      "section": "policy",
+      "what_this_controls": "Controls global enforcement strength across planning, CI, and approval gates.",
+      "why_it_matters": "Determines whether checks block merges or run as advisory-only.",
+      "default_behavior": "Defaults to strict.",
+      "tradeoffs": "Strict increases control and safety; moderate/advisory increase delivery speed.",
+      "prerequisites": "None.",
+      "apply_impact": "Updates PR gate behavior, required checks, and reviewer threshold defaults."
+    },
+    "policy.require_github_app": {
+      "section": "policy",
+      "what_this_controls": "Forces App-based auth for selected automation flows.",
+      "why_it_matters": "Some org-wide and cross-repo operations need permissions beyond GITHUB_TOKEN.",
+      "default_behavior": "False by default; App required only when enabled features need it.",
+      "tradeoffs": "Requiring an App improves permission governance but adds setup overhead.",
+      "prerequisites": "Installed GitHub App with required scopes.",
+      "apply_impact": "May disable unsupported automations until capabilities are present."
+    },
+    "branching.topology": {
+      "section": "branching",
+      "what_this_controls": "Selects branch model preset or custom mode.",
+      "why_it_matters": "Defines merge flows, protection rules, and release promotion paths.",
+      "default_behavior": "Defaults to two_branch (dev -> main).",
+      "tradeoffs": "Presets are fast and safer; custom is flexible but requires more policy tuning.",
+      "prerequisites": "Branch names configured in repository.",
+      "apply_impact": "Regenerates branch topology policy and required-check target mappings."
+    },
+    "branching.review_thresholds": {
+      "section": "branching",
+      "what_this_controls": "Defines required non-author approvals by maintainer-count buckets.",
+      "why_it_matters": "Ensures solo/small/large teams get appropriate review gates without hardcoding.",
+      "default_behavior": "Adaptive defaults: <=1 maintainer = 0 approvals, 2-5 = 1, >=6 = 2 + CODEOWNERS.",
+      "tradeoffs": "Higher thresholds improve change control and reduce merge speed.",
+      "prerequisites": "Maintainer detection or manual override.",
+      "apply_impact": "Updates reviewer policy outputs and protection recommendations."
+    },
+    "ci.mode": {
+      "section": "ci",
+      "what_this_controls": "Selects CI execution lane strategy.",
+      "why_it_matters": "Balances fast feedback with full verification coverage.",
+      "default_behavior": "Defaults to two_lane.",
+      "tradeoffs": "Always-full is safest but slowest; lightweight is fastest but riskier.",
+      "prerequisites": "None.",
+      "apply_impact": "Regenerates PR gate workflow behavior and trigger rules."
+    },
+    "ci.change_profiles": {
+      "section": "ci",
+      "what_this_controls": "Regex-based change routing for fast lane vs full lane.",
+      "why_it_matters": "Avoids costly full runs on low-risk changes while preserving strict checks for risky paths.",
+      "default_behavior": "Includes docs/ci/ui/db profiles out of the box.",
+      "tradeoffs": "Overly broad rules can skip needed checks; overly strict rules increase CI cost.",
+      "prerequisites": "Repository path conventions.",
+      "apply_impact": "Updates generated change-classifier config consumed by PR gate workflow."
+    },
+    "deployments.approval_matrix": {
+      "section": "deployments",
+      "what_this_controls": "Approval requirements per environment and component.",
+      "why_it_matters": "Allows fine-grained control so production app deploys can be stricter than docs deploys.",
+      "default_behavior": "Generated from environment defaults + team-size policy.",
+      "tradeoffs": "More granularity gives better control but more settings to maintain.",
+      "prerequisites": "Components and environments defined.",
+      "apply_impact": "Regenerates deployment approval policy artifacts and deploy guard behavior."
+    },
+    "planning.required": {
+      "section": "planning",
+      "what_this_controls": "Enforces mandatory Plan/Step metadata for eligible PR flows.",
+      "why_it_matters": "Maintains traceability and phase-scoped execution discipline.",
+      "default_behavior": "Enabled by default.",
+      "tradeoffs": "Strict planning improves auditability but adds process overhead.",
+      "prerequisites": "Canonical plan files in docs/ops/plans.",
+      "apply_impact": "Updates PR policy checks and automation bypass rules."
+    },
+    "updates.apply_mode": {
+      "section": "updates",
+      "what_this_controls": "How generated changes are applied.",
+      "why_it_matters": "PR-first keeps change history auditable and reviewable.",
+      "default_behavior": "Defaults to pr_first.",
+      "tradeoffs": "Direct mode is faster but less controlled.",
+      "prerequisites": "Git repository for PR-first branch/commit flow.",
+      "apply_impact": "Changes execution path in baseline apply command."
+    },
+    "modules.enabled": {
+      "section": "modules",
+      "what_this_controls": "Enables baseline feature modules.",
+      "why_it_matters": "Module SDK allows adding features without rewriting core engine.",
+      "default_behavior": "Core modules enabled by default; new modules remain opt-in.",
+      "tradeoffs": "Disabling modules reduces surface area but may remove automation outputs.",
+      "prerequisites": "Valid module manifests under tooling/apps/baseline-engine/modules.",
+      "apply_impact": "Only enabled modules contribute generated files and policy outputs."
+    }
+  },
+  "capability_labels": {
+    "supported": "Supported",
+    "unsupported": "Unsupported",
+    "unknown": "Unknown"
+  }
+}

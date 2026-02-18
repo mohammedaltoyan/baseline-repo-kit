@@ -11,6 +11,9 @@ This baseline kit is a SSOT that can be installed into any new project repo. The
 - Optional: enforce release/deploy governance controls (main approver check, production promotion flow, deploy guard variables)
 - Optional: run `npm install`/`npm test` in the target repo
 
+For v2.2 dynamic control-plane setup (schema-driven settings + capability-aware generation), use `docs/ops/runbooks/BASELINE_ENGINE.md`.
+Legacy bootstrap/install scripts can delegate to engine mode with `--engine-v2`.
+
 ## Command
 
 - Script: `scripts/tooling/baseline-bootstrap.js`

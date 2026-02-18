@@ -17,6 +17,7 @@
 /* eslint-disable no-console */
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const { parseFlagArgs } = require('../utils/cli-args');
 const { isTruthy } = require('../utils/is-truthy');
 const { readJson, writeJson } = require('../utils/json');
@@ -253,6 +254,35 @@ function mergePackageJson({ sourceRoot, targetRoot, overwrite, dryRun, verbose, 
 
 function main() {
   const args = parseFlagArgs(process.argv.slice(2));
+  const positionalsEarly = Array.isArray(args._) ? args._.map((v) => String(v || '').trim()).filter(Boolean) : [];
+  const posFlagsEarly = positionalsEarly.slice(1).map((p) => String(p || '').trim().toLowerCase()).filter(Boolean);
+  const engineV2 =
+    isTruthy(args['engine-v2'] || args.engineV2 || process.env.BASELINE_ENGINE_V2) ||
+    posFlagsEarly.includes('engine-v2') ||
+    posFlagsEarly.includes('engine_v2');
+
+  if (engineV2) {
+    const targetRawEarly = String(args.to || args.t || args._[0] || '').trim();
+    if (!targetRawEarly) {
+      die('Missing target for --engine-v2 mode. Usage: baseline:install -- <path> ...');
+    }
+    const dryRunEarly =
+      isTruthy(args['dry-run'] || args.dryRun) ||
+      posFlagsEarly.includes('dry-run') ||
+      posFlagsEarly.includes('dryrun') ||
+      posFlagsEarly.includes('dry_run');
+    const directEarly = isTruthy(args.direct) || posFlagsEarly.includes('direct');
+    const engineCli = path.resolve(__dirname, '..', '..', 'tooling', 'apps', 'baseline-engine', 'cli.js');
+    const cmdArgs = ['apply', '--target', targetRawEarly];
+    if (dryRunEarly) cmdArgs.push('--dry-run');
+    if (directEarly) cmdArgs.push('--direct');
+
+    const delegated = spawnSync(process.execPath, [engineCli, ...cmdArgs], { stdio: 'inherit' });
+    if (delegated.error) die(`Engine delegation failed: ${delegated.error.message}`);
+    if (delegated.status !== 0) process.exit(delegated.status || 1);
+    return;
+  }
+
   const positionals = Array.isArray(args._) ? args._.map((v) => String(v || '').trim()).filter(Boolean) : [];
   const targetRaw = String(args.to || args.t || args._[0] || '').trim();
   if (!targetRaw) {

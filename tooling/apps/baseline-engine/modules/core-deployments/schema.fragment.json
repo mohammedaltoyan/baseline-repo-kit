@@ -1,0 +1,20 @@
+{
+  "$id": "module://core-deployments/schema.fragment.json",
+  "type": "object",
+  "properties": {
+    "deployments": {
+      "type": "object",
+      "properties": {
+        "environments": {
+          "type": "array"
+        },
+        "components": {
+          "type": "array"
+        },
+        "approval_matrix": {
+          "type": "array"
+        }
+      }
+    }
+  }
+}

@@ -8,9 +8,9 @@ Key runbooks:
 - `BRANCH_PROTECTION.md` - required checks + merge queue notes
 - `BASELINE_INSTALL.md` - install/update baseline into other repos
 - `BASELINE_BOOTSTRAP.md` - one-button bootstrap (install + optional GitHub provisioning)
+- `BASELINE_ENGINE.md` - dynamic engine + web control panel (v2.2)
 - `DEPLOYMENT.md` - deployment interface + environment protection template
 - `WORKTREE_ISOLATION.md` - worktree/env isolation guidance
 - `SECRETS.md` - secrets handling and env overlays
 - `LABELS.md` - labeler + bootstrap workflow
 - `SECURITY_AUTOMATION.md` - optional security automation (CodeQL, dependency review, Dependabot)
-

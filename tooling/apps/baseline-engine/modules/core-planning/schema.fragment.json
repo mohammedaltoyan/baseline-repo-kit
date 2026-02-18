@@ -1,0 +1,17 @@
+{
+  "$id": "module://core-planning/schema.fragment.json",
+  "type": "object",
+  "properties": {
+    "planning": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "automation_allowlist": {
+          "type": "array"
+        }
+      }
+    }
+  }
+}

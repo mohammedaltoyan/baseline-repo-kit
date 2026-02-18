@@ -1,0 +1,7 @@
+{
+  "id": "core-ci",
+  "name": "Core CI",
+  "version": "1.0.0",
+  "description": "Two-lane CI generation, change profiles, and PR gate workflow outputs.",
+  "category": "cicd"
+}

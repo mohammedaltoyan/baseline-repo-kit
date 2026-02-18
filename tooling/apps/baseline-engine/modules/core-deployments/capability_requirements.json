@@ -1,0 +1,4 @@
+{
+  "requires": ["environments", "repo_variables"],
+  "degrade_strategy": "warn"
+}

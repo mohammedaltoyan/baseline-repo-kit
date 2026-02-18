@@ -2,6 +2,8 @@
 
 This repo is the SSOT for baseline guardrails (docs, scripts, workflows, templates). Use the installer to apply the baseline into a target repository without copying baseline-only plan instances.
 
+For settings-driven generation, capability probes, and migration-based upgrades, use `docs/ops/runbooks/BASELINE_ENGINE.md` (`npm run baseline:init|ui|diff|apply|upgrade`).
+
 ## Installer script (SSOT)
 
 - Script: `scripts/tooling/baseline-install.js`

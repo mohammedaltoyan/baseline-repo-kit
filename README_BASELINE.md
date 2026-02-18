@@ -11,6 +11,11 @@ Goals:
 
 Use:
 - Copy into a new project repo, then customize names/domains and enable only the subsystems you need.
+- Baseline Engine v2.2 provides settings-driven generation, capability probes, and managed upgrades:
+  - Initialize: `npm run baseline:init -- --target <target-path>`
+  - Control panel: `npm run baseline:ui -- --target <target-path>`
+  - Diff/apply: `npm run baseline:diff -- --target <target-path>` / `npm run baseline:apply -- --target <target-path>`
+  - Upgrade: `npm run baseline:upgrade -- --target <target-path>`
 - Recommended: use the installer so this repo remains the SSOT and updates are repeatable:
   - Bootstrap (recommended; local + optional GitHub provisioning): `npm run baseline:bootstrap -- -- --to <target-path> [--github]`
   - Install (new repo): `npm run baseline:install -- <target-path> init`
