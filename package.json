@@ -7,7 +7,7 @@
     "lint:structure": "node scripts/tooling/check-structure.js",
     "lint:objectives": "node scripts/ops/objectives-lint.js",
     "lint:objectives:enforce": "OBJECTIVES_ENFORCE_RLS_MISSING=1 node scripts/ops/objectives-lint.js",
-    "lint:plans": "node scripts/ops/plan-lint.js",
+    "lint:plans": "node scripts/ops/plan-lint.selftest.js && node scripts/ops/plan-lint.js",
     "lint:pr-policy": "node scripts/ops/pr-policy.selftest.js && node scripts/ops/pr-policy-validate.selftest.js",
     "lint:auto-pr": "node scripts/ops/auto-pr-open.selftest.js",
     "lint:release-pr": "node scripts/ops/release-pr-open.selftest.js",
@@ -42,7 +42,7 @@
     "pr:ready": "node scripts/ops/pr-ready.js"
   },
   "dependencies": {
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.3.1"
   },
   "engines": {
     "node": ">=22.0.0"
