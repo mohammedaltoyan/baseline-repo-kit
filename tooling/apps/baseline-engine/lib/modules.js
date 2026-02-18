@@ -183,23 +183,25 @@ function evaluateModuleCapabilities({ modules, enabled, capabilities, config }) 
 
     const missing = [];
     const supported = [];
-    for (const requirement of requirements) {
-      const capability = String(requirement || '').trim();
-      if (!capability) continue;
-      requiredSet.add(capability);
-      const detected = capMap[capability];
-      const ok = !!(detected && detected.supported === true);
-      if (ok) {
-        supported.push(capability);
-        continue;
+    if (isEnabled) {
+      for (const requirement of requirements) {
+        const capability = String(requirement || '').trim();
+        if (!capability) continue;
+        requiredSet.add(capability);
+        const detected = capMap[capability];
+        const ok = !!(detected && detected.supported === true);
+        if (ok) {
+          supported.push(capability);
+          continue;
+        }
+        missing.push({
+          capability,
+          state: detected && detected.state || 'unknown',
+          reason: detected && detected.reason || 'unavailable',
+          remediation: remediationMap && remediationMap[capability] ? String(remediationMap[capability]) : '',
+        });
+        missingSet.add(capability);
       }
-      missing.push({
-        capability,
-        state: detected && detected.state || 'unknown',
-        reason: detected && detected.reason || 'unavailable',
-        remediation: remediationMap && remediationMap[capability] ? String(remediationMap[capability]) : '',
-      });
-      missingSet.add(capability);
     }
 
     const strategy = ['warn', 'skip', 'fail'].includes(degradeStrategy) ? degradeStrategy : 'warn';

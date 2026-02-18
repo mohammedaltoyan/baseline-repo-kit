@@ -76,6 +76,22 @@ function run() {
     'core-ci should not degrade when merge_queue trigger is disabled by settings'
   );
 
+  const configRawDisable = fs.readFileSync(configPath, 'utf8');
+  fs.writeFileSync(
+    configPath,
+    configRawDisable.replace(/^\s*-\s*core-deployments\s*$/m, ''),
+    'utf8'
+  );
+  const capability3 = JSON.parse(fs.readFileSync(capabilityPath, 'utf8'));
+  capability3.capabilities.environments = { supported: false, state: 'unsupported', reason: 'test' };
+  fs.writeFileSync(capabilityPath, `${JSON.stringify(capability3, null, 2)}\n`, 'utf8');
+  const doctor3 = runEngine(['doctor', '--target', repo], process.cwd());
+  assert.strictEqual(
+    doctor3.missing_required_capabilities.includes('environments'),
+    false,
+    'disabled modules must not contribute required capabilities'
+  );
+
   const apply = runEngine(['apply', '--target', repo, '--direct'], process.cwd());
   assert.strictEqual(apply.command, 'apply');
   assert.ok(Array.isArray(apply.warnings));
