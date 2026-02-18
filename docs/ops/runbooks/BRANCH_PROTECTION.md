@@ -42,6 +42,8 @@ Branch rules (recommended)
   - Optional automation: use `Release PR (bot)` workflow (`.github/workflows/release-pr-bot.yml`) to open/refresh the release PR as a bot, then have a human approve and merge.
   - Enforce allowed PR source branches via CI (SSOT is `config/policy/branch-policy.json`).
   - Enforce required approver logins via `Release Policy (main)` check (repo variable: `MAIN_REQUIRED_APPROVER_LOGINS`).
+  - Default for required checks strictness (`Require branches to be up to date before merging`): disabled. This avoids release deadlocks when `dev` is squash-only and `main` is merge-commit-only.
+  - If you enable strict mode on `main`, also implement automated ancestry back-merge from `main` into `dev` (non-squash) to keep release PRs mergeable.
   - Optional: enable repo variable `BACKPORT_ENABLED=1` to automatically open a backport PR from production -> integration after a hotfix merge (ships as `.github/workflows/hotfix-backport.yml`).
 
 Optional (quality-of-life)

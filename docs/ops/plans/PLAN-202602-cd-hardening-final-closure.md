@@ -3,7 +3,7 @@ plan_id: PLAN-202602-cd-hardening-final-closure
 title: CD hardening final closure (strict source, registry-first, isolation-on, full E2E)
 owner: @owner
 status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
-current_step: S04
+current_step: S05
 updated: 2026-02-18
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
