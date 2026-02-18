@@ -4,7 +4,7 @@ title: Profile-driven bootstrap + deploy isolation
 owner: @owner
 status: done # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
 current_step: S99
-updated: 2026-02-15
+updated: 2026-02-18
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
 links:
