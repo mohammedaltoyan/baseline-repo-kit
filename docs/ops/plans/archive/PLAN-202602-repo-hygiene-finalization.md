@@ -1,10 +1,10 @@
 ﻿---
-plan_id: PLAN-202602-release-pr-bot
-title: Release PR (bot) workflow + PR-policy support
+plan_id: PLAN-202602-repo-hygiene-finalization
+title: Repository hygiene finalization after enterprise CD rollout
 owner: @owner
 status: done # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
 current_step: S99
-updated: 2026-02-16
+updated: 2026-02-18
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
 links:
@@ -12,10 +12,10 @@ links:
 ---
 
 At-a-Glance
-- Now: Implementation ready; awaiting CI evidence + merge
-- Next: Merge PR, then archive plan
-- Blockers: None
-- ETA: 2026-02-16
+- Now: S00 - Plan preflight (scope + guardrails; no execution yet)
+- Next: S01 - Scope/guardrails locked
+- Blockers: <none or short>
+- ETA: <date>
 
 Checklist
 - [x] S00 - Plan preflight complete (scope drafted; risks/dependencies noted; no execution yet)
@@ -27,10 +27,9 @@ Checklist
 - [x] S95 - Testing coverage design and execution (unit + integration/E2E; perf/load if applicable; evidence recorded)
 
 Phase Map (fill during S02)
-- S10: Add `Release PR (bot)` workflow + release PR opener script.
-- S20: Ensure required checks are reachable for bot-created PRs (run on `pull_request_review` as a fallback trigger).
-- S30: PR policy: allow optional Plan/Step bypass for release promotion PRs (integration -> production) via `RELEASE_PR_BYPASS_PLAN_STEP`.
-- S40: Docs + tests updates.
+- Add phase steps as needed (recommended: S10, S20, S30, ...) where each phase is a mergeable PR (or a small PR series).
+- Each PR must include `Plan:` and `Step:` in the PR body; after merge, advance the plan to the next phase step.
+- Keep phases time-logical: each phase should be independently valuable and testable.
 
 Objectives Gate (must pass before testing)
 - [x] S98 - Objectives Gate - SIMPLE, best practice, SCALABLE, and DYNAMIC with ZERO REDUNDANCY and ZERO HARD CODING; configuration-driven where applicable; SSOT; least-privilege security (RLS/policies if supported) (manual check with Objectives Evidence)
@@ -39,10 +38,10 @@ Testing Gate (required to mark plan done)
 - [x] S99 - Tests Gate - All required suites passing; change-aware check (code changes require matching test artifacts). Include evidence for unit + integration/E2E; perf/load marked N/A if not applicable.
 
 Decisions & Notes
-- Objectives Evidence: auto-verified at 2026-02-16T17:42:28.821Z (commit 195549e62c89456376852d1c728486f927b158cf)
-- 2026-02-16 - Add one-button `Release PR (bot)` workflow to open/refresh the canonical release PR (integration -> production) as a bot so a human can approve/merge under required-review rules.
-- 2026-02-16 - Add `pull_request_review` triggers to `PR Policy` and `Release Policy (main)` so required checks are always reachable even when a PR was opened by automation.
-- 2026-02-16 - Add optional `RELEASE_PR_BYPASS_PLAN_STEP=1` to avoid redundant planning on the mechanical release promotion PR (underlying changes already carried plans).
-- PR: https://github.com/mohammedaltoyan/baseline-repo-kit/pull/36
-- CI Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/22072557119
+- 2026-02-18 - Closed stale conflicting PRs `#34` and `#35` as superseded to remove merge dead branches from active workflow.
+- 2026-02-18 - Archived stale in-progress plans as superseded by `PLAN-202602-enterprise-cd-hardening` and archived all completed backlog plans via `npm run plans:archive:backlog`.
+- PR: https://github.com/mohammedaltoyan/baseline-repo-kit/pull/40 (release path validated before this hygiene phase); local hygiene phase committed on branch `codex/202602-repo-hygiene-finalize`.
+- CI Evidence: local verification `npm test` passed on 2026-02-18 after plan/PR cleanup.
+- Objectives Evidence: repository state is now plan-clean (no active stale plans), workflow-clean (stale conflicting PRs closed), and policy/test guardrails remain green.
+
 
