@@ -169,6 +169,9 @@ When working on frontend UI/UX:
   - Unsupported capabilities auto-degrade and warn.
   - `policy.require_github_app=true` enforces capability requirements as hard failures.
 - CI lane control must remain classifier-driven via generated `config/ci/baseline-change-profiles.json` and `scripts/ops/ci/change-classifier.js` (no per-repo hardcoded lane logic).
+- Workflow action references must be settings-driven (`ci.action_refs`) so pinning policy can be centrally controlled.
+- If `security.require_pinned_action_refs=true`, generated workflow action refs must be full SHA pins and doctor must fail otherwise.
+- Deployment OIDC behavior must be settings-driven (`deployments.oidc`) with secure defaults and no hardcoded cloud vendor assumptions.
 - Backward compatibility default: new modules/features are opt-in unless an explicit migration enables them.
 
 ## Commit & Pull Request Guidelines (Recommended)

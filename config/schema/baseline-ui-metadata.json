@@ -138,6 +138,16 @@
       "apply_impact": "Regenerates PR gate workflow behavior and trigger rules.",
       "fallback_or_remediation": "When merge queue support is unavailable, classifier still enforces full lane for risky changes."
     },
+    "ci.action_refs": {
+      "section": "ci",
+      "what_this_controls": "Controls action references used in generated workflows (checkout/setup-node).",
+      "why_it_matters": "Allows standardized action pinning policy across all generated workflows.",
+      "default_behavior": "Defaults to major-version tags (actions/checkout@v6, actions/setup-node@v6).",
+      "tradeoffs": "Major tags are easier to maintain; SHA pins are stricter and reduce supply-chain risk.",
+      "prerequisites": "Valid GitHub Action reference syntax.",
+      "apply_impact": "Regenerates CI and deploy workflow action references.",
+      "fallback_or_remediation": "Use full SHA pins when strict enterprise supply-chain controls are required."
+    },
     "ci.change_profiles": {
       "section": "ci",
       "what_this_controls": "Regex-based change routing for fast lane vs full lane.",
@@ -188,6 +198,16 @@
       "apply_impact": "Regenerates deployment approval policy artifacts and deploy guard behavior.",
       "fallback_or_remediation": "If approvals cannot be enforced in-platform, matrix policy is still emitted and warned as advisory."
     },
+    "deployments.oidc": {
+      "section": "deployments",
+      "what_this_controls": "Enables OIDC-aware deployment mode and audience settings in generated deploy workflow.",
+      "why_it_matters": "Supports short-lived identity federation over static cloud credentials.",
+      "default_behavior": "Disabled by default.",
+      "tradeoffs": "Improves cloud auth security with additional provider setup complexity.",
+      "prerequisites": "Cloud provider trust policy configured for GitHub OIDC.",
+      "apply_impact": "Adds OIDC permissions and validation behavior to deploy workflow.",
+      "fallback_or_remediation": "Disable OIDC until provider trust/audience is configured correctly."
+    },
     "planning.required": {
       "section": "planning",
       "what_this_controls": "Enforces mandatory Plan/Step metadata for eligible PR flows.",
@@ -237,6 +257,16 @@
       "prerequisites": "Repository secret scanning availability.",
       "apply_impact": "Included in generated security policy context.",
       "fallback_or_remediation": "If unavailable on current plan/account, treat as advisory and document remediation."
+    },
+    "security.require_pinned_action_refs": {
+      "section": "security",
+      "what_this_controls": "Enforces full SHA pinning for generated GitHub Action references.",
+      "why_it_matters": "Prevents workflow drift to unreviewed action updates and reduces supply-chain risk.",
+      "default_behavior": "Disabled by default.",
+      "tradeoffs": "Higher security assurance with ongoing maintenance of pinned SHAs.",
+      "prerequisites": "Organization process for updating pinned action SHAs.",
+      "apply_impact": "When enabled, doctor fails if CI action refs are not SHA pinned.",
+      "fallback_or_remediation": "Disable temporarily only when pin rollout is not yet operational."
     },
     "updates.channel": {
       "section": "updates",

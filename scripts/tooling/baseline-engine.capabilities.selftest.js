@@ -21,6 +21,13 @@ function runEngine(args, cwd) {
   return JSON.parse(String(res.stdout || '{}'));
 }
 
+function runEngineRaw(args, cwd) {
+  return spawnSync(process.execPath, [engineCli, ...args, '--json'], {
+    cwd,
+    encoding: 'utf8',
+  });
+}
+
 function run() {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'baseline-engine-capability-selftest-'));
   const repo = path.join(tmpRoot, 'repo');
@@ -72,6 +79,15 @@ function run() {
   const apply = runEngine(['apply', '--target', repo, '--direct'], process.cwd());
   assert.strictEqual(apply.command, 'apply');
   assert.ok(Array.isArray(apply.warnings));
+
+  const configRaw2 = fs.readFileSync(configPath, 'utf8');
+  fs.writeFileSync(
+    configPath,
+    configRaw2.replace('require_pinned_action_refs: false', 'require_pinned_action_refs: true'),
+    'utf8'
+  );
+  const doctorPinned = runEngineRaw(['doctor', '--target', repo], process.cwd());
+  assert.notStrictEqual(doctorPinned.status, 0, 'doctor should fail when pinned refs are required but not configured');
 
   console.log('[baseline-engine:capability-selftest] OK');
 }

@@ -39,6 +39,7 @@ module.exports = {
           degraded_reasons: degradedReasons,
           environments: Array.isArray(deployments.environments) ? deployments.environments : [],
           components: Array.isArray(deployments.components) ? deployments.components : [],
+          oidc: deployments.oidc && typeof deployments.oidc === 'object' ? deployments.oidc : { enabled: false, audience: '' },
           approval_matrix: Array.isArray(deployments.approval_matrix) ? deployments.approval_matrix : [],
         }),
       },

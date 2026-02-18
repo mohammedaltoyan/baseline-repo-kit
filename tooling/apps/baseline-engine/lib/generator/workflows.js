@@ -12,6 +12,15 @@ function quoteYaml(value) {
   return `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
+function resolveActionRef(config, key, fallback) {
+  const refs = config && config.ci && config.ci.action_refs && typeof config.ci.action_refs === 'object'
+    ? config.ci.action_refs
+    : {};
+  const selected = String(refs[key] || '').trim();
+  if (selected) return selected;
+  return String(fallback || '').trim();
+}
+
 function workflowCheckNames() {
   return {
     fast_lane: 'Baseline PR Gate / baseline-fast-lane',
@@ -20,7 +29,9 @@ function workflowCheckNames() {
   };
 }
 
-function generateNodeRunWorkflow() {
+function generateNodeRunWorkflow(config) {
+  const checkoutRef = resolveActionRef(config, 'checkout', 'actions/checkout@v6');
+  const setupNodeRef = resolveActionRef(config, 'setup_node', 'actions/setup-node@v6');
   return `name: Baseline Node Run (Reusable)
 
 on:
@@ -46,12 +57,12 @@ jobs:
     timeout-minutes: \${{ inputs.timeout_minutes }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: ${checkoutRef}
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: ${setupNodeRef}
         with:
           node-version: \${{ inputs.node_version }}
           cache: npm
@@ -72,6 +83,8 @@ function generatePrGateWorkflow(config) {
   const mergeQueue = triggers.merge_queue !== false;
   const manualDispatch = triggers.manual_dispatch !== false;
   const pathTriggers = Array.isArray(triggers.paths) ? triggers.paths : [];
+  const checkoutRef = resolveActionRef(config, 'checkout', 'actions/checkout@v6');
+  const setupNodeRef = resolveActionRef(config, 'setup_node', 'actions/setup-node@v6');
 
   return `name: Baseline PR Gate
 
@@ -100,7 +113,7 @@ jobs:
       reasons: \${{ steps.mode.outputs.reasons }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: ${checkoutRef}
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -148,11 +161,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: ${checkoutRef}
         with:
           persist-credentials: false
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: ${setupNodeRef}
         with:
           node-version: "22"
           cache: npm
@@ -175,6 +188,10 @@ function generateDeployWorkflow(config) {
   const deployments = config && config.deployments || {};
   const environments = Array.isArray(deployments.environments) ? deployments.environments : [];
   const options = environments.map((env) => String(env && env.name || '').trim()).filter(Boolean);
+  const checkoutRef = resolveActionRef(config, 'checkout', 'actions/checkout@v6');
+  const oidc = deployments.oidc && typeof deployments.oidc === 'object' ? deployments.oidc : {};
+  const oidcEnabled = !!oidc.enabled;
+  const audience = String(oidc.audience || '').trim();
 
   return `name: Baseline Deploy
 
@@ -194,6 +211,7 @@ ${yamlList(options, 10)}
 
 permissions:
   contents: read
+${oidcEnabled ? '  id-token: write' : ''}
 
 jobs:
   deploy:
@@ -208,9 +226,13 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: ${checkoutRef}
         with:
           persist-credentials: false
+${oidcEnabled ? `      - name: OIDC token check
+        run: |
+          echo "OIDC enabled for deployment flow"
+          echo "audience=${audience || 'default'}"` : ''}
       - name: Validate deployment approval matrix
         run: |
           node - <<'NODE'

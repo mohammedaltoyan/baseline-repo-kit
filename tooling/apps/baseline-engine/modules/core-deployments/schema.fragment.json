@@ -13,6 +13,9 @@
         },
         "approval_matrix": {
           "type": "array"
+        },
+        "oidc": {
+          "type": "object"
         }
       }
     }

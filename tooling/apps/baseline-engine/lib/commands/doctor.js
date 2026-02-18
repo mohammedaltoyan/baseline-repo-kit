@@ -4,6 +4,11 @@ const { buildContext } = require('../context');
 const { loadSchema, loadUiMetadata, validateConfig } = require('../schema');
 const { printOutput } = require('./shared');
 
+function isPinnedRef(value) {
+  const raw = String(value || '').trim();
+  return /@[0-9a-f]{40}$/i.test(raw);
+}
+
 async function runDoctor(args) {
   const context = await buildContext(args);
   const schema = loadSchema();
@@ -20,6 +25,20 @@ async function runDoctor(args) {
 
   const moduleEvaluation = context.moduleEvaluation || { modules: [], warnings: [], errors: [], github_app: {} };
   const degraded = moduleEvaluation.modules.filter((entry) => entry.enabled && entry.degraded);
+  const actionRefs = context.config
+    && context.config.ci
+    && context.config.ci.action_refs
+    && typeof context.config.ci.action_refs === 'object'
+    ? context.config.ci.action_refs
+    : {};
+  const unpinnedActionRefs = Object.entries(actionRefs)
+    .filter(([, ref]) => !isPinnedRef(ref))
+    .map(([name, ref]) => ({ name, ref: String(ref || '') }));
+  const requirePinned = !!(
+    context.config
+    && context.config.security
+    && context.config.security.require_pinned_action_refs
+  );
 
   const payload = {
     command: 'doctor',
@@ -38,7 +57,16 @@ async function runDoctor(args) {
     required_capabilities: moduleEvaluation.required_capabilities || [],
     missing_required_capabilities: moduleEvaluation.missing_required_capabilities || [],
     github_app: moduleEvaluation.github_app || {},
-    warnings: context.warnings || [],
+    action_refs: actionRefs,
+    unpinned_action_refs: unpinnedActionRefs,
+    require_pinned_action_refs: requirePinned,
+    warnings: []
+      .concat(context.warnings || [])
+      .concat(
+        unpinnedActionRefs.length > 0
+          ? [`Unpinned action refs detected: ${unpinnedActionRefs.map((entry) => `${entry.name}=${entry.ref}`).join(', ')}`]
+          : []
+      ),
   };
 
   if (invalidModules.length > 0) {
@@ -55,6 +83,12 @@ async function runDoctor(args) {
       ? `capability enforcement (${moduleEvaluation.errors.join(' | ')})`
       : '';
     throw new Error(`Doctor failed: ${[invalidMessage, capabilityMessage].filter(Boolean).join(' ; ')}`);
+  }
+
+  if (requirePinned && unpinnedActionRefs.length > 0) {
+    throw new Error(
+      `Doctor failed: security.require_pinned_action_refs=true but unpinned refs exist (${unpinnedActionRefs.map((entry) => entry.name).join(', ')})`
+    );
   }
 
   return payload;

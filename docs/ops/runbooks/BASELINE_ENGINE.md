@@ -52,11 +52,19 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 
 - Generated classifier config: `config/ci/baseline-change-profiles.json`.
 - Generated classifier runtime: `scripts/ops/ci/change-classifier.js`.
+- Generated action reference policy from settings (`ci.action_refs`) to keep workflow actions centrally controlled.
 - PR gate workflow uses:
   - fast lane always
   - full lane on risk classifier, merge queue event, explicit label, path triggers, and manual dispatch policy.
 - Required check mapping by branch role is generated to `config/policy/baseline-required-checks.json`.
 - Workflows are generated with least-privilege permissions and `actions/checkout` credential persistence disabled by default.
+- Optional strict action-pinning mode: `security.require_pinned_action_refs=true` causes `doctor` to fail when action refs are not full SHA pins.
+
+## Deploy OIDC mode
+
+- `deployments.oidc.enabled=true` adds OIDC-oriented behavior to deploy workflow generation.
+- `deployments.oidc.audience` is passed through settings for provider-specific audience checks.
+- Use OIDC mode for cloud federation and short-lived credentials rather than static long-lived secrets.
 
 ## Upgrade flow
 

@@ -9,6 +9,9 @@
           "type": "string",
           "enum": ["two_lane", "full", "lightweight"]
         },
+        "action_refs": {
+          "type": "object"
+        },
         "change_profiles": {
           "type": "array"
         },

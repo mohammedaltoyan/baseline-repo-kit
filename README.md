@@ -39,6 +39,8 @@ Engine guarantees:
 - Strategy-aware managed updates (`replace`, `json_merge`, `yaml_merge`, `three_way`) with preserved user blocks.
 - CI risk classifier + two-lane gate generated from config.
 - Generated workflows default to least-privilege permissions.
+- Action references are centrally controlled via settings (`ci.action_refs`) with optional strict SHA-pin enforcement.
+- Deploy workflow supports settings-driven OIDC mode (`deployments.oidc`) for short-lived cloud federation paths.
 - Upgrade rollback snapshots + migration-based evolution.
 
 ## How to use in a new project

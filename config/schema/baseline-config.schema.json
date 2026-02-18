@@ -96,12 +96,15 @@
     "ci": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mode", "change_profiles", "full_lane_triggers"],
+      "required": ["mode", "action_refs", "change_profiles", "full_lane_triggers"],
       "properties": {
         "mode": {
           "type": "string",
           "enum": ["two_lane", "full", "lightweight"],
           "default": "two_lane"
+        },
+        "action_refs": {
+          "$ref": "#/definitions/actionRefsDefinition"
         },
         "change_profiles": {
           "type": "array",
@@ -130,7 +133,7 @@
     "deployments": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["environments", "components", "approval_matrix"],
+      "required": ["environments", "components", "approval_matrix", "oidc"],
       "properties": {
         "environments": {
           "type": "array",
@@ -152,6 +155,9 @@
           "items": {
             "$ref": "#/definitions/approvalRule"
           }
+        },
+        "oidc": {
+          "$ref": "#/definitions/oidcDefinition"
         }
       }
     },
@@ -174,11 +180,12 @@
     "security": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["codeql", "dependency_review"],
+      "required": ["codeql", "dependency_review", "require_pinned_action_refs"],
       "properties": {
         "codeql": { "type": "boolean", "default": true },
         "dependency_review": { "type": "boolean", "default": true },
-        "secret_scanning": { "type": "boolean", "default": true }
+        "secret_scanning": { "type": "boolean", "default": true },
+        "require_pinned_action_refs": { "type": "boolean", "default": false }
       }
     },
     "updates": {
@@ -276,6 +283,15 @@
         }
       }
     },
+    "actionRefsDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkout", "setup_node"],
+      "properties": {
+        "checkout": { "type": "string", "minLength": 1, "default": "actions/checkout@v6" },
+        "setup_node": { "type": "string", "minLength": 1, "default": "actions/setup-node@v6" }
+      }
+    },
     "environmentDefinition": {
       "type": "object",
       "additionalProperties": false,
@@ -300,6 +316,15 @@
         "name": { "type": "string", "minLength": 1 },
         "path": { "type": "string", "minLength": 1 },
         "enabled": { "type": "boolean" }
+      }
+    },
+    "oidcDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "audience"],
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "audience": { "type": "string", "default": "" }
       }
     },
     "approvalRule": {

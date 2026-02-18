@@ -79,6 +79,28 @@ function validateConfig(config) {
     throw new Error('Invalid config: deployments.approval_matrix must be a non-empty array');
   }
 
+  const actionRefs = config.ci && config.ci.action_refs;
+  assertObject(actionRefs, 'ci.action_refs');
+  for (const key of ['checkout', 'setup_node']) {
+    if (!String(actionRefs[key] || '').trim()) {
+      throw new Error(`Invalid config: ci.action_refs.${key} must be a non-empty string`);
+    }
+  }
+
+  const oidc = config.deployments && config.deployments.oidc;
+  assertObject(oidc, 'deployments.oidc');
+  if (typeof oidc.enabled !== 'boolean') {
+    throw new Error('Invalid config: deployments.oidc.enabled must be boolean');
+  }
+  if (typeof oidc.audience !== 'string') {
+    throw new Error('Invalid config: deployments.oidc.audience must be string');
+  }
+
+  const security = config.security && typeof config.security === 'object' ? config.security : {};
+  if (typeof security.require_pinned_action_refs !== 'boolean') {
+    throw new Error('Invalid config: security.require_pinned_action_refs must be boolean');
+  }
+
   return true;
 }
 

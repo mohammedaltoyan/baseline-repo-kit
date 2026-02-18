@@ -81,6 +81,10 @@ function defaultConfig({ maintainersCount, components, profile }) {
     },
     ci: {
       mode: 'two_lane',
+      action_refs: {
+        checkout: 'actions/checkout@v6',
+        setup_node: 'actions/setup-node@v6',
+      },
       change_profiles: defaultChangeProfiles(),
       full_lane_triggers: {
         merge_queue: true,
@@ -97,6 +101,10 @@ function defaultConfig({ maintainersCount, components, profile }) {
         components: detectedComponents,
         policyProfile,
       }),
+      oidc: {
+        enabled: false,
+        audience: '',
+      },
     },
     planning: {
       required: true,
@@ -113,6 +121,7 @@ function defaultConfig({ maintainersCount, components, profile }) {
       codeql: true,
       dependency_review: true,
       secret_scanning: true,
+      require_pinned_action_refs: false,
     },
     updates: {
       channel: 'stable',

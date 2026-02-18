@@ -58,6 +58,7 @@ module.exports = {
           version: 1,
           profile_source: 'settings',
           ci_mode: String(ci.mode || 'two_lane'),
+          action_refs: ci.action_refs && typeof ci.action_refs === 'object' ? ci.action_refs : {},
           full_lane_triggers: {
             ...fullLaneTriggers,
             merge_queue: degradedMergeQueue ? false : fullLaneTriggers.merge_queue !== false,
