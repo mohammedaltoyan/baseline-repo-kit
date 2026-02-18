@@ -165,6 +165,7 @@ When working on frontend UI/UX:
 - `three_way` merges must use baseline base snapshots from `.baseline/internal/base-content.json`; upgrade rollback snapshots must be written under `.baseline/snapshots/`.
 - Capability-aware behavior is mandatory:
   - Engine computes required capabilities from enabled modules.
+  - Required capabilities must be settings-aware (only enforce capabilities for enabled behaviors).
   - Unsupported capabilities auto-degrade and warn.
   - `policy.require_github_app=true` enforces capability requirements as hard failures.
 - CI lane control must remain classifier-driven via generated `config/ci/baseline-change-profiles.json` and `scripts/ops/ci/change-classifier.js` (no per-repo hardcoded lane logic).

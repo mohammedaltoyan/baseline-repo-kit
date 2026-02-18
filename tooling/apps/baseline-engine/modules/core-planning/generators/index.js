@@ -6,6 +6,17 @@ function stableJson(value) {
 
 module.exports = {
   id: 'core-planning',
+  resolve_capability_requirements({ module }) {
+    return {
+      requires: [],
+      degrade_strategy: module && module.capability_requirements
+        ? module.capability_requirements.degrade_strategy
+        : 'warn',
+      remediation: module && module.capability_requirements
+        ? module.capability_requirements.remediation
+        : {},
+    };
+  },
   generate({ config, evaluation }) {
     const planning = config && config.planning && typeof config.planning === 'object'
       ? config.planning

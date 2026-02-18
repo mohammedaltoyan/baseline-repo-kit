@@ -46,6 +46,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - Engine probes owner/account type, collaborator-derived maintainer counts, repository permissions, token scopes, and feature endpoints.
 - Engine computes `github_app_required` from enabled module capability requirements.
 - If `policy.require_github_app=true` and required capabilities are unavailable, `doctor/apply/upgrade` fail fast with remediation warnings.
+- Capability requirements are dynamically resolved from settings (for example, `merge_queue` is only required when merge-queue triggers are enabled).
 
 ## CI/CD generation
 
@@ -55,6 +56,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
   - fast lane always
   - full lane on risk classifier, merge queue event, explicit label, path triggers, and manual dispatch policy.
 - Required check mapping by branch role is generated to `config/policy/baseline-required-checks.json`.
+- Workflows are generated with least-privilege permissions and `actions/checkout` credential persistence disabled by default.
 
 ## Upgrade flow
 

@@ -64,6 +64,7 @@ async function ghApi({ endpoint, token }) {
   const url = `https://api.github.com${cleanEndpoint}`;
   const headers = {
     accept: 'application/vnd.github+json',
+    'x-github-api-version': '2022-11-28',
     'user-agent': 'baseline-repo-kit-engine',
   };
   if (token) headers.authorization = `Bearer ${token}`;
@@ -292,4 +293,3 @@ async function detectGithubCapabilities({ targetRoot }) {
 module.exports = {
   detectGithubCapabilities,
 };
-

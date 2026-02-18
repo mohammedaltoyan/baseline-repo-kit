@@ -35,8 +35,10 @@ Use the engine when you need fully dynamic, capability-aware setup and upgrades:
 Engine guarantees:
 - Module-driven generation (core + extensions) from settings only.
 - Capability-aware auto-degrade with explicit warnings/remediation.
+- Settings-aware capability requirements (only required features are enforced).
 - Strategy-aware managed updates (`replace`, `json_merge`, `yaml_merge`, `three_way`) with preserved user blocks.
 - CI risk classifier + two-lane gate generated from config.
+- Generated workflows default to least-privilege permissions.
 - Upgrade rollback snapshots + migration-based evolution.
 
 ## How to use in a new project

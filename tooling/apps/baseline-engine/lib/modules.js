@@ -147,15 +147,39 @@ function evaluateModuleCapabilities({ modules, enabled, capabilities, config }) 
   const results = moduleList.map((moduleDef) => {
     const moduleId = String(moduleDef && moduleDef.id || '').trim();
     const isEnabled = enabledSet.has(moduleId);
-    const requirements = moduleDef && moduleDef.capability_requirements && Array.isArray(moduleDef.capability_requirements.requires)
+    const staticRequirements = moduleDef && moduleDef.capability_requirements && Array.isArray(moduleDef.capability_requirements.requires)
       ? moduleDef.capability_requirements.requires
       : [];
-    const degradeStrategy = String(moduleDef && moduleDef.capability_requirements && moduleDef.capability_requirements.degrade_strategy || 'warn')
+    let requirements = [...staticRequirements];
+    let degradeStrategy = String(moduleDef && moduleDef.capability_requirements && moduleDef.capability_requirements.degrade_strategy || 'warn')
       .trim()
       .toLowerCase();
-    const remediationMap = moduleDef && moduleDef.capability_requirements && moduleDef.capability_requirements.remediation
+    let remediationMap = moduleDef && moduleDef.capability_requirements && moduleDef.capability_requirements.remediation
       ? moduleDef.capability_requirements.remediation
       : {};
+
+    if (
+      moduleDef
+      && moduleDef.generator
+      && typeof moduleDef.generator.resolve_capability_requirements === 'function'
+    ) {
+      const dynamic = moduleDef.generator.resolve_capability_requirements({
+        module: moduleDef,
+        config,
+        capabilities,
+      });
+      if (dynamic && typeof dynamic === 'object') {
+        if (Array.isArray(dynamic.requires)) {
+          requirements = dynamic.requires.map((entry) => String(entry || '').trim()).filter(Boolean);
+        }
+        if (typeof dynamic.degrade_strategy === 'string') {
+          degradeStrategy = String(dynamic.degrade_strategy).trim().toLowerCase();
+        }
+        if (dynamic.remediation && typeof dynamic.remediation === 'object') {
+          remediationMap = dynamic.remediation;
+        }
+      }
+    }
 
     const missing = [];
     const supported = [];

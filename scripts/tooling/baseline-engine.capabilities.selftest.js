@@ -48,6 +48,27 @@ function run() {
   assert.strictEqual(doctor.github_app.required_for_full_feature_set, true);
   assert.strictEqual(doctor.github_app.effective_required, false);
 
+  const configPath = path.join(repo, '.baseline', 'config.yaml');
+  const configRaw = fs.readFileSync(configPath, 'utf8');
+  fs.writeFileSync(
+    configPath,
+    configRaw.replace('merge_queue: true', 'merge_queue: false'),
+    'utf8'
+  );
+
+  const capability2 = JSON.parse(fs.readFileSync(capabilityPath, 'utf8'));
+  capability2.capabilities.rulesets = { supported: true, state: 'supported', reason: 'test' };
+  capability2.capabilities.environments = { supported: true, state: 'supported', reason: 'test' };
+  capability2.capabilities.merge_queue = { supported: false, state: 'unsupported', reason: 'test' };
+  fs.writeFileSync(capabilityPath, `${JSON.stringify(capability2, null, 2)}\n`, 'utf8');
+
+  const doctor2 = runEngine(['doctor', '--target', repo], process.cwd());
+  assert.strictEqual(
+    doctor2.capability_degraded_modules.some((entry) => String(entry.module) === 'core-ci'),
+    false,
+    'core-ci should not degrade when merge_queue trigger is disabled by settings'
+  );
+
   const apply = runEngine(['apply', '--target', repo, '--direct'], process.cwd());
   assert.strictEqual(apply.command, 'apply');
   assert.ok(Array.isArray(apply.warnings));
@@ -60,4 +81,3 @@ if (require.main === module) {
 }
 
 module.exports = { run };
-

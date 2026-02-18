@@ -8,6 +8,17 @@ function stableJson(value) {
 
 module.exports = {
   id: 'core-deployments',
+  resolve_capability_requirements({ module }) {
+    return {
+      requires: ['environments'],
+      degrade_strategy: module && module.capability_requirements
+        ? module.capability_requirements.degrade_strategy
+        : 'warn',
+      remediation: module && module.capability_requirements
+        ? module.capability_requirements.remediation
+        : {},
+    };
+  },
   generate({ config, evaluation }) {
     const deployments = config && config.deployments && typeof config.deployments === 'object'
       ? config.deployments

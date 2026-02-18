@@ -1,8 +1,7 @@
 {
-  "requires": ["rulesets", "repo_variables"],
+  "requires": ["rulesets"],
   "degrade_strategy": "warn",
   "remediation": {
-    "rulesets": "Enable repository rulesets and use a token with admin scope to enforce generated governance policies.",
-    "repo_variables": "Allow repository variables API access for policy and guardrail automation."
+    "rulesets": "Enable repository rulesets and use a token with admin scope to enforce generated governance policies."
   }
 }

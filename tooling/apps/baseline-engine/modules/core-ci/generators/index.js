@@ -12,6 +12,25 @@ function stableJson(value) {
 
 module.exports = {
   id: 'core-ci',
+  resolve_capability_requirements({ config, module }) {
+    const ci = config && config.ci && typeof config.ci === 'object' ? config.ci : {};
+    const triggers = ci.full_lane_triggers && typeof ci.full_lane_triggers === 'object'
+      ? ci.full_lane_triggers
+      : {};
+    const requires = ['rulesets'];
+    if (triggers.merge_queue !== false) {
+      requires.push('merge_queue');
+    }
+    return {
+      requires,
+      degrade_strategy: module && module.capability_requirements
+        ? module.capability_requirements.degrade_strategy
+        : 'warn',
+      remediation: module && module.capability_requirements
+        ? module.capability_requirements.remediation
+        : {},
+    };
+  },
   generate({ config, evaluation }) {
     const ci = config && config.ci && typeof config.ci === 'object' ? config.ci : {};
     const fullLaneTriggers = ci.full_lane_triggers && typeof ci.full_lane_triggers === 'object'

@@ -1,5 +1,5 @@
 {
-  "requires": ["rulesets", "merge_queue"],
+  "requires": ["rulesets"],
   "degrade_strategy": "warn",
   "remediation": {
     "rulesets": "Grant repository administration permissions and ensure rulesets are enabled for this repository type.",

@@ -41,10 +41,14 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: \${{ inputs.timeout_minutes }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -80,11 +84,17 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+
+concurrency:
+  group: baseline-pr-gate-\${{ github.workflow }}-\${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   classify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       run_full: \${{ steps.mode.outputs.run_full }}
       reasons: \${{ steps.mode.outputs.reasons }}
@@ -93,6 +103,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Resolve lane mode
         id: mode
@@ -133,9 +144,13 @@ jobs:
     name: baseline-fast-lane
     needs: [classify]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
@@ -184,6 +199,8 @@ jobs:
   deploy:
     name: baseline-deploy
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     environment: \${{ github.event.inputs.environment }}
     concurrency:
       group: baseline-deploy-\${{ github.event.inputs.environment }}-\${{ github.event.inputs.component }}
@@ -192,6 +209,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Validate deployment approval matrix
         run: |
           node - <<'NODE'

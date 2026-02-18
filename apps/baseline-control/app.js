@@ -18,8 +18,6 @@ const CAPABILITY_MAP = {
   'deployments.environments': 'environments',
   'deployments.components': 'environments',
   'deployments.approval_matrix': 'environments',
-  'planning.required': 'repo_variables',
-  'planning.automation_allowlist': 'repo_variables',
   'security.codeql': 'code_scanning',
   'security.dependency_review': 'dependency_review',
   'security.secret_scanning': 'code_scanning',

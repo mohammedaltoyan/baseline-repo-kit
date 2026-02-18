@@ -34,6 +34,17 @@ function deriveRequiredChecksByRole({ enabledModules, activeReviewPolicy }) {
 
 module.exports = {
   id: 'core-governance',
+  resolve_capability_requirements({ module }) {
+    return {
+      requires: ['rulesets'],
+      degrade_strategy: module && module.capability_requirements
+        ? module.capability_requirements.degrade_strategy
+        : 'warn',
+      remediation: module && module.capability_requirements
+        ? module.capability_requirements.remediation
+        : {},
+    };
+  },
   generate({ config, capabilities, state, evaluation }) {
     const branching = config && config.branching && typeof config.branching === 'object' ? config.branching : {};
     const thresholds = branching.review_thresholds && typeof branching.review_thresholds === 'object'
