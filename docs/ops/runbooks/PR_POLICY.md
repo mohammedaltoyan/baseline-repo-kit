@@ -7,6 +7,7 @@
 
 Exception (recommended):
 - Dependency automation PRs (Dependabot/Renovate) targeting the integration branch may bypass Plan/Step to keep security and dependency updates flowing. This baseline enforces this in `scripts/ops/pr-policy-validate.js`.
+  - When repositories intentionally have zero active canonical plans, `scripts/ops/plan-lint.js` also allows zero-plan PR context for dependency automation PRs (so security/dependency updates are not deadlocked).
 - Release promotion PRs (integration -> production) may bypass Plan/Step when repo variable `RELEASE_PR_BYPASS_PLAN_STEP=1` (recommended; avoids redundant planning for a mechanical promotion PR).
 
 Rule of thumb:
