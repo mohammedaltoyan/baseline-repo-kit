@@ -15,6 +15,7 @@ Core dynamic engine for baseline repository installation, policy generation, cap
 ## Design constraints
 
 - Settings-driven generation only (no hardcoded repo behavior).
+- JSON Schema SSOT validation at runtime (`config/schema/baseline-config.schema.json`).
 - Capability-aware with explicit fallback warnings.
 - Module-based extension contract.
 - Backward-compatible upgrades by default.

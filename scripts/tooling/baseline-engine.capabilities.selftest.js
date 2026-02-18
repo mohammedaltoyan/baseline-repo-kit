@@ -76,6 +76,27 @@ function run() {
     'core-ci should not degrade when merge_queue trigger is disabled by settings'
   );
 
+  const configRawPolicy = fs.readFileSync(configPath, 'utf8');
+  fs.writeFileSync(
+    configPath,
+    configRawPolicy.replace('require_github_app: false', 'require_github_app: true'),
+    'utf8'
+  );
+  const capabilityRequireApp = JSON.parse(fs.readFileSync(capabilityPath, 'utf8'));
+  capabilityRequireApp.capabilities.rulesets = { supported: false, state: 'unsupported', reason: 'test' };
+  fs.writeFileSync(capabilityPath, `${JSON.stringify(capabilityRequireApp, null, 2)}\n`, 'utf8');
+  const doctorRequireApp = runEngineRaw(['doctor', '--target', repo], process.cwd());
+  assert.notStrictEqual(
+    doctorRequireApp.status,
+    0,
+    'doctor should fail when policy.require_github_app=true and required capabilities are missing'
+  );
+  fs.writeFileSync(
+    configPath,
+    configRawPolicy,
+    'utf8'
+  );
+
   const configRawDisable = fs.readFileSync(configPath, 'utf8');
   fs.writeFileSync(
     configPath,

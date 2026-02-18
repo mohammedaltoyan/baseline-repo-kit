@@ -21,6 +21,12 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - `.baseline/internal/base-content.json` - baseline merge base for `three_way` strategy.
 - `.baseline/snapshots/*.json` - rollback snapshots created before upgrades.
 
+## Schema SSOT Validation
+
+- Runtime config validation is compiled from `config/schema/baseline-config.schema.json`.
+- Validation is enforced by `baseline doctor`, `baseline verify`, `baseline apply`, and `baseline upgrade` through shared context loading.
+- Keep schema as the single config contract; avoid duplicating ad-hoc config validation logic in command handlers.
+
 ## Module SDK runtime
 
 - Enabled modules are loaded from `tooling/apps/baseline-engine/modules/*`.
@@ -88,6 +94,11 @@ The UI surfaces per setting:
 - detected support
 - apply impact
 - fallback/remediation
+
+UI rendering behavior:
+- Settings are rendered from effective config leaf paths (including nested keys).
+- Explanations come from `config/schema/baseline-ui-metadata.json` with nearest-parent inheritance when a leaf has no exact metadata key.
+- Metadata quality is linted in CI to ensure explanation coverage remains complete as new settings are introduced.
 
 ## Compatibility
 

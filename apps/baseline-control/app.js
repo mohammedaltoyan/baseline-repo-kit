@@ -26,6 +26,17 @@ const CAPABILITY_MAP = {
   'modules.enabled': 'github_app_required',
 };
 
+const DEFAULT_FIELD_META = {
+  section: 'platform',
+  what_this_controls: 'Configuration value in baseline settings.',
+  why_it_matters: 'This value influences generated policy/workflow behavior.',
+  default_behavior: 'Inherited from baseline defaults unless overridden.',
+  tradeoffs: 'Adjust to fit your repository governance and delivery needs.',
+  prerequisites: 'None.',
+  apply_impact: 'Applying regenerates managed baseline outputs.',
+  fallback_or_remediation: 'If unsupported by detected capabilities, run doctor for remediation guidance.',
+};
+
 function $(id) {
   return document.getElementById(id);
 }
@@ -56,8 +67,23 @@ function setPath(obj, path, value) {
   current[parts[parts.length - 1]] = value;
 }
 
+function resolveCapabilityKey(path) {
+  const cleanPath = String(path || '').trim();
+  if (!cleanPath) return '';
+  if (CAPABILITY_MAP[cleanPath]) return CAPABILITY_MAP[cleanPath];
+
+  const parts = cleanPath.split('.');
+  while (parts.length > 1) {
+    parts.pop();
+    const candidate = parts.join('.');
+    if (CAPABILITY_MAP[candidate]) return CAPABILITY_MAP[candidate];
+  }
+
+  return '';
+}
+
 function capabilityLabel(path) {
-  const key = CAPABILITY_MAP[path];
+  const key = resolveCapabilityKey(path);
   if (!key) return { text: 'Not capability-gated', className: '', key: '' };
 
   const cap = state.payload && state.payload.capabilities && state.payload.capabilities.capabilities
@@ -68,6 +94,63 @@ function capabilityLabel(path) {
   if (cap.supported === true) return { text: `Supported (${key})`, className: 'cap-ok', key };
   if (cap.state === 'unsupported') return { text: `Unsupported (${key})`, className: 'cap-error', key };
   return { text: `Unknown support (${key})`, className: 'cap-warn', key };
+}
+
+function listConfigLeafPaths(value, prefix = '') {
+  if (Array.isArray(value)) {
+    return prefix ? [prefix] : [];
+  }
+
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value);
+    if (keys.length === 0) return prefix ? [prefix] : [];
+    let out = [];
+    for (const key of keys) {
+      const nextPrefix = prefix ? `${prefix}.${key}` : key;
+      out = out.concat(listConfigLeafPaths(value[key], nextPrefix));
+    }
+    return out;
+  }
+
+  return prefix ? [prefix] : [];
+}
+
+function lookupFieldMeta(fields, path) {
+  const map = fields && typeof fields === 'object' ? fields : {};
+  const cleanPath = String(path || '').trim();
+  if (!cleanPath) {
+    return {
+      path: '',
+      inherited: false,
+      meta: DEFAULT_FIELD_META,
+    };
+  }
+
+  if (map[cleanPath]) {
+    return {
+      path: cleanPath,
+      inherited: false,
+      meta: map[cleanPath],
+    };
+  }
+
+  const parts = cleanPath.split('.');
+  while (parts.length > 1) {
+    parts.pop();
+    const candidate = parts.join('.');
+    if (!map[candidate]) continue;
+    return {
+      path: candidate,
+      inherited: true,
+      meta: map[candidate],
+    };
+  }
+
+  return {
+    path: '',
+    inherited: false,
+    meta: DEFAULT_FIELD_META,
+  };
 }
 
 function formatValue(value) {
@@ -211,11 +294,21 @@ function renderSettings() {
     return;
   }
 
+  const leafPaths = listConfigLeafPaths(state.config)
+    .filter((path) => typeof getPath(state.config, path) !== 'undefined')
+    .sort((a, b) => a.localeCompare(b));
+
   const grouped = new Map();
-  for (const [path, fieldMeta] of Object.entries(metadata.fields)) {
-    const section = fieldMeta.section || 'other';
+  for (const path of leafPaths) {
+    const resolved = lookupFieldMeta(metadata.fields, path);
+    const section = resolved.meta && resolved.meta.section ? resolved.meta.section : 'platform';
     if (!grouped.has(section)) grouped.set(section, []);
-    grouped.get(section).push({ path, meta: fieldMeta });
+    grouped.get(section).push({
+      path,
+      meta: resolved.meta || DEFAULT_FIELD_META,
+      metaPath: resolved.path,
+      inheritedMeta: !!resolved.inherited,
+    });
   }
 
   for (const section of metadata.sections) {
@@ -256,6 +349,7 @@ function renderSettings() {
         `<div><strong>Tradeoffs:</strong> ${entry.meta.tradeoffs || ''}</div>`,
         `<div><strong>Prerequisites:</strong> ${entry.meta.prerequisites || ''}</div>`,
         `<div><strong>Apply impact:</strong> ${entry.meta.apply_impact || ''}</div>`,
+        entry.inheritedMeta ? `<div><strong>Explanation source:</strong> ${entry.metaPath}</div>` : '',
         `<div class="${capability.className}"><strong>Detected support:</strong> ${capability.text}</div>`,
         `<div><strong>Fallback/remediation:</strong> ${entry.meta.fallback_or_remediation || remediation || 'No fallback required when supported. See capability panel when unsupported.'}</div>`,
       ].join('');

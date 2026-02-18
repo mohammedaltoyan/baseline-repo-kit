@@ -152,6 +152,7 @@ When working on frontend UI/UX:
 ## Baseline Engine v2.2 (Must)
 
 - Baseline behavior must be generated from settings (`.baseline/config.yaml`) and capability probes (`.baseline/capabilities/github.json`), not hardcoded in scripts/workflows.
+- Config schema SSOT is `config/schema/baseline-config.schema.json`; runtime validation must compile/execute this schema (do not duplicate parallel rule sets in command code).
 - Managed upgrades must be migration-based (`scripts/tooling/migrations/<semver>/`) with explicit state tracking in `.baseline/state.json`.
 - Generated file ownership and merge strategy must be tracked in `.baseline/managed-files.json`.
 - Module generators are the only source for managed outputs; core engine orchestrates modules and does not hardcode module artifacts.
@@ -170,6 +171,7 @@ When working on frontend UI/UX:
   - `policy.require_github_app=true` enforces capability requirements as hard failures.
 - CI lane control must remain classifier-driven via generated `config/ci/baseline-change-profiles.json` and `scripts/ops/ci/change-classifier.js` (no per-repo hardcoded lane logic).
 - Workflow action references must be settings-driven (`ci.action_refs`) so pinning policy can be centrally controlled.
+- UI explanation SSOT is `config/schema/baseline-ui-metadata.json`; each effective setting path must have explanation coverage (exact key or inherited parent key) and CI selftests must enforce this.
 - If `security.require_pinned_action_refs=true`, generated workflow action refs must be full SHA pins and doctor must fail otherwise.
 - Deployment OIDC behavior must be settings-driven (`deployments.oidc`) with secure defaults and no hardcoded cloud vendor assumptions.
 - Backward compatibility default: new modules/features are opt-in unless an explicit migration enables them.

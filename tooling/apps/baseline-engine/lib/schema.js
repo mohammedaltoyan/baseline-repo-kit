@@ -1,10 +1,12 @@
 'use strict';
 
+const Ajv = require('ajv');
 const { SCHEMA_FILE, UI_METADATA_FILE } = require('./constants');
 const { readJsonSafe } = require('./util/fs');
 
 let schemaCache = null;
 let metadataCache = null;
+let validatorCache = null;
 
 function loadSchema() {
   if (!schemaCache) {
@@ -22,83 +24,36 @@ function loadUiMetadata() {
   return metadataCache;
 }
 
-function assertObject(value, name) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`Invalid config: ${name} must be an object`);
+function getValidator() {
+  if (!validatorCache) {
+    const ajv = new Ajv({
+      allErrors: true,
+      strict: false,
+      allowUnionTypes: true,
+    });
+    validatorCache = ajv.compile(loadSchema());
   }
+  return validatorCache;
+}
+
+function formatValidationErrors(errors) {
+  const list = Array.isArray(errors) ? errors : [];
+  if (list.length === 0) return 'unknown schema validation error';
+
+  return list
+    .map((error) => {
+      const at = String(error && error.instancePath || '').trim() || '/';
+      const message = String(error && error.message || 'validation failed').trim();
+      return `${at} ${message}`.trim();
+    })
+    .join(' | ');
 }
 
 function validateConfig(config) {
-  assertObject(config, 'root');
-
-  const required = [
-    'version',
-    'platform',
-    'policy',
-    'branching',
-    'ci',
-    'deployments',
-    'planning',
-    'security',
-    'updates',
-    'modules',
-  ];
-
-  const missing = required.filter((key) => !(key in config));
-  if (missing.length > 0) {
-    throw new Error(`Invalid config: missing top-level keys: ${missing.join(', ')}`);
-  }
-
-  const profile = String(config.policy && config.policy.profile || '').trim();
-  if (!['strict', 'moderate', 'advisory'].includes(profile)) {
-    throw new Error(`Invalid config: policy.profile must be strict|moderate|advisory (received ${profile || '<empty>'})`);
-  }
-
-  const mode = String(config.ci && config.ci.mode || '').trim();
-  if (!['two_lane', 'full', 'lightweight'].includes(mode)) {
-    throw new Error(`Invalid config: ci.mode must be two_lane|full|lightweight (received ${mode || '<empty>'})`);
-  }
-
-  const applyMode = String(config.updates && config.updates.apply_mode || '').trim();
-  if (!['pr_first', 'direct'].includes(applyMode)) {
-    throw new Error(`Invalid config: updates.apply_mode must be pr_first|direct (received ${applyMode || '<empty>'})`);
-  }
-
-  const branches = config.branching && config.branching.branches;
-  if (!Array.isArray(branches) || branches.length === 0) {
-    throw new Error('Invalid config: branching.branches must be a non-empty array');
-  }
-
-  const components = config.deployments && config.deployments.components;
-  if (!Array.isArray(components) || components.length === 0) {
-    throw new Error('Invalid config: deployments.components must be a non-empty array');
-  }
-
-  const matrix = config.deployments && config.deployments.approval_matrix;
-  if (!Array.isArray(matrix) || matrix.length === 0) {
-    throw new Error('Invalid config: deployments.approval_matrix must be a non-empty array');
-  }
-
-  const actionRefs = config.ci && config.ci.action_refs;
-  assertObject(actionRefs, 'ci.action_refs');
-  for (const key of ['checkout', 'setup_node']) {
-    if (!String(actionRefs[key] || '').trim()) {
-      throw new Error(`Invalid config: ci.action_refs.${key} must be a non-empty string`);
-    }
-  }
-
-  const oidc = config.deployments && config.deployments.oidc;
-  assertObject(oidc, 'deployments.oidc');
-  if (typeof oidc.enabled !== 'boolean') {
-    throw new Error('Invalid config: deployments.oidc.enabled must be boolean');
-  }
-  if (typeof oidc.audience !== 'string') {
-    throw new Error('Invalid config: deployments.oidc.audience must be string');
-  }
-
-  const security = config.security && typeof config.security === 'object' ? config.security : {};
-  if (typeof security.require_pinned_action_refs !== 'boolean') {
-    throw new Error('Invalid config: security.require_pinned_action_refs must be boolean');
+  const validator = getValidator();
+  const ok = validator(config);
+  if (!ok) {
+    throw new Error(`Invalid config: ${formatValidationErrors(validator.errors)}`);
   }
 
   return true;
