@@ -100,6 +100,7 @@ Planning discipline:
 
 - Add tests with every change when applicable; update tests when modifying existing behavior (including edge cases and failure modes).
 - Prefer deterministic tests and reproducible local/CI runs.
+- Selftests must be hermetic across baseline install/bootstrap contexts (do not rely on repo-specific canonical plans or local-only fixtures unless they are created/cleaned up by the test itself).
 - Keep evidence plan-scoped (S99): record what ran and what passed (CI links and/or artifact paths).
 - For workflow/orchestration changes, include integration/E2E scenarios that exercise the configuration-driven paths.
 - For security/permissions changes, include explicit allow/deny tests.

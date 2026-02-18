@@ -7,6 +7,33 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+function ensurePlanFixture({ repoRoot, planId, step }) {
+  const plansDir = path.join(repoRoot, 'docs', 'ops', 'plans');
+  const planPath = path.join(plansDir, `${planId}.md`);
+  if (fs.existsSync(planPath)) {
+    return { planPath, created: false };
+  }
+
+  const payload = [
+    '---',
+    `plan_id: ${planId}`,
+    'title: PR policy selftest fixture',
+    'owner: @owner',
+    'status: in_progress',
+    `current_step: ${step}`,
+    'updated: 2026-02-18',
+    '---',
+    '',
+    'Checklist',
+    `- [ ] ${step} - Selftest fixture step`,
+    '',
+  ].join('\n');
+
+  fs.mkdirSync(plansDir, { recursive: true });
+  fs.writeFileSync(planPath, payload, 'utf8');
+  return { planPath, created: true };
+}
+
 function runValidateWithEvent(eventJson, extraEnv = {}) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'baseline-pr-policy-'));
   const evtPath = path.join(tmpDir, 'event.json');
@@ -35,6 +62,15 @@ function runValidateWithEvent(eventJson, extraEnv = {}) {
 }
 
 function run() {
+  const repoRoot = path.resolve(__dirname, '..', '..');
+  const fixturePlanId = 'PLAN-202602-pr-policy-validate-selftest-fixture';
+  const fixture = ensurePlanFixture({
+    repoRoot,
+    planId: fixturePlanId,
+    step: 'S99',
+  });
+
+  try {
   // Human PR requires Plan/Step.
   const humanEvent = {
     pull_request: {
@@ -85,7 +121,7 @@ function run() {
   const codexHumanEvent = {
     pull_request: {
       number: 4,
-      body: 'Plan: PLAN-202602-enterprise-monorepo\nStep: S99',
+      body: `Plan: ${fixturePlanId}\nStep: S99`,
       base: { ref: 'dev' },
       head: { ref: 'codex/feature-x' },
       user: { login: 'alice', type: 'User' },
@@ -105,7 +141,7 @@ function run() {
   const codexBotEvent = {
     pull_request: {
       number: 5,
-      body: 'Plan: PLAN-202602-enterprise-monorepo\nStep: S99',
+      body: `Plan: ${fixturePlanId}\nStep: S99`,
       base: { ref: 'dev' },
       head: { ref: 'codex/feature-y' },
       user: { login: 'app/github-actions', type: 'Bot' },
@@ -119,6 +155,15 @@ function run() {
   assert.strictEqual(codexBotRes.status, 0, `expected codex/* bot-authored PR to pass (got ${codexBotRes.status})`);
 
   console.log('[pr-policy-validate:selftest] OK');
+  } finally {
+    if (fixture.created) {
+      try {
+        fs.unlinkSync(fixture.planPath);
+      } catch {
+        // ignore fixture cleanup errors
+      }
+    }
+  }
 }
 
 if (require.main === module) {
