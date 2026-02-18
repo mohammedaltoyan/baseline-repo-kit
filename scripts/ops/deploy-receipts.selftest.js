@@ -11,6 +11,7 @@ const {
   computeReceiptRelPath,
   buildReceipt,
   verifyReceiptsInBranch,
+  resolveMaxAttempts,
 } = require('./deploy-receipts');
 
 function runCmd(cwd, cmd, args) {
@@ -28,6 +29,13 @@ function writeFile(root, rel, content) {
 }
 
 async function run() {
+  assert.strictEqual(resolveMaxAttempts(undefined), 6);
+  assert.strictEqual(resolveMaxAttempts(''), 6);
+  assert.strictEqual(resolveMaxAttempts('0'), 6);
+  assert.strictEqual(resolveMaxAttempts('-1'), 6);
+  assert.strictEqual(resolveMaxAttempts('2.9'), 2);
+  assert.strictEqual(resolveMaxAttempts('7'), 7);
+
   assert.strictEqual(
     computeReceiptRelPath({
       prefix: 'docs/ops/evidence/deploy',
@@ -107,4 +115,3 @@ run().catch((err) => {
   console.error('[deploy-receipts:selftest] failed:', err && err.message ? err.message : err);
   process.exit(1);
 });
-
