@@ -25,6 +25,7 @@ const { isTruthy } = require('../utils/is-truthy');
 const { readJsonSafe, writeJson } = require('../utils/json');
 const { run, runCapture } = require('../utils/exec');
 const { loadBranchPolicyConfig } = require('../ops/branch-policy');
+const { loadRegistryFromFile, resolveDeployEnvName, resolveApprovalEnvName } = require('../ops/deploy-surface-registry');
 const {
   loadInstallProfilesPolicy,
   normalizeProfileName,
@@ -269,6 +270,7 @@ function defaultBootstrapPolicy() {
         '.github/workflows/ci.yml',
         '.github/workflows/pr-policy.yml',
         '.github/workflows/release-policy-main.yml',
+        '.github/workflows/env-isolation-lint.yml',
       ],
       rulesets: {
         integration: { name: 'baseline: integration', enforcement: 'active' },
@@ -319,12 +321,20 @@ function defaultBootstrapPolicy() {
         AUTOPR_ENFORCE_HEAD_PREFIXES: 'codex/',
         RELEASE_PR_BYPASS_PLAN_STEP: '1',
         MAIN_REQUIRED_APPROVER_LOGINS: '$repo_owner_user',
-        MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK: '1',
+        MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK: '0',
         PRODUCTION_PROMOTION_REQUIRED: 'enabled',
+        STAGING_PROMOTION_REQUIRED: 'enabled',
         STAGING_DEPLOY_GUARD: 'enabled',
         PRODUCTION_DEPLOY_GUARD: 'disabled',
         DOCS_PUBLISH_GUARD: 'disabled',
         API_INGRESS_DEPLOY_GUARD: 'disabled',
+        STAGING_APPROVAL_MODE_DEFAULT: 'commit',
+        PRODUCTION_APPROVAL_MODE_DEFAULT: 'commit',
+        PRODUCTION_REQUIRES_STAGING_SUCCESS: 'enabled',
+        DEPLOY_SURFACES_PATH: 'config/deploy/deploy-surfaces.json',
+        DEPLOY_RECEIPTS_BRANCH: 'ops/evidence',
+        DEPLOY_RECEIPTS_PREFIX: 'docs/ops/evidence/deploy',
+        ENV_ISOLATION_LINT_ENABLED: '0',
         DEPLOY_ENV_MAP_JSON: JSON.stringify({
           application: { staging: 'application-staging', production: 'application-production' },
           docs: { staging: 'docs-staging', production: 'docs-production' },
@@ -365,7 +375,6 @@ function defaultBootstrapPolicy() {
             wait_timer: 0,
             prevent_self_review: false,
             can_admins_bypass: true,
-            required_reviewers: ['$repo_owner_user'],
           },
         ],
       },
@@ -1654,6 +1663,8 @@ async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integra
     : null;
 
   if (deriveEnabled && repoVarMap) {
+    const derivedSurfaceIds = new Set();
+
     function normalizeTierKey(raw) {
       const v = toString(raw).toLowerCase();
       if (!v) return '';
@@ -1666,6 +1677,82 @@ async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integra
       if (!v) return '';
       if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(v)) return '';
       return v;
+    }
+
+    function addDeployEnv({ tier, surfaceId, envName }) {
+      const t = normalizeTierKey(tier);
+      const s = normalizeComponentKey(surfaceId);
+      const e = toString(envName);
+      if (!t || !s || !e) return;
+      derivedSurfaceIds.add(s);
+      derived.push({
+        name: e,
+        branches: [t === 'production' ? '$production' : '$integration'],
+        wait_timer: 0,
+        can_admins_bypass: true,
+      });
+    }
+
+    function addApprovalEnv({ name }) {
+      const envName = toString(name);
+      if (!envName) return;
+      derived.push({
+        name: envName,
+        branches: ['$integration', '$production'],
+        wait_timer: 0,
+        prevent_self_review: false,
+        can_admins_bypass: true,
+        required_reviewers: ['$repo_owner_user'],
+      });
+    }
+
+    function deriveApprovalEnvsFromDefaults() {
+      // Fail-safe names when registry is absent.
+      addApprovalEnv({ name: 'staging-approval' });
+      addApprovalEnv({ name: 'production-approval' });
+
+      for (const surfaceId of Array.from(derivedSurfaceIds)) {
+        addApprovalEnv({ name: `staging-approval-${surfaceId}` });
+        addApprovalEnv({ name: `production-approval-${surfaceId}` });
+      }
+    }
+
+    function deriveFromRegistry() {
+      const rel = Object.prototype.hasOwnProperty.call(repoVarMap, 'DEPLOY_SURFACES_PATH')
+        ? toString(resolveRepoVariablePolicyValue(repoVarMap.DEPLOY_SURFACES_PATH, { owner, personalLogin }))
+        : '';
+      const registryRel = rel || 'config/deploy/deploy-surfaces.json';
+      const registryAbs = path.join(cwd, ...registryRel.replace(/\\/g, '/').split('/').filter(Boolean));
+      if (!fs.existsSync(registryAbs)) return { used: false, registryRel };
+      try {
+        const loaded = loadRegistryFromFile(registryAbs);
+        const registry = loaded && loaded.registry ? loaded.registry : null;
+        if (!registry) return { used: false, registryRel };
+
+        for (const row of Array.isArray(registry.surfaces) ? registry.surfaces : []) {
+          const surfaceId = toString(row && row.surface_id);
+          if (!surfaceId) continue;
+          for (const tier of ['staging', 'production']) {
+            const envName = resolveDeployEnvName({ registry, surfaceId, tier });
+            addDeployEnv({ tier, surfaceId, envName });
+          }
+        }
+
+        // Commit-level approval environments.
+        addApprovalEnv({ name: resolveApprovalEnvName({ registry, tier: 'staging', approvalMode: 'commit' }) });
+        addApprovalEnv({ name: resolveApprovalEnvName({ registry, tier: 'production', approvalMode: 'commit' }) });
+
+        // Surface-level approval environments.
+        for (const surfaceId of Array.from(derivedSurfaceIds)) {
+          addApprovalEnv({ name: resolveApprovalEnvName({ registry, tier: 'staging', approvalMode: 'surface', surfaceId }) });
+          addApprovalEnv({ name: resolveApprovalEnvName({ registry, tier: 'production', approvalMode: 'surface', surfaceId }) });
+        }
+
+        return { used: true, registryRel };
+      } catch (e) {
+        warn(`Unable to derive environments from deploy surfaces registry (${registryRel}). ${e && e.message ? e.message : e}`);
+        return { used: false, registryRel };
+      }
     }
 
     function parseDeployEnvMapJson(raw) {
@@ -1697,56 +1784,40 @@ async function ghHardeningEnvironments({ cwd, host, owner, repo, policy, integra
       return out;
     }
 
-    if (Object.prototype.hasOwnProperty.call(repoVarMap, deriveMapJsonVar)) {
-      const raw = resolveRepoVariablePolicyValue(repoVarMap[deriveMapJsonVar], { owner, personalLogin });
-      const entries = parseDeployEnvMapJson(raw);
-      for (const ent of entries) {
-        const tier = ent.tier;
-        const envName = ent.envName;
-        const template = tier === 'production' ? tierTemplates.production : tierTemplates.staging;
-        if (template && typeof template === 'object') {
-          derived.push({ ...template, name: envName });
-          continue;
+    const reg = deriveFromRegistry();
+    if (!reg.used) {
+      if (Object.prototype.hasOwnProperty.call(repoVarMap, deriveMapJsonVar)) {
+        const raw = resolveRepoVariablePolicyValue(repoVarMap[deriveMapJsonVar], { owner, personalLogin });
+        const entries = parseDeployEnvMapJson(raw);
+        for (const ent of entries) {
+          addDeployEnv({ tier: ent.tier, surfaceId: ent.component, envName: ent.envName });
         }
-        derived.push({
-          name: envName,
-          branches: [tier === 'production' ? '$production' : '$integration'],
-          wait_timer: 0,
-          can_admins_bypass: true,
-          ...(tier === 'production' ? { required_reviewers: ['$repo_owner_user'] } : {}),
-        });
-      }
-    }
-
-    for (const [rawKey, rawValue] of Object.entries(repoVarMap)) {
-      const key = toString(rawKey);
-      if (!key) continue;
-      if (!key.toUpperCase().startsWith(prefixUpper)) continue;
-
-      const rest = key.slice(derivePrefix.length);
-      const parts = rest.split('_').filter(Boolean);
-      if (parts.length < 2) continue;
-
-      const tierRaw = toString(parts[parts.length - 1]).toUpperCase();
-      if (!['STAGING', 'PRODUCTION'].includes(tierRaw)) continue;
-      const tier = tierRaw.toLowerCase();
-
-      const envName = toString(resolveRepoVariablePolicyValue(rawValue, { owner, personalLogin }));
-      if (!envName) continue;
-
-      const template = tier === 'production' ? tierTemplates.production : tierTemplates.staging;
-      if (template && typeof template === 'object') {
-        derived.push({ ...template, name: envName });
-        continue;
       }
 
-      derived.push({
-        name: envName,
-        branches: [tier === 'production' ? '$production' : '$integration'],
-        wait_timer: 0,
-        can_admins_bypass: true,
-        ...(tier === 'production' ? { required_reviewers: ['$repo_owner_user'] } : {}),
-      });
+      for (const [rawKey, rawValue] of Object.entries(repoVarMap)) {
+        const key = toString(rawKey);
+        if (!key) continue;
+        if (!key.toUpperCase().startsWith(prefixUpper)) continue;
+
+        const rest = key.slice(derivePrefix.length);
+        const parts = rest.split('_').filter(Boolean);
+        if (parts.length < 2) continue;
+
+        const tierRaw = toString(parts[parts.length - 1]).toUpperCase();
+        if (!['STAGING', 'PRODUCTION'].includes(tierRaw)) continue;
+        const tier = tierRaw.toLowerCase();
+
+        const componentRaw = parts.slice(0, -1).join('_');
+        const component = normalizeComponentKey(componentRaw);
+        if (!component) continue;
+
+        const envName = toString(resolveRepoVariablePolicyValue(rawValue, { owner, personalLogin }));
+        if (!envName) continue;
+
+        addDeployEnv({ tier, surfaceId: component, envName });
+      }
+
+      deriveApprovalEnvsFromDefaults();
     }
   }
 
@@ -2184,6 +2255,20 @@ async function main() {
   // Effective bootstrap policy is the target repo's SSOT once installed.
   const policy = loadBootstrapPolicy(targetRoot).config;
 
+  const enableBackportDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableBackport')
+    ? !!profileBootstrapDefaults.enableBackport
+    : !!policy.github.enable_backport_default;
+  const enableSecurityDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableSecurity')
+    ? !!profileBootstrapDefaults.enableSecurity
+    : !!policy.github.enable_security_default;
+  const enableDeployDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableDeploy')
+    ? !!profileBootstrapDefaults.enableDeploy
+    : !!policy.github.enable_deploy_default;
+
+  const enableBackport = args.enableBackport == null ? enableBackportDefault : !!args.enableBackport;
+  const enableSecurity = args.enableSecurity == null ? enableSecurityDefault : !!args.enableSecurity;
+  const enableDeploy = args.enableDeploy == null ? enableDeployDefault : !!args.enableDeploy;
+
   // 2) Env scaffold (non-destructive).
   if (args.skipEnv) {
     summarySkipStep(runSummary, 'Env: scaffold', '--skip-env');
@@ -2222,6 +2307,48 @@ async function main() {
       info('Env: created config/env/.env.local (placeholder).');
     });
   }
+
+  // 2b) Deploy surface registry scaffold (non-destructive; only when deploy is enabled).
+  await summaryStep(runSummary, 'Deploy: surface registry', async (step) => {
+    if (!enableDeploy) {
+      step.status = 'SKIP';
+      step.note = 'deploy disabled';
+      return;
+    }
+
+    const repoVars = policy.github && policy.github.repo_variables && typeof policy.github.repo_variables === 'object'
+      ? policy.github.repo_variables
+      : {};
+    const destRel = Object.prototype.hasOwnProperty.call(repoVars, 'DEPLOY_SURFACES_PATH')
+      ? toString(repoVars.DEPLOY_SURFACES_PATH)
+      : 'config/deploy/deploy-surfaces.json';
+    const exampleRel = 'config/deploy/deploy-surfaces.example.json';
+    const destAbs = path.join(targetRoot, ...destRel.replace(/\\/g, '/').split('/').filter(Boolean));
+    const exampleAbs = path.join(targetRoot, ...exampleRel.split('/'));
+
+    if (fs.existsSync(destAbs)) {
+      step.status = 'SKIP';
+      step.note = `${destRel} already exists`;
+      return;
+    }
+
+    if (!fs.existsSync(exampleAbs)) {
+      step.status = 'WARN';
+      step.note = `missing template: ${exampleRel}`;
+      warn(`Deploy registry template missing: ${exampleRel}.`);
+      return;
+    }
+
+    if (args.dryRun) {
+      step.note = `dry-run (create ${destRel} from template)`;
+      info(`[dry-run] create ${destRel} from ${exampleRel}`);
+      return;
+    }
+
+    ensureDir(path.dirname(destAbs), false);
+    fs.copyFileSync(exampleAbs, destAbs);
+    step.note = `created ${destRel} from template`;
+  });
 
   // 3) Git init/commit/branches (idempotent).
   const branchPolicyLoaded = loadBranchPolicyConfig(targetRoot);
@@ -2406,20 +2533,6 @@ async function main() {
       } else if (workflowPermResult && workflowPermResult.status === 'SKIP') {
         info(`Workflow permissions: ${workflowPermResult.note}`);
       }
-
-      const enableBackportDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableBackport')
-        ? !!profileBootstrapDefaults.enableBackport
-        : !!policy.github.enable_backport_default;
-      const enableSecurityDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableSecurity')
-        ? !!profileBootstrapDefaults.enableSecurity
-        : !!policy.github.enable_security_default;
-      const enableDeployDefault = Object.prototype.hasOwnProperty.call(profileBootstrapDefaults, 'enableDeploy')
-        ? !!profileBootstrapDefaults.enableDeploy
-        : !!policy.github.enable_deploy_default;
-
-      const enableBackport = args.enableBackport == null ? enableBackportDefault : !!args.enableBackport;
-      const enableSecurity = args.enableSecurity == null ? enableSecurityDefault : !!args.enableSecurity;
-      const enableDeploy = args.enableDeploy == null ? enableDeployDefault : !!args.enableDeploy;
 
       await ghApplyPolicyRepoVariables({
         cwd: targetRoot,

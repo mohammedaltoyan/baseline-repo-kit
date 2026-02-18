@@ -105,12 +105,23 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
     - Legacy override (optional; takes precedence): `DEPLOY_ENV_<COMPONENT>_<TIER>`
   - `EVIDENCE_SOURCE_BRANCH` (set to integration branch)
   - `MAIN_REQUIRED_APPROVER_LOGINS` (default policy template: `$repo_owner_user`; can be overridden with `--main-approvers=<csv>`)
-  - `MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK` (default: `1`, avoids solo-maintainer deadlocks)
+  - `MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK` (default: `0`, strict by default; set to `1` only for solo-maintainer repos)
   - `PRODUCTION_PROMOTION_REQUIRED` (default: `enabled`)
+  - `STAGING_PROMOTION_REQUIRED` (default: `enabled`)
   - `STAGING_DEPLOY_GUARD` (default: `enabled`)
   - `PRODUCTION_DEPLOY_GUARD` (default: `disabled`)
   - `DOCS_PUBLISH_GUARD` (default: `disabled`)
   - `API_INGRESS_DEPLOY_GUARD` (default: `disabled`)
+  - Approval defaults:
+    - `STAGING_APPROVAL_MODE_DEFAULT` (default: `commit`)
+    - `PRODUCTION_APPROVAL_MODE_DEFAULT` (default: `commit`)
+    - `PRODUCTION_REQUIRES_STAGING_SUCCESS` (default: `enabled`)
+  - Deploy registry + receipts:
+    - `DEPLOY_SURFACES_PATH` (default: `config/deploy/deploy-surfaces.json`)
+    - `DEPLOY_RECEIPTS_BRANCH` (default: `ops/evidence`)
+    - `DEPLOY_RECEIPTS_PREFIX` (default: `docs/ops/evidence/deploy`)
+  - Optional enforcement:
+    - `ENV_ISOLATION_LINT_ENABLED` (default: `0`)
 - Labels:
   - Baseline label definitions SSOT: `config/policy/github-labels.json`
   - Bootstrap ensures labels exist when `github.labels.enabled=true` (default; non-destructive).
@@ -122,8 +133,13 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
 - Security toggles (best-effort):
   - Bootstrap can enable vulnerability alerts + automated security fixes and patch `security_and_analysis` settings when supported by the repo/plan.
 - Environments (best-effort):
-  - Bootstrap can create component-scoped environments derived from `DEPLOY_ENV_MAP_JSON` (and legacy `DEPLOY_ENV_<COMPONENT>_<TIER>` overrides when present) (example: `application-staging`, `application-production`).
-  - Bootstrap adds deployment branch policies derived from the branch policy SSOT (integration branch for `*-staging`, production branch for `*-production`).
+  - Bootstrap can create deploy environments derived from the deploy surface registry (`config/deploy/deploy-surfaces.json`) (example: `application-staging`, `application-production`).
+  - Bootstrap also creates approval-only environments for explicit promotion approvals:
+    - Commit-level: `staging-approval`, `production-approval`
+    - Surface-level: `staging-approval-{surface}`, `production-approval-{surface}`
+  - Bootstrap adds deployment branch policies derived from the branch policy SSOT:
+    - Deploy envs restricted to integration (`*-staging`) and production (`*-production`) branches.
+    - Approval envs allow both integration + production branches.
   - Tier templates (`staging`, `production`) are used as policy templates; they are not created by default (policy: `github.environments.create_tier_environments=false`).
   - Bootstrap can apply environment reviewer policies (`required_reviewers`, `prevent_self_review`, `can_admins_bypass`) when configured.
 
@@ -143,14 +159,16 @@ Recommended toggles:
 
 3) Deployment environments (recommended; generic)
    - Bootstrap can create environments and add branch policies (best-effort).
-   - Configure required reviewers for `production` (release approvals) per org policy.
+   - Configure required reviewers for `*-approval*` environments (release approvals) per org policy.
    - When ready, set repo variable `DEPLOY_ENABLED=1` and implement the project-specific deploy hook (see `docs/ops/runbooks/DEPLOYMENT.md`).
-   - Production promotion path is `Promote (Production)` workflow (`.github/workflows/promote-production.yml`) using `/approve-prod` or workflow dispatch (maintainer-gated).
+   - Promotion paths:
+     - Staging: `Promote (Staging)` workflow (`.github/workflows/promote-staging.yml`) using `/approve-staging` or workflow dispatch (maintainer-gated).
+     - Production: `Promote (Production)` workflow (`.github/workflows/promote-production.yml`) using `/approve-prod` or workflow dispatch (maintainer-gated).
 
 4) Main release approval policy (recommended)
    - Baseline required check: `Release Policy (main)` (`.github/workflows/release-policy-main.yml`).
    - Set `MAIN_REQUIRED_APPROVER_LOGINS` to one or more comma-separated GitHub logins.
-   - Optional: keep `MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK=1` for solo-maintainer repos; set to `0` when you have a separate reviewer pool.
+   - Optional: set `MAIN_APPROVER_ALLOW_AUTHOR_FALLBACK=1` for solo-maintainer repos; keep `0` when you have a separate reviewer pool.
    - Optional: use `Release PR (bot)` workflow (`.github/workflows/release-pr-bot.yml`) to open/refresh the release PR (`dev` -> `main`) as the GitHub Actions bot so a human can approve and merge.
 
 5) Reviewer identity separation (required when approvals are mandatory)

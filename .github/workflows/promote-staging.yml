@@ -1,10 +1,10 @@
-name: Promote (Production)
+name: Promote (Staging)
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Git ref/sha to deploy (optional; defaults to integration branch HEAD when gating is enabled)"
+        description: "Git ref/sha to deploy (optional; defaults to integration branch HEAD)"
         required: false
         default: ""
       base_ref:
@@ -39,11 +39,11 @@ jobs:
         github.event_name == 'workflow_dispatch'
         || (
           github.event_name == 'issue_comment'
-          && startsWith(github.event.comment.body, '/approve-prod')
+          && startsWith(github.event.comment.body, '/approve-staging')
         )
       }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     outputs:
       workflow_ref: ${{ steps.req.outputs.workflow_ref }}
       deploy_ref: ${{ steps.req.outputs.deploy_ref }}
@@ -65,7 +65,6 @@ jobs:
           INPUT_COMPONENT: ${{ inputs.component }}
           INPUT_SURFACES: ${{ inputs.surfaces }}
           INPUT_APPROVAL_MODE: ${{ inputs.approval_mode }}
-          REQUIRES_STAGING: ${{ vars.PRODUCTION_REQUIRES_STAGING_SUCCESS }}
         with:
           script: |
             const fs = require('fs');
@@ -74,21 +73,13 @@ jobs:
               return String(v == null ? '' : v).trim();
             }
 
-            function loadBranches() {
+            function loadIntegrationBranch() {
               try {
                 const cfg = JSON.parse(fs.readFileSync('config/policy/branch-policy.json', 'utf8'));
-                return {
-                  integration: toString(cfg && cfg.integration_branch) || 'dev',
-                  production: toString(cfg && cfg.production_branch) || 'main',
-                };
+                return toString(cfg && cfg.integration_branch) || 'dev';
               } catch {
-                return { integration: 'dev', production: 'main' };
+                return 'dev';
               }
-            }
-
-            function isEnabled(v) {
-              const s = toString(v).toLowerCase();
-              return ['1', 'true', 'yes', 'on', 'enabled'].includes(s);
             }
 
             async function hasMaintainerPermission(actor) {
@@ -102,16 +93,12 @@ jobs:
             }
 
             const actor = toString(context.actor);
-            const branches = loadBranches();
+            const integrationBranch = loadIntegrationBranch();
             const authorized = await hasMaintainerPermission(actor);
             if (!authorized) {
-              core.setFailed(`Actor "${actor}" is not authorized to promote production (requires write/maintain/admin).`);
+              core.setFailed(`Actor "${actor}" is not authorized to promote staging (requires write/maintain/admin).`);
               return;
             }
-
-            const integrationBranch = branches.integration;
-            const productionBranch = branches.production;
-            const requiresStaging = isEnabled(process.env.REQUIRES_STAGING);
 
             let deployRef = '';
             let baseRef = '';
@@ -124,14 +111,14 @@ jobs:
               const issue = context.payload.issue || {};
               const isPrComment = !!issue.pull_request;
               if (!isPrComment) {
-                core.setFailed('`/approve-prod` must be posted on a pull request.');
+                core.setFailed('`/approve-staging` must be posted on a pull request.');
                 return;
               }
 
               issueNumber = toString(issue.number);
               const body = toString(context.payload.comment && context.payload.comment.body);
               const parts = body.split(/\s+/g).filter(Boolean);
-              // /approve-prod [surfacesCsv]
+              // /approve-staging [surfacesCsv]
               surfacesOverride = toString(parts[1] || '');
 
               const pr = await github.rest.pulls.get({
@@ -140,17 +127,15 @@ jobs:
                 pull_number: Number(issueNumber),
               });
               const baseRefName = toString(pr && pr.data && pr.data.base && pr.data.base.ref);
-              if (baseRefName !== productionBranch) {
-                core.setFailed(`PR #${issueNumber} targets "${baseRefName}". Expected production branch "${productionBranch}".`);
+              if (baseRefName !== integrationBranch) {
+                core.setFailed(`PR #${issueNumber} targets "${baseRefName}". Expected integration branch "${integrationBranch}".`);
                 return;
               }
               if (!pr.data.merged) {
-                core.setFailed(`PR #${issueNumber} is not merged. Merge it before running /approve-prod.`);
+                core.setFailed(`PR #${issueNumber} is not merged. Merge it before running /approve-staging.`);
                 return;
               }
-
-              // IMPORTANT: use PR head SHA so this matches the staged integration SHA for release PRs (merge commits differ).
-              deployRef = toString(pr.data.head && pr.data.head.sha) || toString(pr.data.merge_commit_sha);
+              deployRef = toString(pr.data.merge_commit_sha) || toString(pr.data.head && pr.data.head.sha);
             } else {
               const inputRef = toString(process.env.INPUT_REF);
               const inputBaseRef = toString(process.env.INPUT_BASE_REF);
@@ -158,9 +143,7 @@ jobs:
               component = toString(process.env.INPUT_COMPONENT);
               approvalModeInput = toString(process.env.INPUT_APPROVAL_MODE);
 
-              const defaultRef = requiresStaging ? integrationBranch : productionBranch;
-              const resolved = inputRef || defaultRef;
-
+              const resolved = inputRef || integrationBranch;
               const commit = await github.rest.repos.getCommit({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -181,14 +164,13 @@ jobs:
               }
             }
 
-            core.setOutput('workflow_ref', productionBranch);
+            core.setOutput('workflow_ref', integrationBranch);
             core.setOutput('deploy_ref', deployRef);
             core.setOutput('base_ref', baseRef);
             core.setOutput('issue_number', issueNumber);
             core.setOutput('surfaces_override', surfacesOverride);
             core.setOutput('component', component || 'application');
             core.setOutput('approval_mode_input', approvalModeInput);
-            core.setOutput('requires_staging', requiresStaging ? '1' : '0');
 
       - name: Compare files (dispatch mode; used for surface auto-detection)
         id: compare
@@ -252,6 +234,7 @@ jobs:
               echo "::error::No surfaces matched for this promotion request. Update deploy-surfaces.json or provide a surfaces override."
               exit 1
             fi
+            # Registry missing: fall back to a single component/surface.
             surfaces_json="$(node -e "const { normalizeComponent } = require('./scripts/ops/deploy-surface-registry'); const c=normalizeComponent(process.env.FALLBACK_COMPONENT||'application'); if (!c) process.exit(2); process.stdout.write(JSON.stringify([c]));")"
           fi
 
@@ -263,32 +246,13 @@ jobs:
           echo "surfaces_json=${surfaces_json}" >> "$GITHUB_OUTPUT"
           echo "Resolved surfaces: ${surfaces_json}"
 
-      - name: Enforce staging prerequisite (receipts gate)
-        if: ${{ steps.req.outputs.requires_staging == '1' }}
-        env:
-          DEPLOY_REF: ${{ steps.req.outputs.deploy_ref }}
-          SURFACES_JSON: ${{ steps.surfaces.outputs.surfaces_json }}
-          DEPLOY_RECEIPTS_BRANCH: ${{ vars.DEPLOY_RECEIPTS_BRANCH || vars.EVIDENCE_BRANCH || 'ops/evidence' }}
-          DEPLOY_RECEIPTS_PREFIX: ${{ vars.DEPLOY_RECEIPTS_PREFIX || 'docs/ops/evidence/deploy' }}
-        run: |
-          set -euo pipefail
-          surfaces_csv="$(node -e "const arr=JSON.parse(process.env.SURFACES_JSON||'[]'); process.stdout.write(arr.join(','));")"
-          if [ -z "${surfaces_csv}" ]; then
-            echo "::error::No surfaces to verify for staging receipts gate."
-            exit 1
-          fi
-          node scripts/ops/deploy-receipts.js verify \
-            --tier staging \
-            --sha "${DEPLOY_REF}" \
-            --surfaces "${surfaces_csv}"
-
       - name: Resolve approval mode + environment matrix
         id: approvals
         env:
-          TIER: production
+          TIER: staging
           SURFACES_JSON: ${{ steps.surfaces.outputs.surfaces_json }}
           APPROVAL_MODE: ${{ steps.req.outputs.approval_mode_input }}
-          REPO_VAR_APPROVAL_MODE: ${{ vars.PRODUCTION_APPROVAL_MODE_DEFAULT }}
+          REPO_VAR_APPROVAL_MODE: ${{ vars.STAGING_APPROVAL_MODE_DEFAULT }}
           DEPLOY_SURFACES_PATH: ${{ vars.DEPLOY_SURFACES_PATH || 'config/deploy/deploy-surfaces.json' }}
         run: |
           node scripts/ops/approval-matrix.js \
@@ -304,7 +268,7 @@ jobs:
     timeout-minutes: 60
     environment: ${{ needs.prepare.outputs.approval_env_commit }}
     steps:
-      - run: echo "Production commit-level approval granted."
+      - run: echo "Staging commit-level approval granted."
 
   approve_surface:
     needs: [prepare]
@@ -317,7 +281,7 @@ jobs:
         include: ${{ fromJSON(needs.prepare.outputs.surface_approval_matrix_json) }}
     environment: ${{ matrix.approval_env }}
     steps:
-      - run: echo "Production surface-level approval granted for ${{ matrix.surface }}"
+      - run: echo "Staging surface-level approval granted for ${{ matrix.surface }}"
 
   dispatch_commit:
     needs: [prepare, approve_commit]
@@ -329,7 +293,7 @@ jobs:
       matrix:
         surface: ${{ fromJSON(needs.prepare.outputs.surfaces_json) }}
     steps:
-      - name: Dispatch deployment workflow (production)
+      - name: Dispatch deployment workflow (staging)
         uses: actions/github-script@v8
         with:
           script: |
@@ -339,13 +303,13 @@ jobs:
               workflow_id: 'deploy.yml',
               ref: '${{ needs.prepare.outputs.workflow_ref }}',
               inputs: {
-                environment: 'production',
+                environment: 'staging',
                 ref: '${{ needs.prepare.outputs.deploy_ref }}',
                 component: '${{ matrix.surface }}',
                 promotion_source: 'approved-flow',
               },
             });
-            core.info(`Production deployment dispatched surface=${'${{ matrix.surface }}'} ref=${'${{ needs.prepare.outputs.deploy_ref }}'}`);
+            core.info(`Staging deployment dispatched surface=${'${{ matrix.surface }}'} ref=${'${{ needs.prepare.outputs.deploy_ref }}'}`);
 
   dispatch_surface:
     needs: [prepare, approve_surface]
@@ -357,7 +321,7 @@ jobs:
       matrix:
         surface: ${{ fromJSON(needs.prepare.outputs.surfaces_json) }}
     steps:
-      - name: Dispatch deployment workflow (production)
+      - name: Dispatch deployment workflow (staging)
         uses: actions/github-script@v8
         with:
           script: |
@@ -367,13 +331,13 @@ jobs:
               workflow_id: 'deploy.yml',
               ref: '${{ needs.prepare.outputs.workflow_ref }}',
               inputs: {
-                environment: 'production',
+                environment: 'staging',
                 ref: '${{ needs.prepare.outputs.deploy_ref }}',
                 component: '${{ matrix.surface }}',
                 promotion_source: 'approved-flow',
               },
             });
-            core.info(`Production deployment dispatched surface=${'${{ matrix.surface }}'} ref=${'${{ needs.prepare.outputs.deploy_ref }}'}`);
+            core.info(`Staging deployment dispatched surface=${'${{ matrix.surface }}'} ref=${'${{ needs.prepare.outputs.deploy_ref }}'}`);
 
   audit_commit:
     needs: [prepare, dispatch_commit]
@@ -393,7 +357,7 @@ jobs:
               repo: context.repo.repo,
               issue_number: issueNumber,
               body:
-                `Production promotion approved by @${context.actor}.\n` +
+                `Staging promotion approved by @${context.actor}.\n` +
                 `- Approval mode: \`commit\`\n` +
                 `- Surfaces: \`${surfaces.join(', ')}\`\n` +
                 `- Ref: \`${'${{ needs.prepare.outputs.deploy_ref }}'}\``,
@@ -417,9 +381,8 @@ jobs:
               repo: context.repo.repo,
               issue_number: issueNumber,
               body:
-                `Production promotion approved by @${context.actor}.\n` +
+                `Staging promotion approved by @${context.actor}.\n` +
                 `- Approval mode: \`surface\`\n` +
                 `- Surfaces: \`${surfaces.join(', ')}\`\n` +
                 `- Ref: \`${'${{ needs.prepare.outputs.deploy_ref }}'}\``,
             });
-
