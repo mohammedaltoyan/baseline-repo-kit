@@ -13,7 +13,7 @@ links:
 
 At-a-Glance
 - Now: S99 - Tests gate complete
-- Next: Archive plan as done
+- Next: Await next implementation plan
 - Blockers: none
 - ETA: done (2026-02-18)
 
@@ -38,6 +38,8 @@ Testing Gate (required to mark plan done)
 - [x] S99 - Tests Gate - All required suites passing; change-aware check (code changes require matching test artifacts). Include evidence for unit + integration/E2E; perf/load marked N/A if not applicable.
 
 Decisions & Notes
+CI Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/22140572634/job/64003486214
+Objectives Evidence: auto-verified at 2026-02-18T12:56:00Z (commit 5ed2c4d)
 - 2026-02-18 - Added fail-closed env isolation auth fallback (`ENV_ISOLATION_TOKEN` -> `GITHUB_TOKEN`) with explicit `actions:read` workflow permission.
 - 2026-02-18 - Rotated repo secret `ENV_ISOLATION_TOKEN`; env isolation lint check recovered and enforced.
 - 2026-02-18 - Changed production ruleset/status-check strictness default to `false` to prevent `dev` squash + `main` merge-commit deadlock on recurring release PRs.
@@ -58,5 +60,4 @@ Decisions & Notes
 - Objectives Evidence:
 - Registry-first deploy env resolution and approval orchestration are config-driven in `config/deploy/deploy-surfaces.json` and scripts under `scripts/ops/`.
 - Branch/release policy SSOT remains in `config/policy/branch-policy.json` + `config/policy/bootstrap-policy.json` with bootstrap parity in `scripts/tooling/baseline-bootstrap.js`.
-
 
