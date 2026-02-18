@@ -198,6 +198,9 @@ Optional isolation lint (API-based):
   - Release promotion PR automation:
     - Workflow: `.github/workflows/release-pr-bot.yml` (opens/refreshes `dev` -> `main` as a bot so a human can approve/merge)
     - Optional redundancy reduction: `RELEASE_PR_BYPASS_PLAN_STEP=1` allows release promotion PRs to omit `Plan:`/`Step:` (recommended default; underlying changes already carried plans).
+  - Plan lint compatibility for automation PRs:
+    - `scripts/ops/plan-lint.js` allows zero-plan PR context for dependency automation PRs (Dependabot/Renovate), preventing CI deadlocks when no active canonical plans currently exist.
+    - `scripts/ops/plan-lint.js` also allows zero-plan release promotion PRs when `RELEASE_PR_BYPASS_PLAN_STEP=1`.
 
 ## Commit & Pull Request Guidelines (Recommended)
 
