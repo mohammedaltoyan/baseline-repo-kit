@@ -42,9 +42,9 @@ If your system has multiple override scopes (multi-tenant, multi-client, multi-s
 - Prefer frequent, small PRs over long-lived branches.
 - Slice work into plan phases so each PR is independently reviewable/testable (often 1 plan step/phase per PR).
 - Branch naming (recommended): include the plan id + intent so parallel work stays readable, e.g. `feat/PLAN-YYYYMM-<slug>-<short>`.
-- Branch policy SSOT: `config/policy/branch-policy.json` defines the integration + production branches and allowed PR targets/sources (default: `dev` -> `main`, hotfix via `hotfix/*`). Keep PRs targeting the integration branch except for release/hotfix.
+- Branch policy SSOT: `config/policy/branch-policy.json` defines the integration + production branches and allowed PR targets/sources. Baseline hardened default in this repo is release-only (`dev` -> `main`) with hotfix prefixes disabled. Keep PRs targeting the integration branch except for release.
 - Merge method policy (baseline default): integration PRs are squash-only; production PRs are merge-commit-only (prevents recurring integration -> production conflicts caused by squash releases). Enforced via GitHub rulesets provisioned by `npm run baseline:bootstrap -- -- --to <target-path> --github` using `config/policy/bootstrap-policy.json`.
-- Optional hotfix backport automation (recommended): enable repo var `BACKPORT_ENABLED=1` to auto-open a production -> integration backport PR after a hotfix merge (ships as `.github/workflows/hotfix-backport.yml`).
+- Optional hotfix backport automation (only when hotfix prefixes are enabled): set repo var `BACKPORT_ENABLED=1` to auto-open a production -> integration backport PR after a hotfix merge (ships as `.github/workflows/hotfix-backport.yml`).
 - Keep your branch up to date with the base/integration branch (merge-based; do not rewrite published history):
   - Use your repo's canonical integration branch (commonly `origin/<default-branch>`; some orgs use `origin/dev`).
   - Before opening a PR (and before re-requesting review): `git fetch origin` then `git merge origin/<integration-branch>`.
@@ -174,10 +174,10 @@ Fallback (when registry is missing):
   - Legacy override (takes precedence when set): `DEPLOY_ENV_<COMPONENT>_<TIER>`
 - Promote workflows fall back to a single `component` input when they cannot auto-detect surfaces.
 
-Optional isolation lint (API-based):
+Isolation lint (API-based):
 - Script: `scripts/ops/env-isolation-lint.js`
-- Workflow: `.github/workflows/env-isolation-lint.yml` (required check; fast pass when disabled)
-- Enable via repo var `ENV_ISOLATION_LINT_ENABLED=1` and secret `ENV_ISOLATION_TOKEN` (read-only token with access to environments).
+- Workflow: `.github/workflows/env-isolation-lint.yml` (required check; fail-closed when enabled)
+- Hardened default: `ENV_ISOLATION_LINT_ENABLED=1` with required secret `ENV_ISOLATION_TOKEN` (read-only token with access to environments).
 
 ## Code Owner Review Automation (Baseline)
 

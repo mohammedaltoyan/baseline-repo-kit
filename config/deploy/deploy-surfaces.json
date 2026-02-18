@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "defaults": {
+    "approval_mode_by_tier": { "staging": "commit", "production": "commit" },
+    "approval_env_commit_by_tier": { "staging": "staging-approval", "production": "production-approval" },
+    "approval_env_surface_prefix_by_tier": { "staging": "staging-approval-", "production": "production-approval-" },
+    "deploy_env_suffix_by_tier": { "staging": "staging", "production": "production" },
+    "deploy_env_template": "{surface}-{suffix}"
+  },
+  "surfaces": [
+    {
+      "surface_id": "application",
+      "description": "Primary application surface (apps + shared packages).",
+      "paths_include_re": ["^apps/", "^packages/"],
+      "paths_exclude_re": ["^apps/api-ingress/"],
+      "allowed_secret_keys": [],
+      "allowed_var_keys": []
+    },
+    {
+      "surface_id": "docs",
+      "description": "Documentation surface (runbooks, docs site).",
+      "paths_include_re": ["^docs/", "^README\\.md$", "^README_.*\\.md$"],
+      "allowed_secret_keys": [],
+      "allowed_var_keys": []
+    },
+    {
+      "surface_id": "api-ingress",
+      "description": "Edge/API ingress surface.",
+      "paths_include_re": ["^apps/api-ingress/"],
+      "allowed_secret_keys": [],
+      "allowed_var_keys": []
+    }
+  ]
+}
+

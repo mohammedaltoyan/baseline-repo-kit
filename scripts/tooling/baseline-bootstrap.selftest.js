@@ -219,8 +219,8 @@ function run() {
   );
   assert.strictEqual(
     String(policy.github && policy.github.repo_variables && policy.github.repo_variables.ENV_ISOLATION_LINT_ENABLED || ''),
-    '0',
-    'expected ENV_ISOLATION_LINT_ENABLED repo variable default to 0 in bootstrap policy'
+    '1',
+    'expected ENV_ISOLATION_LINT_ENABLED repo variable default to 1 in bootstrap policy'
   );
   assert.strictEqual(
     String(policy.github && policy.github.workflow_permissions && policy.github.workflow_permissions.default_workflow_permissions || ''),
