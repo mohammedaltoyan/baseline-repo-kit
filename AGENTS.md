@@ -148,13 +148,36 @@ When working on frontend UI/UX:
 - Target repos receive a small lock file `config/baseline/baseline.lock.json` to record the selected profile so overlay updates remain deterministic.
 - Profiles may define `bootstrap_defaults` (for example `enableDeploy`, `enableSecurity`, hardening toggles) that apply when bootstrap flags are omitted.
 
-## Deploy Isolation (GitHub Environments)
+## Deploy Isolation + Approvals (GitHub Environments)
 
-- Default deploy workflow targets **component-scoped** GitHub Environments (for isolation) resolved from repo variables:
-  - `DEPLOY_ENV_MAP_JSON` (preferred; JSON mapping: component -> {staging, production})
-  - Legacy override (takes precedence when set): `DEPLOY_ENV_<COMPONENT>_<TIER>` (example: `DEPLOY_ENV_APPLICATION_STAGING=application-staging`)
-- Bootstrap can provision these environments and their deployment branch policies (best-effort; SSOT: `config/policy/bootstrap-policy.json`).
-  - Tier templates (`staging`, `production`) are used as policy templates; they are not created by default (`github.environments.create_tier_environments=false`).
+SSOT (recommended):
+- Deploy surface registry: `config/deploy/deploy-surfaces.json` (project-owned; created from `config/deploy/deploy-surfaces.example.json` by bootstrap when deploy is enabled).
+  - Defines surfaces (`surface_id`), change matchers (`paths_include_re`, `paths_exclude_re`), environment naming, approval environment naming, and optional allowed secret/var keys.
+
+Workflows:
+- Leaf executor: `.github/workflows/deploy.yml`
+  - Internal-only: refuses direct human runs (expects to be dispatched by promote workflows).
+  - Runs each deploy job in a **surface+tier GitHub Environment** (secrets isolation boundary).
+  - Writes auditable deploy receipts to an evidence branch on success (`DEPLOY_RECEIPTS_BRANCH`, `DEPLOY_RECEIPTS_PREFIX`).
+- Orchestrators:
+  - `.github/workflows/promote-staging.yml` requires an explicit GitHub Environment approval click before staging deploys.
+  - `.github/workflows/promote-production.yml` requires an explicit GitHub Environment approval click before production deploys and can enforce staging receipts for the same SHA.
+
+Approval modes (dynamic):
+- `commit`: one approval unlocks all affected surfaces for the promotion run.
+- `surface`: one approval per affected surface.
+- Precedence: workflow input `approval_mode` > repo var default (`STAGING_APPROVAL_MODE_DEFAULT`, `PRODUCTION_APPROVAL_MODE_DEFAULT`) > registry default.
+
+Fallback (when registry is missing):
+- Deploy environment name resolution falls back to:
+  - `DEPLOY_ENV_MAP_JSON` (preferred legacy SSOT; JSON mapping: component -> {staging, production})
+  - Legacy override (takes precedence when set): `DEPLOY_ENV_<COMPONENT>_<TIER>`
+- Promote workflows fall back to a single `component` input when they cannot auto-detect surfaces.
+
+Optional isolation lint (API-based):
+- Script: `scripts/ops/env-isolation-lint.js`
+- Workflow: `.github/workflows/env-isolation-lint.yml` (required check; fast pass when disabled)
+- Enable via repo var `ENV_ISOLATION_LINT_ENABLED=1` and secret `ENV_ISOLATION_TOKEN` (read-only token with access to environments).
 
 ## Code Owner Review Automation (Baseline)
 
