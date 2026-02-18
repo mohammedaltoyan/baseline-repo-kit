@@ -42,7 +42,7 @@
     "pr:ready": "node scripts/ops/pr-ready.js"
   },
   "dependencies": {
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.3.1"
   },
   "engines": {
     "node": ">=22.0.0"
