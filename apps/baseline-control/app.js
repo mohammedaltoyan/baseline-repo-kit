@@ -6,26 +6,6 @@ const state = {
   dirty: false,
 };
 
-const CAPABILITY_MAP = {
-  'policy.profile': 'rulesets',
-  'policy.require_github_app': 'github_app_required',
-  'branching.topology': 'rulesets',
-  'branching.branches': 'rulesets',
-  'branching.review_thresholds': 'rulesets',
-  'ci.mode': 'merge_queue',
-  'ci.action_refs': 'merge_queue',
-  'ci.change_profiles': 'merge_queue',
-  'ci.full_lane_triggers': 'merge_queue',
-  'deployments.environments': 'environments',
-  'deployments.components': 'environments',
-  'deployments.approval_matrix': 'environments',
-  'deployments.oidc': 'environments',
-  'security.codeql': 'code_scanning',
-  'security.dependency_review': 'dependency_review',
-  'security.secret_scanning': 'code_scanning',
-  'modules.enabled': 'github_app_required',
-};
-
 const DEFAULT_FIELD_META = {
   section: 'platform',
   what_this_controls: 'Configuration value in baseline settings.',
@@ -67,23 +47,8 @@ function setPath(obj, path, value) {
   current[parts[parts.length - 1]] = value;
 }
 
-function resolveCapabilityKey(path) {
-  const cleanPath = String(path || '').trim();
-  if (!cleanPath) return '';
-  if (CAPABILITY_MAP[cleanPath]) return CAPABILITY_MAP[cleanPath];
-
-  const parts = cleanPath.split('.');
-  while (parts.length > 1) {
-    parts.pop();
-    const candidate = parts.join('.');
-    if (CAPABILITY_MAP[candidate]) return CAPABILITY_MAP[candidate];
-  }
-
-  return '';
-}
-
-function capabilityLabel(path) {
-  const key = resolveCapabilityKey(path);
+function capabilityLabel(capabilityKey) {
+  const key = String(capabilityKey || '').trim();
   if (!key) return { text: 'Not capability-gated', className: '', key: '' };
 
   const cap = state.payload && state.payload.capabilities && state.payload.capabilities.capabilities
@@ -308,6 +273,7 @@ function renderSettings() {
       meta: resolved.meta || DEFAULT_FIELD_META,
       metaPath: resolved.path,
       inheritedMeta: !!resolved.inherited,
+      capabilityKey: String(resolved.meta && resolved.meta.capability_key || '').trim(),
     });
   }
 
@@ -337,7 +303,7 @@ function renderSettings() {
       });
       row.appendChild(input);
 
-      const capability = capabilityLabel(entry.path);
+      const capability = capabilityLabel(entry.capabilityKey);
       const remediation = capabilityRemediation(capability.key);
       const meta = document.createElement('div');
       meta.className = 'meta';

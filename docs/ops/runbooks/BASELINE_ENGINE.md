@@ -98,6 +98,7 @@ The UI surfaces per setting:
 UI rendering behavior:
 - Settings are rendered from effective config leaf paths (including nested keys).
 - Explanations come from `config/schema/baseline-ui-metadata.json` with nearest-parent inheritance when a leaf has no exact metadata key.
+- Capability labels for each setting are also resolved from `config/schema/baseline-ui-metadata.json` (`fields.<path>.capability_key`) so capability gating is metadata-driven instead of hardcoded in UI runtime.
 - Metadata quality is linted in CI to ensure explanation coverage remains complete as new settings are introduced.
 
 ## Compatibility

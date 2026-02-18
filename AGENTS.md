@@ -172,7 +172,7 @@ When working on frontend UI/UX:
   - `policy.require_github_app=true` enforces capability requirements as hard failures.
 - CI lane control must remain classifier-driven via generated `config/ci/baseline-change-profiles.json` and `scripts/ops/ci/change-classifier.js` (no per-repo hardcoded lane logic).
 - Workflow action references must be settings-driven (`ci.action_refs`) so pinning policy can be centrally controlled.
-- UI explanation SSOT is `config/schema/baseline-ui-metadata.json`; each effective setting path must have explanation coverage (exact key or inherited parent key) and CI selftests must enforce this.
+- UI explanation + capability-label SSOT is `config/schema/baseline-ui-metadata.json`; each effective setting path must have explanation coverage (exact key or inherited parent key), and capability mapping used by the UI must be declared in metadata (not hardcoded in UI code).
 - If `security.require_pinned_action_refs=true`, generated workflow action refs must be full SHA pins and doctor must fail otherwise.
 - Deployment OIDC behavior must be settings-driven (`deployments.oidc`) with secure defaults and no hardcoded cloud vendor assumptions.
 - Backward compatibility default: new modules/features are opt-in unless an explicit migration enables them.
