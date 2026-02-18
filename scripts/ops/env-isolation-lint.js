@@ -35,6 +35,18 @@ function detectRepoFromEnv() {
   return { owner: '', repo: '' };
 }
 
+function buildTokenCandidates(...values) {
+  const seen = new Set();
+  const out = [];
+  for (const value of values) {
+    const token = toString(value);
+    if (!token || seen.has(token)) continue;
+    seen.add(token);
+    out.push(token);
+  }
+  return out;
+}
+
 async function fetchJson(url, token) {
   const res = await fetch(url, {
     method: 'GET',
@@ -54,7 +66,22 @@ async function fetchJson(url, token) {
   return { ok: res.ok, status: res.status, data, text };
 }
 
-async function listEnvironmentSecrets({ apiBase, owner, repo, environment, token }) {
+async function fetchJsonWithTokenCandidates(url, tokenCandidates) {
+  const candidates = toStringArray(tokenCandidates);
+  if (!candidates.length) throw new Error('Missing auth token for GitHub API call.');
+  let last = null;
+  for (let i = 0; i < candidates.length; i += 1) {
+    const token = candidates[i];
+    const resp = await fetchJson(url, token);
+    if (resp.ok) return resp;
+    last = resp;
+    const retriableAuth = resp.status === 401 || resp.status === 403;
+    if (!(retriableAuth && i + 1 < candidates.length)) break;
+  }
+  return last;
+}
+
+async function listEnvironmentSecrets({ apiBase, owner, repo, environment, tokenCandidates }) {
   const base = apiBase || toString(process.env.GITHUB_API_URL) || 'https://api.github.com';
   const out = [];
   const perPage = 100;
@@ -62,7 +89,7 @@ async function listEnvironmentSecrets({ apiBase, owner, repo, environment, token
     const url = new URL(`${base.replace(/\/$/, '')}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/environments/${encodeURIComponent(environment)}/secrets`);
     url.searchParams.set('per_page', String(perPage));
     url.searchParams.set('page', String(page));
-    const resp = await fetchJson(url.toString(), token);
+    const resp = await fetchJsonWithTokenCandidates(url.toString(), tokenCandidates);
     if (!resp.ok) throw new Error(`list secrets failed env=${environment} status=${resp.status} ${toString(resp.text)}`);
     const list = resp.data && typeof resp.data === 'object' ? resp.data.secrets : null;
     if (!Array.isArray(list)) throw new Error(`list secrets returned unexpected payload for env=${environment}`);
@@ -75,7 +102,7 @@ async function listEnvironmentSecrets({ apiBase, owner, repo, environment, token
   return out;
 }
 
-async function listEnvironmentVariables({ apiBase, owner, repo, environment, token }) {
+async function listEnvironmentVariables({ apiBase, owner, repo, environment, tokenCandidates }) {
   const base = apiBase || toString(process.env.GITHUB_API_URL) || 'https://api.github.com';
   const out = [];
   const perPage = 100;
@@ -83,7 +110,7 @@ async function listEnvironmentVariables({ apiBase, owner, repo, environment, tok
     const url = new URL(`${base.replace(/\/$/, '')}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/environments/${encodeURIComponent(environment)}/variables`);
     url.searchParams.set('per_page', String(perPage));
     url.searchParams.set('page', String(page));
-    const resp = await fetchJson(url.toString(), token);
+    const resp = await fetchJsonWithTokenCandidates(url.toString(), tokenCandidates);
     if (!resp.ok) throw new Error(`list variables failed env=${environment} status=${resp.status} ${toString(resp.text)}`);
     const list = resp.data && typeof resp.data === 'object' ? resp.data.variables : null;
     if (!Array.isArray(list)) throw new Error(`list variables returned unexpected payload for env=${environment}`);
@@ -124,8 +151,12 @@ async function main() {
     return;
   }
 
-  const token = toString(args.token || process.env.ENV_ISOLATION_TOKEN);
-  if (!token) throw new Error('ENV_ISOLATION_LINT_ENABLED=1 but ENV_ISOLATION_TOKEN is missing.');
+  const tokenCandidates = buildTokenCandidates(args.token, process.env.ENV_ISOLATION_TOKEN, process.env.GITHUB_TOKEN);
+  if (!tokenCandidates.length) {
+    throw new Error(
+      'ENV_ISOLATION_LINT_ENABLED=1 but no API token is available (set ENV_ISOLATION_TOKEN or provide GITHUB_TOKEN).'
+    );
+  }
 
   let { owner, repo } = detectRepoFromEnv();
   owner = toString(args.owner) || owner;
@@ -145,8 +176,20 @@ async function main() {
     for (const tier of ['staging', 'production']) {
       const envName = resolveDeployEnvName({ registry, surfaceId, tier });
 
-      const secrets = await listEnvironmentSecrets({ apiBase: toString(args['api-url'] || args.apiUrl), owner, repo, environment: envName, token });
-      const vars = await listEnvironmentVariables({ apiBase: toString(args['api-url'] || args.apiUrl), owner, repo, environment: envName, token });
+      const secrets = await listEnvironmentSecrets({
+        apiBase: toString(args['api-url'] || args.apiUrl),
+        owner,
+        repo,
+        environment: envName,
+        tokenCandidates,
+      });
+      const vars = await listEnvironmentVariables({
+        apiBase: toString(args['api-url'] || args.apiUrl),
+        owner,
+        repo,
+        environment: envName,
+        tokenCandidates,
+      });
 
       const extraSecrets = diffKeys(secrets, allowedSecrets);
       const extraVars = diffKeys(vars, allowedVars);
@@ -186,6 +229,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildTokenCandidates,
   isEnabled,
   diffKeys,
 };

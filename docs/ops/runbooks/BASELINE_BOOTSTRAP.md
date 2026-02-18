@@ -92,7 +92,7 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - Recommended by policy for integration branch by default.
   - Bootstrap attempts to configure it via rulesets when supported; when unsupported (plan/org dependent), enable manually in the GitHub UI.
 - Repo variables set:
-  - `BACKPORT_ENABLED` (default: `1`)
+  - `BACKPORT_ENABLED` (default: `0`; enable only when hotfix prefixes are configured)
   - `SECURITY_ENABLED` (default: `0`)
   - `DEPLOY_ENABLED` (default: `0`)
   - `AUTOPR_ENABLED` (default: `1`) - enables `.github/workflows/auto-pr.yml` to open PRs as the GitHub Actions bot (`github-actions[bot]` / `app/github-actions`) for `codex/**` branches
@@ -109,7 +109,7 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
   - `PRODUCTION_PROMOTION_REQUIRED` (default: `enabled`)
   - `STAGING_PROMOTION_REQUIRED` (default: `enabled`)
   - `STAGING_DEPLOY_GUARD` (default: `enabled`)
-  - `PRODUCTION_DEPLOY_GUARD` (default: `disabled`)
+  - `PRODUCTION_DEPLOY_GUARD` (default: `enabled`)
   - `DOCS_PUBLISH_GUARD` (default: `disabled`)
   - `API_INGRESS_DEPLOY_GUARD` (default: `disabled`)
   - Approval defaults:
@@ -121,7 +121,7 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
     - `DEPLOY_RECEIPTS_BRANCH` (default: `ops/evidence`)
     - `DEPLOY_RECEIPTS_PREFIX` (default: `docs/ops/evidence/deploy`)
   - Optional enforcement:
-    - `ENV_ISOLATION_LINT_ENABLED` (default: `0`)
+    - `ENV_ISOLATION_LINT_ENABLED` (default: `1`; auth token resolution uses `ENV_ISOLATION_TOKEN` then workflow `GITHUB_TOKEN`)
 - Labels:
   - Baseline label definitions SSOT: `config/policy/github-labels.json`
   - Bootstrap ensures labels exist when `github.labels.enabled=true` (default; non-destructive).

@@ -33,13 +33,14 @@ This baseline ships an optional lint that verifies environment secret/var **name
 - Script: `scripts/ops/env-isolation-lint.js`
 - Workflow (required check): `.github/workflows/env-isolation-lint.yml`
 
-How to enable:
-1) Set repo var: `ENV_ISOLATION_LINT_ENABLED=1`
-2) Add repo secret: `ENV_ISOLATION_TOKEN`
-3) Configure allowlists in `config/deploy/deploy-surfaces.json` per surface:
+How to enable/operate:
+1) Keep repo var: `ENV_ISOLATION_LINT_ENABLED=1` (baseline default).
+2) Optionally add repo secret: `ENV_ISOLATION_TOKEN` (recommended for explicit, least-privilege API auth).
+3) Ensure workflow token permissions include `actions: read` so `GITHUB_TOKEN` can serve as fallback.
+4) Configure allowlists in `config/deploy/deploy-surfaces.json` per surface:
    - `allowed_secret_keys[]`
    - `allowed_var_keys[]`
 
 Behavior:
-- When disabled (`ENV_ISOLATION_LINT_ENABLED=0`): the workflow exits quickly and passes.
+- When disabled (`ENV_ISOLATION_LINT_ENABLED=0`): the workflow exits quickly and passes (not recommended for hardened repos).
 - When enabled and the token is missing or the API cannot be queried: the workflow fails (fail-closed).

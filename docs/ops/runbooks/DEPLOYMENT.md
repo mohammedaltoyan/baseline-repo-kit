@@ -127,4 +127,4 @@ When `PRODUCTION_REQUIRES_STAGING_SUCCESS=enabled`:
 - `DOCS_PUBLISH_GUARD=enabled` allows docs publish/deploy component runs.
 - `API_INGRESS_DEPLOY_GUARD=enabled` allows API ingress deploy component runs.
 
-Default policy is conservative: production/docs/api-ingress are blocked until explicitly enabled.
+Default policy in this baseline is strict-but-operational: staging and production deploy guards are enabled, while docs/api-ingress remain explicit opt-in.
