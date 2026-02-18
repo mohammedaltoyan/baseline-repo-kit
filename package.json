@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Reusable baseline kit: docs + ops tooling + repo guardrails (project-agnostic)",
   "scripts": {
-    "test": "npm run lint:plans && npm run lint:pr-policy && npm run lint:auto-pr && npm run lint:release-pr && npm run lint:release-policy && npm run lint:deploy-guard && npm run lint:deploy-registry && npm run lint:branch-policy && npm run lint:docs && npm run lint:objectives && npm run lint:structure && npm run lint:installer && npm run lint:bootstrap && npm run lint:env",
+    "test": "npm run lint:plans && npm run lint:pr-policy && npm run lint:auto-pr && npm run lint:release-pr && npm run lint:release-policy && npm run lint:deploy-guard && npm run lint:deploy-registry && npm run lint:branch-policy && npm run lint:docs && npm run lint:objectives && npm run lint:structure && npm run lint:installer && npm run lint:bootstrap && npm run lint:env && npm run lint:engine",
     "lint:structure": "node scripts/tooling/check-structure.js",
     "lint:objectives": "node scripts/ops/objectives-lint.js",
     "lint:objectives:enforce": "OBJECTIVES_ENFORCE_RLS_MISSING=1 node scripts/ops/objectives-lint.js",
@@ -19,11 +19,19 @@
     "lint:installer": "node scripts/tooling/install-profiles.selftest.js && node scripts/tooling/baseline-install.selftest.js",
     "lint:bootstrap": "node scripts/tooling/baseline-bootstrap.selftest.js",
     "lint:env": "node scripts/utils/load-env.selftest.js",
+    "lint:engine": "node scripts/tooling/baseline-engine.selftest.js && node scripts/tooling/baseline-engine.merge.selftest.js && node scripts/tooling/baseline-engine.capabilities.selftest.js && node scripts/tooling/baseline-engine.schema.selftest.js && node scripts/tooling/baseline-engine.ui-metadata.selftest.js && node scripts/tooling/baseline-engine.governance.selftest.js",
     "test:deep": "node scripts/tooling/deep-verify.js",
 
     "docs:clean": "node scripts/tooling/docs-clean.js",
     "baseline:install": "node scripts/tooling/baseline-install.js",
     "baseline:bootstrap": "node scripts/tooling/baseline-bootstrap.js",
+    "baseline:init": "node tooling/apps/baseline-engine/cli.js init",
+    "baseline:ui": "node tooling/apps/baseline-engine/cli.js ui",
+    "baseline:diff": "node tooling/apps/baseline-engine/cli.js diff",
+    "baseline:apply": "node tooling/apps/baseline-engine/cli.js apply",
+    "baseline:upgrade": "node tooling/apps/baseline-engine/cli.js upgrade",
+    "baseline:doctor": "node tooling/apps/baseline-engine/cli.js doctor",
+    "baseline:verify": "node tooling/apps/baseline-engine/cli.js verify",
 
     "plans:verify": "node scripts/ops/plan-verify.js",
     "plans:index": "node scripts/ops/plan-index.js",
@@ -42,7 +50,9 @@
     "pr:ready": "node scripts/ops/pr-ready.js"
   },
   "dependencies": {
-    "dotenv": "^17.3.1"
+    "ajv": "^8.17.1",
+    "dotenv": "^17.3.1",
+    "yaml": "^2.8.2"
   },
   "engines": {
     "node": ">=22.0.0"

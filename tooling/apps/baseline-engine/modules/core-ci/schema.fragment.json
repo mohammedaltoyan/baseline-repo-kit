@@ -1,0 +1,24 @@
+{
+  "$id": "module://core-ci/schema.fragment.json",
+  "type": "object",
+  "properties": {
+    "ci": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["two_lane", "full", "lightweight"]
+        },
+        "action_refs": {
+          "type": "object"
+        },
+        "change_profiles": {
+          "type": "array"
+        },
+        "full_lane_triggers": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "$id": "module://core-governance/schema.fragment.json",
+  "type": "object",
+  "properties": {
+    "policy": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "enum": ["strict", "moderate", "advisory"]
+        },
+        "require_github_app": {
+          "type": "boolean"
+        },
+        "enforce_codeowners_protected_paths": {
+          "type": "boolean"
+        }
+      }
+    },
+    "branching": {
+      "type": "object",
+      "properties": {
+        "topology": {
+          "type": "string",
+          "enum": ["two_branch", "three_branch", "trunk", "custom"]
+        },
+        "branches": {
+          "type": "array"
+        },
+        "review_thresholds": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

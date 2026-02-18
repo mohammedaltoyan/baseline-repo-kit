@@ -1,0 +1,7 @@
+{
+  "id": "core-governance",
+  "name": "Core Governance",
+  "version": "1.0.0",
+  "description": "Branch policy, reviewer thresholds, and merge governance generation.",
+  "category": "governance"
+}

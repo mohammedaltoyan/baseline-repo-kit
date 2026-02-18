@@ -1,0 +1,7 @@
+{
+  "id": "core-planning",
+  "name": "Core Planning",
+  "version": "1.0.0",
+  "description": "Plan/step policy enforcement and automation allowlist outputs.",
+  "category": "planning"
+}

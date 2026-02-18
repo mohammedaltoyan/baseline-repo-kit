@@ -1,0 +1,9 @@
+{
+  "name": "@baseline/engine",
+  "version": "2.2.0",
+  "private": true,
+  "description": "Baseline Repo Kit v2 engine",
+  "bin": {
+    "baseline": "./cli.js"
+  }
+}

@@ -140,6 +140,41 @@ When working on frontend UI/UX:
 - Optional installer to overlay this kit onto another repo:
   - Safe positional form: `npm run baseline:install -- <target-path> [overlay|init] [overwrite] [dry-run] [verbose]`
   - Flag form (safe with modern npm): `npm run baseline:install -- --to <path> --mode overlay --dry-run`
+- Baseline Engine v2.2 (settings-driven, capability-aware):
+  - `npm run baseline:init -- --target <target-path>`
+  - `npm run baseline:ui -- --target <target-path>`
+  - `npm run baseline:diff -- --target <target-path>`
+  - `npm run baseline:apply -- --target <target-path>`
+  - `npm run baseline:upgrade -- --target <target-path>`
+  - `npm run baseline:doctor -- --target <target-path>`
+  - `npm run baseline:verify -- --target <target-path>`
+
+## Baseline Engine v2.2 (Must)
+
+- Baseline behavior must be generated from settings (`.baseline/config.yaml`) and capability probes (`.baseline/capabilities/github.json`), not hardcoded in scripts/workflows.
+- Config schema SSOT is `config/schema/baseline-config.schema.json`; runtime validation must compile/execute this schema (do not duplicate parallel rule sets in command code).
+- Managed upgrades must be migration-based (`scripts/tooling/migrations/<semver>/`) with explicit state tracking in `.baseline/state.json`.
+- Generated file ownership and merge strategy must be tracked in `.baseline/managed-files.json`.
+- Module generators are the only source for managed outputs; core engine orchestrates modules and does not hardcode module artifacts.
+- New baseline features must ship as modules under `tooling/apps/baseline-engine/modules/` with:
+  - `module.json`
+  - `schema.fragment.json`
+  - `capability_requirements.json`
+  - `generators/`
+  - `migrations/`
+- Managed file writes must use declared strategies (`replace`, `json_merge`, `yaml_merge`, `three_way`) and preserve explicit user blocks marked with `baseline:user-block <id>:begin/end`.
+- `three_way` merges must use baseline base snapshots from `.baseline/internal/base-content.json`; upgrade rollback snapshots must be written under `.baseline/snapshots/`.
+- Capability-aware behavior is mandatory:
+  - Engine computes required capabilities from enabled modules.
+  - Required capabilities must be settings-aware (only enforce capabilities for enabled behaviors).
+  - Unsupported capabilities auto-degrade and warn.
+  - `policy.require_github_app=true` enforces capability requirements as hard failures.
+- CI lane control must remain classifier-driven via generated `config/ci/baseline-change-profiles.json` and `scripts/ops/ci/change-classifier.js` (no per-repo hardcoded lane logic).
+- Workflow action references must be settings-driven (`ci.action_refs`) so pinning policy can be centrally controlled.
+- UI explanation SSOT is `config/schema/baseline-ui-metadata.json`; each effective setting path must have explanation coverage (exact key or inherited parent key) and CI selftests must enforce this.
+- If `security.require_pinned_action_refs=true`, generated workflow action refs must be full SHA pins and doctor must fail otherwise.
+- Deployment OIDC behavior must be settings-driven (`deployments.oidc`) with secure defaults and no hardcoded cloud vendor assumptions.
+- Backward compatibility default: new modules/features are opt-in unless an explicit migration enables them.
 
 ## Profiles (Baseline Install/Bootstrap)
 

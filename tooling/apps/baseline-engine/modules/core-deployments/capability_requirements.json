@@ -1,0 +1,7 @@
+{
+  "requires": ["environments"],
+  "degrade_strategy": "warn",
+  "remediation": {
+    "environments": "Enable repository environments in settings and ensure token has administration access."
+  }
+}

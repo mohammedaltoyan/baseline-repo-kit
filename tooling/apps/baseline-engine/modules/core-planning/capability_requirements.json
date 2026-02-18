@@ -1,0 +1,5 @@
+{
+  "requires": [],
+  "degrade_strategy": "warn",
+  "remediation": {}
+}

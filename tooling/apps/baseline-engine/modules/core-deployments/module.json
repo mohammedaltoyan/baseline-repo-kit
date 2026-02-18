@@ -1,0 +1,7 @@
+{
+  "id": "core-deployments",
+  "name": "Core Deployments",
+  "version": "1.0.0",
+  "description": "Environment/component deployment matrix and deploy guard generation.",
+  "category": "deployments"
+}

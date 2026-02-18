@@ -19,6 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline/promises');
+const { spawnSync } = require('child_process');
 
 const { parseFlagArgs } = require('../utils/cli-args');
 const { isTruthy } = require('../utils/is-truthy');
@@ -2132,6 +2133,19 @@ async function runNpmTests({ cwd, dryRun }) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const engineV2 = isTruthy(args['engine-v2'] || args.engineV2 || process.env.BASELINE_ENGINE_V2);
+  if (engineV2) {
+    const target = toString(args.to || '');
+    if (!target) die('Missing --to <target-path> for --engine-v2 mode.');
+
+    const engineCli = path.resolve(__dirname, '..', '..', 'tooling', 'apps', 'baseline-engine', 'cli.js');
+    const cmdArgs = ['init', '--target', target];
+    if (args.dryRun) cmdArgs.push('--dry-run');
+    const delegated = spawnSync(process.execPath, [engineCli, ...cmdArgs], { stdio: 'inherit' });
+    if (delegated.error) die(`Engine delegation failed: ${delegated.error.message}`);
+    if (delegated.status !== 0) process.exit(delegated.status || 1);
+    return;
+  }
   if (args.help) {
     console.log([
       'baseline:bootstrap',

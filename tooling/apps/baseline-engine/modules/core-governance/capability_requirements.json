@@ -1,0 +1,7 @@
+{
+  "requires": ["rulesets"],
+  "degrade_strategy": "warn",
+  "remediation": {
+    "rulesets": "Enable repository rulesets and use a token with admin scope to enforce generated governance policies."
+  }
+}
