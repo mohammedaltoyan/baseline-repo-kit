@@ -60,11 +60,55 @@ function run() {
     'apply_impact',
     'fallback_or_remediation',
   ];
+  const allowedCapabilityKeys = new Set([
+    'rulesets',
+    'merge_queue',
+    'environments',
+    'code_scanning',
+    'dependency_review',
+    'repo_variables',
+    'github_app_required',
+  ]);
   for (const [path, meta] of Object.entries(fields)) {
     for (const key of requiredMetaKeys) {
       const value = String(meta && meta[key] || '').trim();
       assert.strictEqual(value.length > 0, true, `Metadata field ${path}.${key} must be non-empty`);
     }
+    const capabilityKey = String(meta && meta.capability_key || '').trim();
+    if (capabilityKey) {
+      assert.strictEqual(
+        allowedCapabilityKeys.has(capabilityKey),
+        true,
+        `Metadata field ${path}.capability_key must be one of: ${Array.from(allowedCapabilityKeys).join(', ')}`
+      );
+    }
+  }
+
+  const expectedCapabilityMappings = [
+    'policy.profile',
+    'policy.require_github_app',
+    'branching.topology',
+    'branching.branches',
+    'branching.review_thresholds',
+    'ci.mode',
+    'ci.action_refs',
+    'ci.change_profiles',
+    'ci.full_lane_triggers',
+    'deployments.environments',
+    'deployments.components',
+    'deployments.approval_matrix',
+    'deployments.oidc',
+    'security.codeql',
+    'security.dependency_review',
+    'security.secret_scanning',
+    'modules.enabled',
+  ];
+  for (const path of expectedCapabilityMappings) {
+    assert.strictEqual(
+      String(fields[path] && fields[path].capability_key || '').trim().length > 0,
+      true,
+      `Metadata field ${path} must declare capability_key for UI capability labeling`
+    );
   }
 
   console.log('[baseline-engine:ui-metadata-selftest] OK');

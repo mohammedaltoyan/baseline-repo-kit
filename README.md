@@ -40,7 +40,7 @@ Engine guarantees:
 - Config validation uses JSON Schema SSOT (`config/schema/baseline-config.schema.json`) at runtime.
 - Capability-aware auto-degrade with explicit warnings/remediation.
 - Settings-aware capability requirements (only required features are enforced).
-- UI settings are leaf-driven and metadata-backed (all effective settings inherit human-readable explanations).
+- UI settings are leaf-driven and metadata-backed (all effective settings inherit human-readable explanations and capability labels from metadata SSOT).
 - Strategy-aware managed updates (`replace`, `json_merge`, `yaml_merge`, `three_way`) with preserved user blocks.
 - CI risk classifier + two-lane gate generated from config.
 - Generated workflows default to least-privilege permissions.

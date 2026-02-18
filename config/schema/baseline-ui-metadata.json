@@ -76,7 +76,8 @@
       "tradeoffs": "Strict increases control and safety; moderate/advisory increase delivery speed.",
       "prerequisites": "None.",
       "apply_impact": "Updates PR gate behavior, required checks, and reviewer threshold defaults.",
-      "fallback_or_remediation": "If unsupported capabilities exist, strict policies degrade with visible warnings."
+      "fallback_or_remediation": "If unsupported capabilities exist, strict policies degrade with visible warnings.",
+      "capability_key": "rulesets"
     },
     "policy.require_github_app": {
       "section": "policy",
@@ -86,7 +87,8 @@
       "tradeoffs": "Requiring an App improves permission governance but adds setup overhead.",
       "prerequisites": "Installed GitHub App with required scopes.",
       "apply_impact": "Can block apply/upgrade when required capabilities are missing.",
-      "fallback_or_remediation": "Install a GitHub App with required permissions or disable App-required enforcement."
+      "fallback_or_remediation": "Install a GitHub App with required permissions or disable App-required enforcement.",
+      "capability_key": "github_app_required"
     },
     "policy.enforce_codeowners_protected_paths": {
       "section": "policy",
@@ -96,7 +98,8 @@
       "tradeoffs": "Improves control but can increase review overhead.",
       "prerequisites": "CODEOWNERS file and branch protection/ruleset support.",
       "apply_impact": "Influences generated reviewer and branch policy artifacts.",
-      "fallback_or_remediation": "If rulesets are unavailable, policy remains documented as advisory in generated outputs."
+      "fallback_or_remediation": "If rulesets are unavailable, policy remains documented as advisory in generated outputs.",
+      "capability_key": "rulesets"
     },
     "branching.topology": {
       "section": "branching",
@@ -106,7 +109,8 @@
       "tradeoffs": "Presets are fast and safer; custom is flexible but requires more policy tuning.",
       "prerequisites": "Branch names configured in repository.",
       "apply_impact": "Regenerates branch topology policy and required-check target mappings.",
-      "fallback_or_remediation": "Choose a preset topology when custom graph settings become inconsistent."
+      "fallback_or_remediation": "Choose a preset topology when custom graph settings become inconsistent.",
+      "capability_key": "rulesets"
     },
     "branching.branches": {
       "section": "branching",
@@ -116,7 +120,8 @@
       "tradeoffs": "Highly flexible but requires careful policy review.",
       "prerequisites": "Consistent branch naming conventions.",
       "apply_impact": "Directly changes branch-role policy outputs and required checks per branch.",
-      "fallback_or_remediation": "Use topology preset regeneration if custom graph drifts from required release model."
+      "fallback_or_remediation": "Use topology preset regeneration if custom graph drifts from required release model.",
+      "capability_key": "rulesets"
     },
     "branching.review_thresholds": {
       "section": "branching",
@@ -126,7 +131,8 @@
       "tradeoffs": "Higher thresholds improve change control and reduce merge speed.",
       "prerequisites": "Maintainer detection or manual override.",
       "apply_impact": "Updates reviewer policy outputs and protection recommendations.",
-      "fallback_or_remediation": "If collaborator probing is limited, conservative reviewer defaults are used."
+      "fallback_or_remediation": "If collaborator probing is limited, conservative reviewer defaults are used.",
+      "capability_key": "rulesets"
     },
     "ci.mode": {
       "section": "ci",
@@ -136,7 +142,8 @@
       "tradeoffs": "Always-full is safest but slowest; lightweight is fastest but riskier.",
       "prerequisites": "None.",
       "apply_impact": "Regenerates PR gate workflow behavior and trigger rules.",
-      "fallback_or_remediation": "When merge queue support is unavailable, classifier still enforces full lane for risky changes."
+      "fallback_or_remediation": "When merge queue support is unavailable, classifier still enforces full lane for risky changes.",
+      "capability_key": "merge_queue"
     },
     "ci.action_refs": {
       "section": "ci",
@@ -146,7 +153,8 @@
       "tradeoffs": "Major tags are easier to maintain; SHA pins are stricter and reduce supply-chain risk.",
       "prerequisites": "Valid GitHub Action reference syntax.",
       "apply_impact": "Regenerates CI and deploy workflow action references.",
-      "fallback_or_remediation": "Use full SHA pins when strict enterprise supply-chain controls are required."
+      "fallback_or_remediation": "Use full SHA pins when strict enterprise supply-chain controls are required.",
+      "capability_key": "merge_queue"
     },
     "ci.change_profiles": {
       "section": "ci",
@@ -156,7 +164,8 @@
       "tradeoffs": "Overly broad rules can skip needed checks; overly strict rules increase CI cost.",
       "prerequisites": "Repository path conventions.",
       "apply_impact": "Updates generated classifier config consumed by PR gate workflow.",
-      "fallback_or_remediation": "If profile regexes are invalid, baseline falls back to conservative full-lane behavior."
+      "fallback_or_remediation": "If profile regexes are invalid, baseline falls back to conservative full-lane behavior.",
+      "capability_key": "merge_queue"
     },
     "ci.full_lane_triggers": {
       "section": "ci",
@@ -166,7 +175,8 @@
       "tradeoffs": "More triggers increase confidence but can reduce CI throughput.",
       "prerequisites": "Pull request labels and workflow permissions.",
       "apply_impact": "Updates classifier and PR gate workflow conditions.",
-      "fallback_or_remediation": "Disable unsupported trigger types and rely on path/profile risk rules."
+      "fallback_or_remediation": "Disable unsupported trigger types and rely on path/profile risk rules.",
+      "capability_key": "merge_queue"
     },
     "deployments.environments": {
       "section": "deployments",
@@ -176,7 +186,8 @@
       "tradeoffs": "More environments increase control and complexity.",
       "prerequisites": "GitHub environments support when enforcing approvals.",
       "apply_impact": "Regenerates deployment workflows and approval matrix policies.",
-      "fallback_or_remediation": "If environments API is unsupported, approval requirements remain documented and surfaced."
+      "fallback_or_remediation": "If environments API is unsupported, approval requirements remain documented and surfaced.",
+      "capability_key": "environments"
     },
     "deployments.components": {
       "section": "deployments",
@@ -186,7 +197,8 @@
       "tradeoffs": "More components increase precision and policy maintenance cost.",
       "prerequisites": "Consistent component naming and deployment ownership.",
       "apply_impact": "Updates matrix rows and deploy workflow validation.",
-      "fallback_or_remediation": "Use auto-detection defaults if manual component definitions drift."
+      "fallback_or_remediation": "Use auto-detection defaults if manual component definitions drift.",
+      "capability_key": "environments"
     },
     "deployments.approval_matrix": {
       "section": "deployments",
@@ -196,7 +208,8 @@
       "tradeoffs": "More granularity gives better control but more settings to maintain.",
       "prerequisites": "Components and environments defined.",
       "apply_impact": "Regenerates deployment approval policy artifacts and deploy guard behavior.",
-      "fallback_or_remediation": "If approvals cannot be enforced in-platform, matrix policy is still emitted and warned as advisory."
+      "fallback_or_remediation": "If approvals cannot be enforced in-platform, matrix policy is still emitted and warned as advisory.",
+      "capability_key": "environments"
     },
     "deployments.oidc": {
       "section": "deployments",
@@ -206,7 +219,8 @@
       "tradeoffs": "Improves cloud auth security with additional provider setup complexity.",
       "prerequisites": "Cloud provider trust policy configured for GitHub OIDC.",
       "apply_impact": "Adds OIDC permissions and validation behavior to deploy workflow.",
-      "fallback_or_remediation": "Disable OIDC until provider trust/audience is configured correctly."
+      "fallback_or_remediation": "Disable OIDC until provider trust/audience is configured correctly.",
+      "capability_key": "environments"
     },
     "planning.required": {
       "section": "planning",
@@ -236,7 +250,8 @@
       "tradeoffs": "Improves detection with additional CI/runtime overhead.",
       "prerequisites": "Repository code scanning support and plan entitlement.",
       "apply_impact": "Influences capability warnings and security policy metadata.",
-      "fallback_or_remediation": "If unsupported, security output is marked degraded with remediation details."
+      "fallback_or_remediation": "If unsupported, security output is marked degraded with remediation details.",
+      "capability_key": "code_scanning"
     },
     "security.dependency_review": {
       "section": "security",
@@ -246,7 +261,8 @@
       "tradeoffs": "Improves supply-chain safety with slight CI overhead.",
       "prerequisites": "Dependency graph availability in repository settings.",
       "apply_impact": "Updates security policy output and capability diagnostics.",
-      "fallback_or_remediation": "If unsupported, keep the policy enabled and resolve platform access before enforcing."
+      "fallback_or_remediation": "If unsupported, keep the policy enabled and resolve platform access before enforcing.",
+      "capability_key": "dependency_review"
     },
     "security.secret_scanning": {
       "section": "security",
@@ -256,7 +272,8 @@
       "tradeoffs": "Higher security posture with occasional false-positive triage cost.",
       "prerequisites": "Repository secret scanning availability.",
       "apply_impact": "Included in generated security policy context.",
-      "fallback_or_remediation": "If unavailable on current plan/account, treat as advisory and document remediation."
+      "fallback_or_remediation": "If unavailable on current plan/account, treat as advisory and document remediation.",
+      "capability_key": "code_scanning"
     },
     "security.require_pinned_action_refs": {
       "section": "security",
@@ -306,7 +323,8 @@
       "tradeoffs": "Disabling modules reduces surface area but may remove automation outputs.",
       "prerequisites": "Valid module manifests under tooling/apps/baseline-engine/modules.",
       "apply_impact": "Only enabled modules contribute generated files and policy outputs.",
-      "fallback_or_remediation": "If module capabilities are unsupported, module features auto-degrade and warnings are emitted."
+      "fallback_or_remediation": "If module capabilities are unsupported, module features auto-degrade and warnings are emitted.",
+      "capability_key": "github_app_required"
     }
   },
   "capability_labels": {
