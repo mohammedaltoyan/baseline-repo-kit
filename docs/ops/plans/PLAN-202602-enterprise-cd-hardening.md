@@ -2,7 +2,7 @@
 plan_id: PLAN-202602-enterprise-cd-hardening
 title: Enterprise CD Hardening (Registry SSOT + Dynamic Approvals + Isolated Envs)
 owner: @owner
-status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
+status: done # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
 current_step: S99
 updated: 2026-02-18
 priority: P2 # P0|P1|P2|P3
@@ -28,7 +28,7 @@ Checklist
 - [x] S40 - Env isolation lint workflow + required-check wiring + bootstrap vars (lint remains disabled by default)
 - [x] S50 - Bootstrap: create deploy-surfaces.json from example + provision deploy+approval environments from registry + docs/AGENTS updates
 - [x] S98 - Objectives Gate (record "Objectives Evidence:")
-- [ ] S99 - Tests Gate (record CI/local evidence)
+- [x] S99 - Tests Gate (record CI/local evidence)
 
 Phase Map
 - S10 (done): Add registry SSOT template + core scripts + selftests; wire into `npm test`.
@@ -42,5 +42,6 @@ Decisions & Notes
 - 2026-02-17 - Deploy remains dispatch-based (promote workflows dispatch `deploy.yml` on the correct branch) to preserve GitHub Environment branch policy enforcement.
 - 2026-02-17 - Receipts are the SSOT for promotion prerequisites; production checks staging receipts per-surface for the same deploy ref.
 - 2026-02-17 - Env isolation lint ships but is disabled by default; when enabled, it fails closed if it cannot fully verify isolation.
-- PR: (pending)
-- CI Evidence: (pending)
+- PR: https://github.com/mohammedaltoyan/baseline-repo-kit/pull/38
+- CI Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/22120880010
+- Local Evidence: `npm test` (pass)
