@@ -2,6 +2,28 @@
 
 const { spawnSync } = require('child_process');
 
+const CAPABILITY_KEYS = Object.freeze([
+  'rulesets',
+  'merge_queue',
+  'environments',
+  'code_scanning',
+  'dependency_review',
+  'repo_variables',
+  'github_app_required',
+]);
+
+function defaultCapabilitiesState() {
+  const out = {};
+  for (const key of CAPABILITY_KEYS) {
+    if (key === 'github_app_required') {
+      out[key] = { supported: true, state: 'supported', reason: 'feature_dependent' };
+      continue;
+    }
+    out[key] = { supported: false, state: 'unknown', reason: 'unprobed' };
+  }
+  return out;
+}
+
 function normalizeRepoSlug(value) {
   const slug = String(value || '').trim();
   const m = /^([^/]+)\/([^/]+)$/.exec(slug);
@@ -168,15 +190,7 @@ async function detectGithubCapabilities({ targetRoot }) {
         write: 0,
       },
     },
-    capabilities: {
-      rulesets: { supported: false, state: 'unknown', reason: 'unprobed' },
-      merge_queue: { supported: false, state: 'unknown', reason: 'unprobed' },
-      environments: { supported: false, state: 'unknown', reason: 'unprobed' },
-      code_scanning: { supported: false, state: 'unknown', reason: 'unprobed' },
-      dependency_review: { supported: false, state: 'unknown', reason: 'unprobed' },
-      repo_variables: { supported: false, state: 'unknown', reason: 'unprobed' },
-      github_app_required: { supported: true, state: 'supported', reason: 'feature_dependent' },
-    },
+    capabilities: defaultCapabilitiesState(),
     warnings: [],
   };
 
@@ -291,5 +305,6 @@ async function detectGithubCapabilities({ targetRoot }) {
 }
 
 module.exports = {
+  CAPABILITY_KEYS,
   detectGithubCapabilities,
 };

@@ -38,6 +38,7 @@ Use the engine when you need fully dynamic, capability-aware setup and upgrades:
 Engine guarantees:
 - Module-driven generation (core + extensions) from settings only.
 - Config validation uses JSON Schema SSOT (`config/schema/baseline-config.schema.json`) at runtime.
+- UI metadata validation uses JSON Schema SSOT (`config/schema/baseline-ui-metadata.schema.json`) at runtime.
 - Capability-aware auto-degrade with explicit warnings/remediation.
 - Settings-aware capability requirements (only required features are enforced).
 - UI settings are leaf-driven and metadata-backed (all effective settings inherit human-readable explanations and capability labels from metadata SSOT).

@@ -4,6 +4,7 @@
 const assert = require('assert');
 const { defaultConfig } = require('../../tooling/apps/baseline-engine/lib/config');
 const { loadUiMetadata } = require('../../tooling/apps/baseline-engine/lib/schema');
+const { CAPABILITY_KEYS } = require('../../tooling/apps/baseline-engine/lib/capabilities/github');
 
 function listLeafPaths(value, prefix = '') {
   if (Array.isArray(value)) {
@@ -60,15 +61,7 @@ function run() {
     'apply_impact',
     'fallback_or_remediation',
   ];
-  const allowedCapabilityKeys = new Set([
-    'rulesets',
-    'merge_queue',
-    'environments',
-    'code_scanning',
-    'dependency_review',
-    'repo_variables',
-    'github_app_required',
-  ]);
+  const allowedCapabilityKeys = new Set(CAPABILITY_KEYS);
   for (const [path, meta] of Object.entries(fields)) {
     for (const key of requiredMetaKeys) {
       const value = String(meta && meta[key] || '').trim();
