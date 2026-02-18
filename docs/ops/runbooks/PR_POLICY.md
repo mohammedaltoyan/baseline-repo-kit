@@ -36,11 +36,14 @@ Rules:
 - All feature/fix PRs target `dev`.
 - No PRs merge directly into `main` except:
   - Release PR: `dev` -> `main`
-  - Hotfix PR: `hotfix/*` -> `main` (must include a backport note and be reflected back into `dev`)
+- Baseline default in this repo: production is `dev`-only (hotfix prefixes disabled in `config/policy/branch-policy.json`).
+- Optional hotfix mode (configuration-driven):
+  - Set `hotfix_branch_prefixes` in `config/policy/branch-policy.json` (for example `["hotfix/"]`).
+  - If enabled, hotfix PRs to `main` must include a backport note and be reflected back into `dev`.
 - Optional automation:
   - Use `Release PR (bot)` workflow (`.github/workflows/release-pr-bot.yml`) to open/refresh the release PR as a bot so a human can approve/merge under required-review rules.
 
-Hotfix backport note (required for `hotfix/*` -> `main`):
+Hotfix backport note (required only when hotfix mode is enabled):
 - Add a line in the PR body matching one of the configured markers (SSOT is `config/policy/branch-policy.json`), for example:
   - `Backport: <dev-pr-link>`
   - `Dev PR: <dev-pr-link>`

@@ -4,7 +4,7 @@
     "host": "github.com",
     "default_visibility": "private",
     "set_default_branch_to_integration": true,
-    "enable_backport_default": true,
+    "enable_backport_default": false,
     "enable_security_default": false,
     "enable_deploy_default": false,
     "recommend_merge_queue_integration": true,
@@ -74,7 +74,7 @@
       "PRODUCTION_PROMOTION_REQUIRED": "enabled",
       "STAGING_PROMOTION_REQUIRED": "enabled",
       "STAGING_DEPLOY_GUARD": "enabled",
-      "PRODUCTION_DEPLOY_GUARD": "disabled",
+      "PRODUCTION_DEPLOY_GUARD": "enabled",
       "DOCS_PUBLISH_GUARD": "disabled",
       "API_INGRESS_DEPLOY_GUARD": "disabled",
       "STAGING_APPROVAL_MODE_DEFAULT": "commit",
@@ -83,7 +83,7 @@
       "DEPLOY_SURFACES_PATH": "config/deploy/deploy-surfaces.json",
       "DEPLOY_RECEIPTS_BRANCH": "ops/evidence",
       "DEPLOY_RECEIPTS_PREFIX": "docs/ops/evidence/deploy",
-      "ENV_ISOLATION_LINT_ENABLED": "0",
+      "ENV_ISOLATION_LINT_ENABLED": "1",
       "DEPLOY_ENV_MAP_JSON": "{\"application\":{\"staging\":\"application-staging\",\"production\":\"application-production\"},\"docs\":{\"staging\":\"docs-staging\",\"production\":\"docs-production\"},\"api-ingress\":{\"staging\":\"api-ingress-staging\",\"production\":\"api-ingress-production\"}}"
     },
     "labels": {

@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   lint:
@@ -29,6 +30,6 @@ jobs:
         env:
           ENV_ISOLATION_LINT_ENABLED: ${{ vars.ENV_ISOLATION_LINT_ENABLED }}
           ENV_ISOLATION_TOKEN: ${{ secrets.ENV_ISOLATION_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           DEPLOY_SURFACES_PATH: ${{ vars.DEPLOY_SURFACES_PATH || 'config/deploy/deploy-surfaces.json' }}
         run: node scripts/ops/env-isolation-lint.js
-

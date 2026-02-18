@@ -9,9 +9,9 @@ function defaultConfig() {
     version: 1,
     integration_branch: 'dev',
     production_branch: 'main',
-    hotfix_branch_prefixes: ['hotfix/'],
-    require_hotfix_backport_note: true,
-    hotfix_backport_markers: ['Backport:', 'Dev PR:'],
+    hotfix_branch_prefixes: [],
+    require_hotfix_backport_note: false,
+    hotfix_backport_markers: [],
   };
 }
 
@@ -32,11 +32,13 @@ function normalizeConfig(raw) {
 
   const integrationBranch = toString(r.integration_branch) || d.integration_branch;
   const productionBranch = toString(r.production_branch) || d.production_branch;
+  const hasHotfixPrefixes = Object.prototype.hasOwnProperty.call(r, 'hotfix_branch_prefixes');
   const hotfixPrefixes = toStringArray(r.hotfix_branch_prefixes);
   const requireHotfixBackportNote =
     typeof r.require_hotfix_backport_note === 'boolean'
       ? r.require_hotfix_backport_note
       : d.require_hotfix_backport_note;
+  const hasBackportMarkers = Object.prototype.hasOwnProperty.call(r, 'hotfix_backport_markers');
   const backportMarkers = toStringArray(r.hotfix_backport_markers);
 
   return {
@@ -44,9 +46,9 @@ function normalizeConfig(raw) {
     ...r,
     integration_branch: integrationBranch,
     production_branch: productionBranch,
-    hotfix_branch_prefixes: hotfixPrefixes.length ? hotfixPrefixes : d.hotfix_branch_prefixes,
+    hotfix_branch_prefixes: hasHotfixPrefixes ? hotfixPrefixes : d.hotfix_branch_prefixes,
     require_hotfix_backport_note: requireHotfixBackportNote,
-    hotfix_backport_markers: backportMarkers.length ? backportMarkers : d.hotfix_backport_markers,
+    hotfix_backport_markers: hasBackportMarkers ? backportMarkers : d.hotfix_backport_markers,
   };
 }
 
@@ -115,8 +117,11 @@ function validateBranchPolicy({ baseRef, headRef, prBody, config }) {
 
     const isHotfix = startsWithAnyPrefix(head, cfg.hotfix_branch_prefixes);
     if (!isHotfix) {
+      const hotfixHint = cfg.hotfix_branch_prefixes.length
+        ? ` or a hotfix branch (${cfg.hotfix_branch_prefixes.join(', ')})`
+        : '';
       throw new Error(
-        `PRs into ${production} must come from ${integration} or a hotfix branch (${cfg.hotfix_branch_prefixes.join(', ') || 'hotfix/'}). Found head=${head}.`
+        `PRs into ${production} must come from ${integration}${hotfixHint}. Found head=${head}.`
       );
     }
 
@@ -133,7 +138,8 @@ function validateBranchPolicy({ baseRef, headRef, prBody, config }) {
   }
 
   throw new Error(
-    `PRs must target the integration branch (${integration}). Production (${production}) is allowed only for release (from ${integration}) or hotfix branches. Found base=${base}.`
+    `PRs must target the integration branch (${integration}). Production (${production}) is allowed only for release (from ${integration})` +
+    `${cfg.hotfix_branch_prefixes.length ? ' or configured hotfix branches' : ''}. Found base=${base}.`
   );
 }
 
