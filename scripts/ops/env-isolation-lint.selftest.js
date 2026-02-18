@@ -2,7 +2,7 @@
 'use strict';
 
 const assert = require('assert');
-const { isEnabled, diffKeys } = require('./env-isolation-lint');
+const { isEnabled, diffKeys, buildTokenCandidates } = require('./env-isolation-lint');
 
 function run() {
   assert.strictEqual(isEnabled('1'), true);
@@ -14,6 +14,8 @@ function run() {
   assert.deepStrictEqual(diffKeys(['A', 'B'], ['A']), ['B']);
   assert.deepStrictEqual(diffKeys(['A'], ['A', 'B']), []);
   assert.deepStrictEqual(diffKeys([], ['A']), []);
+  assert.deepStrictEqual(buildTokenCandidates('', null, 'abc', 'abc', 'def'), ['abc', 'def']);
+  assert.deepStrictEqual(buildTokenCandidates('  ', undefined), []);
 
   console.log('[env-isolation-lint:selftest] OK');
 }
@@ -23,4 +25,3 @@ if (require.main === module) {
 }
 
 module.exports = { run };
-
