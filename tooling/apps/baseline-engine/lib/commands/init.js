@@ -18,7 +18,8 @@ async function runInit(args) {
     module_count: context.modules.length,
     change_count: context.changes.length,
     written_files: applied.length,
-    warnings: context.capabilities.warnings || [],
+    conflict_count: applied.filter((entry) => entry && entry.conflicted).length,
+    warnings: context.warnings || [],
   };
 
   printOutput(payload, args);

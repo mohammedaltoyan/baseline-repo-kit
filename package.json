@@ -16,7 +16,7 @@
     "lint:installer": "node scripts/tooling/baseline-install.selftest.js",
     "lint:bootstrap": "node scripts/tooling/baseline-bootstrap.selftest.js",
     "lint:env": "node scripts/utils/load-env.selftest.js",
-    "lint:engine": "node scripts/tooling/baseline-engine.selftest.js",
+    "lint:engine": "node scripts/tooling/baseline-engine.selftest.js && node scripts/tooling/baseline-engine.merge.selftest.js && node scripts/tooling/baseline-engine.capabilities.selftest.js",
     "test:deep": "node scripts/tooling/deep-verify.js",
 
     "docs:clean": "node scripts/tooling/docs-clean.js",

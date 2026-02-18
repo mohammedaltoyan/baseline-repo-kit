@@ -1,4 +1,8 @@
 {
   "requires": ["environments", "repo_variables"],
-  "degrade_strategy": "warn"
+  "degrade_strategy": "warn",
+  "remediation": {
+    "environments": "Enable repository environments in settings and ensure token has administration access.",
+    "repo_variables": "Grant Actions variables permissions (actions:write or repo admin) for automated deployment wiring."
+  }
 }

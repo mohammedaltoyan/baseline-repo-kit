@@ -48,6 +48,8 @@ async function currentState(args) {
     capabilities: context.capabilities,
     changes: context.changes,
     modules: context.modules,
+    module_evaluation: context.moduleEvaluation,
+    warnings: context.warnings || [],
   };
 }
 

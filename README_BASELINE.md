@@ -16,6 +16,10 @@ Use:
   - Control panel: `npm run baseline:ui -- --target <target-path>`
   - Diff/apply: `npm run baseline:diff -- --target <target-path>` / `npm run baseline:apply -- --target <target-path>`
   - Upgrade: `npm run baseline:upgrade -- --target <target-path>`
+  - Managed merge strategies: `replace`, `json_merge`, `yaml_merge`, `three_way`
+  - Capability-aware auto-degrade with remediation (including dynamic GitHub App requirement decisions)
+  - Generated CI risk classifier + required-check mapping by branch role
+  - Rollback snapshots for upgrade safety
 - Recommended: use the installer so this repo remains the SSOT and updates are repeatable:
   - Bootstrap (recommended; local + optional GitHub provisioning): `npm run baseline:bootstrap -- -- --to <target-path> [--github]`
   - Install (new repo): `npm run baseline:install -- <target-path> init`

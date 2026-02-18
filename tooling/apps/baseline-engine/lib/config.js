@@ -14,6 +14,19 @@ const { computeAdaptiveReviewThresholds } = require('./policy/reviewers');
 const { fileExists, readJsonSafe, readYamlSafe, writeJson, writeYaml } = require('./util/fs');
 const { validateConfig } = require('./schema');
 
+function mergeDefaults(baseValue, overrideValue) {
+  if (Array.isArray(overrideValue)) return overrideValue;
+  if (overrideValue == null) return baseValue;
+  if (!baseValue || typeof baseValue !== 'object' || Array.isArray(baseValue)) return overrideValue;
+  if (typeof overrideValue !== 'object' || Array.isArray(overrideValue)) return overrideValue;
+
+  const out = { ...baseValue };
+  for (const [key, value] of Object.entries(overrideValue)) {
+    out[key] = mergeDefaults(baseValue[key], value);
+  }
+  return out;
+}
+
 function defaultChangeProfiles() {
   return [
     {
@@ -158,13 +171,16 @@ function ensureConfig({ targetRoot, capabilities, components, profile }) {
   const current = loadConfig(targetRoot);
   let config = current.config;
   let state = current.state;
+  const defaults = defaultConfig({
+    maintainersCount: capabilities && capabilities.collaborators && capabilities.collaborators.maintainer_count,
+    components,
+    profile,
+  });
 
   if (!config || typeof config !== 'object') {
-    config = defaultConfig({
-      maintainersCount: capabilities && capabilities.collaborators && capabilities.collaborators.maintainer_count,
-      components,
-      profile,
-    });
+    config = defaults;
+  } else {
+    config = mergeDefaults(defaults, config);
   }
 
   validateConfig(config);

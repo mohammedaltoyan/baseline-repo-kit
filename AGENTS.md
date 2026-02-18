@@ -154,12 +154,20 @@ When working on frontend UI/UX:
 - Baseline behavior must be generated from settings (`.baseline/config.yaml`) and capability probes (`.baseline/capabilities/github.json`), not hardcoded in scripts/workflows.
 - Managed upgrades must be migration-based (`scripts/tooling/migrations/<semver>/`) with explicit state tracking in `.baseline/state.json`.
 - Generated file ownership and merge strategy must be tracked in `.baseline/managed-files.json`.
+- Module generators are the only source for managed outputs; core engine orchestrates modules and does not hardcode module artifacts.
 - New baseline features must ship as modules under `tooling/apps/baseline-engine/modules/` with:
   - `module.json`
   - `schema.fragment.json`
   - `capability_requirements.json`
   - `generators/`
   - `migrations/`
+- Managed file writes must use declared strategies (`replace`, `json_merge`, `yaml_merge`, `three_way`) and preserve explicit user blocks marked with `baseline:user-block <id>:begin/end`.
+- `three_way` merges must use baseline base snapshots from `.baseline/internal/base-content.json`; upgrade rollback snapshots must be written under `.baseline/snapshots/`.
+- Capability-aware behavior is mandatory:
+  - Engine computes required capabilities from enabled modules.
+  - Unsupported capabilities auto-degrade and warn.
+  - `policy.require_github_app=true` enforces capability requirements as hard failures.
+- CI lane control must remain classifier-driven via generated `config/ci/baseline-change-profiles.json` and `scripts/ops/ci/change-classifier.js` (no per-repo hardcoded lane logic).
 - Backward compatibility default: new modules/features are opt-in unless an explicit migration enables them.
 
 ## Commit & Pull Request Guidelines (Recommended)

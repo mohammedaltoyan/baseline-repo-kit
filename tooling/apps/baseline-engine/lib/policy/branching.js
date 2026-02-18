@@ -89,7 +89,27 @@ function resolveBranchRoles(branches) {
   return Object.fromEntries(roles.entries());
 }
 
+function deriveBranchRolePolicies({ branches, requiredChecksByRole }) {
+  const list = Array.isArray(branches) ? branches : [];
+  const checks = requiredChecksByRole && typeof requiredChecksByRole === 'object'
+    ? requiredChecksByRole
+    : {};
+  return list.map((branch) => {
+    const role = String(branch && branch.role || 'custom').trim() || 'custom';
+    const branchName = String(branch && branch.name || '').trim();
+    const roleChecks = Array.isArray(checks[role]) ? checks[role] : Array.isArray(checks.custom) ? checks.custom : [];
+    return {
+      branch: branchName,
+      role,
+      protected: !!(branch && branch.protected),
+      allowed_sources: Array.isArray(branch && branch.allowed_sources) ? branch.allowed_sources : [],
+      required_checks: roleChecks,
+    };
+  });
+}
+
 module.exports = {
+  deriveBranchRolePolicies,
   resolveBranchRoles,
   resolveTopology,
   threeBranchTopology,

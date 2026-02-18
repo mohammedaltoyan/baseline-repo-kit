@@ -1,4 +1,7 @@
 {
   "requires": ["repo_variables"],
-  "degrade_strategy": "warn"
+  "degrade_strategy": "warn",
+  "remediation": {
+    "repo_variables": "Grant repository Actions variable permissions so planning automation controls can be configured."
+  }
 }

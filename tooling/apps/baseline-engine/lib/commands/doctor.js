@@ -4,35 +4,6 @@ const { buildContext } = require('../context');
 const { loadSchema, loadUiMetadata, validateConfig } = require('../schema');
 const { printOutput } = require('./shared');
 
-function evaluateModuleCapabilities(context) {
-  const enabled = new Set(Array.isArray(context.config && context.config.modules && context.config.modules.enabled)
-    ? context.config.modules.enabled
-    : []);
-
-  const results = [];
-  for (const mod of context.modules) {
-    if (!enabled.has(mod.id)) continue;
-    const reqs = mod.capability_requirements && mod.capability_requirements.requires || [];
-    const missing = [];
-    for (const req of reqs) {
-      const key = String(req || '').trim();
-      if (!key) continue;
-      const cap = context.capabilities && context.capabilities.capabilities && context.capabilities.capabilities[key];
-      if (!cap || cap.supported !== true) {
-        missing.push({ capability: key, reason: cap && cap.reason || 'unavailable' });
-      }
-    }
-
-    results.push({
-      module: mod.id,
-      ok: missing.length === 0,
-      missing,
-    });
-  }
-
-  return results;
-}
-
 async function runDoctor(args) {
   const context = await buildContext(args);
   const schema = loadSchema();
@@ -47,8 +18,8 @@ async function runDoctor(args) {
   }));
   const invalidModules = moduleIntegrity.filter((mod) => !mod.valid);
 
-  const capabilityResults = evaluateModuleCapabilities(context);
-  const degraded = capabilityResults.filter((entry) => !entry.ok);
+  const moduleEvaluation = context.moduleEvaluation || { modules: [], warnings: [], errors: [], github_app: {} };
+  const degraded = moduleEvaluation.modules.filter((entry) => entry.enabled && entry.degraded);
 
   const payload = {
     command: 'doctor',
@@ -58,10 +29,16 @@ async function runDoctor(args) {
     config_valid: true,
     module_count: context.modules.length,
     invalid_module_count: invalidModules.length,
-    capability_degraded_modules: degraded,
-    warnings: (context.capabilities.warnings || []).concat(
-      degraded.map((entry) => `Module ${entry.module} degraded: ${entry.missing.map((m) => m.capability).join(', ')}`)
-    ),
+    capability_degraded_modules: degraded.map((entry) => ({
+      module: entry.id,
+      strategy: entry.strategy,
+      missing: entry.missing,
+      skipped: entry.skipped,
+    })),
+    required_capabilities: moduleEvaluation.required_capabilities || [],
+    missing_required_capabilities: moduleEvaluation.missing_required_capabilities || [],
+    github_app: moduleEvaluation.github_app || {},
+    warnings: context.warnings || [],
   };
 
   if (invalidModules.length > 0) {
@@ -70,8 +47,14 @@ async function runDoctor(args) {
 
   printOutput(payload, args);
 
-  if (invalidModules.length > 0) {
-    throw new Error(`Doctor failed: invalid modules detected (${invalidModules.map((m) => m.id).join(', ')})`);
+  if (invalidModules.length > 0 || (moduleEvaluation.errors && moduleEvaluation.errors.length > 0)) {
+    const invalidMessage = invalidModules.length > 0
+      ? `invalid modules (${invalidModules.map((m) => m.id).join(', ')})`
+      : '';
+    const capabilityMessage = moduleEvaluation.errors && moduleEvaluation.errors.length > 0
+      ? `capability enforcement (${moduleEvaluation.errors.join(' | ')})`
+      : '';
+    throw new Error(`Doctor failed: ${[invalidMessage, capabilityMessage].filter(Boolean).join(' ; ')}`);
   }
 
   return payload;

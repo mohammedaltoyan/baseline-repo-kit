@@ -14,12 +14,12 @@
     {
       "id": "branching",
       "title": "Branching",
-      "description": "Topology, protected branches, and reviewer thresholds."
+      "description": "Topology, branch graph, and reviewer thresholds."
     },
     {
       "id": "ci",
       "title": "CI/CD",
-      "description": "Two-lane execution and change classification."
+      "description": "Two-lane execution, risk classification, and required checks."
     },
     {
       "id": "deployments",
@@ -29,7 +29,12 @@
     {
       "id": "planning",
       "title": "Planning Gates",
-      "description": "Plan requirements and audited automation exemptions."
+      "description": "Plan requirement policy and controlled automation bypasses."
+    },
+    {
+      "id": "security",
+      "title": "Security",
+      "description": "Security scanning defaults and dependency policy behavior."
     },
     {
       "id": "updates",
@@ -43,6 +48,16 @@
     }
   ],
   "fields": {
+    "version": {
+      "section": "platform",
+      "what_this_controls": "Schema version for baseline configuration.",
+      "why_it_matters": "Defines backward compatibility behavior for migrations and validators.",
+      "default_behavior": "Defaults to 1.",
+      "tradeoffs": "Newer schema versions may expose more features but can require migration.",
+      "prerequisites": "None.",
+      "apply_impact": "Used by upgrade/validation runtime.",
+      "fallback_or_remediation": "If schema mismatch is detected, run baseline upgrade to migrate safely."
+    },
     "platform.provider": {
       "section": "platform",
       "what_this_controls": "Selects the baseline provider adapter used for capability probing and workflow generation.",
@@ -50,7 +65,8 @@
       "default_behavior": "Defaults to github.",
       "tradeoffs": "GitHub-first ships fastest and most robustly now; multi-provider adapters can be added later as modules.",
       "prerequisites": "A reachable GitHub repository and auth token for capability probing.",
-      "apply_impact": "Regenerates provider-specific workflows and capability snapshots."
+      "apply_impact": "Regenerates provider-specific workflows and capability snapshots.",
+      "fallback_or_remediation": "Unsupported provider values are rejected by schema validation."
     },
     "policy.profile": {
       "section": "policy",
@@ -59,7 +75,8 @@
       "default_behavior": "Defaults to strict.",
       "tradeoffs": "Strict increases control and safety; moderate/advisory increase delivery speed.",
       "prerequisites": "None.",
-      "apply_impact": "Updates PR gate behavior, required checks, and reviewer threshold defaults."
+      "apply_impact": "Updates PR gate behavior, required checks, and reviewer threshold defaults.",
+      "fallback_or_remediation": "If unsupported capabilities exist, strict policies degrade with visible warnings."
     },
     "policy.require_github_app": {
       "section": "policy",
@@ -68,7 +85,18 @@
       "default_behavior": "False by default; App required only when enabled features need it.",
       "tradeoffs": "Requiring an App improves permission governance but adds setup overhead.",
       "prerequisites": "Installed GitHub App with required scopes.",
-      "apply_impact": "May disable unsupported automations until capabilities are present."
+      "apply_impact": "Can block apply/upgrade when required capabilities are missing.",
+      "fallback_or_remediation": "Install a GitHub App with required permissions or disable App-required enforcement."
+    },
+    "policy.enforce_codeowners_protected_paths": {
+      "section": "policy",
+      "what_this_controls": "Enables CODEOWNERS-path enforcement in large-team governance defaults.",
+      "why_it_matters": "Protects critical paths with domain reviewer ownership in high-collaboration repos.",
+      "default_behavior": "Enabled by default.",
+      "tradeoffs": "Improves control but can increase review overhead.",
+      "prerequisites": "CODEOWNERS file and branch protection/ruleset support.",
+      "apply_impact": "Influences generated reviewer and branch policy artifacts.",
+      "fallback_or_remediation": "If rulesets are unavailable, policy remains documented as advisory in generated outputs."
     },
     "branching.topology": {
       "section": "branching",
@@ -77,7 +105,18 @@
       "default_behavior": "Defaults to two_branch (dev -> main).",
       "tradeoffs": "Presets are fast and safer; custom is flexible but requires more policy tuning.",
       "prerequisites": "Branch names configured in repository.",
-      "apply_impact": "Regenerates branch topology policy and required-check target mappings."
+      "apply_impact": "Regenerates branch topology policy and required-check target mappings.",
+      "fallback_or_remediation": "Choose a preset topology when custom graph settings become inconsistent."
+    },
+    "branching.branches": {
+      "section": "branching",
+      "what_this_controls": "Custom branch graph entries with role and source-branch policy.",
+      "why_it_matters": "Controls which branches are protected and how code promotion flows across environments.",
+      "default_behavior": "Generated from selected topology preset.",
+      "tradeoffs": "Highly flexible but requires careful policy review.",
+      "prerequisites": "Consistent branch naming conventions.",
+      "apply_impact": "Directly changes branch-role policy outputs and required checks per branch.",
+      "fallback_or_remediation": "Use topology preset regeneration if custom graph drifts from required release model."
     },
     "branching.review_thresholds": {
       "section": "branching",
@@ -86,7 +125,8 @@
       "default_behavior": "Adaptive defaults: <=1 maintainer = 0 approvals, 2-5 = 1, >=6 = 2 + CODEOWNERS.",
       "tradeoffs": "Higher thresholds improve change control and reduce merge speed.",
       "prerequisites": "Maintainer detection or manual override.",
-      "apply_impact": "Updates reviewer policy outputs and protection recommendations."
+      "apply_impact": "Updates reviewer policy outputs and protection recommendations.",
+      "fallback_or_remediation": "If collaborator probing is limited, conservative reviewer defaults are used."
     },
     "ci.mode": {
       "section": "ci",
@@ -95,25 +135,58 @@
       "default_behavior": "Defaults to two_lane.",
       "tradeoffs": "Always-full is safest but slowest; lightweight is fastest but riskier.",
       "prerequisites": "None.",
-      "apply_impact": "Regenerates PR gate workflow behavior and trigger rules."
+      "apply_impact": "Regenerates PR gate workflow behavior and trigger rules.",
+      "fallback_or_remediation": "When merge queue support is unavailable, classifier still enforces full lane for risky changes."
     },
     "ci.change_profiles": {
       "section": "ci",
       "what_this_controls": "Regex-based change routing for fast lane vs full lane.",
       "why_it_matters": "Avoids costly full runs on low-risk changes while preserving strict checks for risky paths.",
-      "default_behavior": "Includes docs/ci/ui/db profiles out of the box.",
+      "default_behavior": "Includes docs, ci, and app profiles by default.",
       "tradeoffs": "Overly broad rules can skip needed checks; overly strict rules increase CI cost.",
       "prerequisites": "Repository path conventions.",
-      "apply_impact": "Updates generated change-classifier config consumed by PR gate workflow."
+      "apply_impact": "Updates generated classifier config consumed by PR gate workflow.",
+      "fallback_or_remediation": "If profile regexes are invalid, baseline falls back to conservative full-lane behavior."
+    },
+    "ci.full_lane_triggers": {
+      "section": "ci",
+      "what_this_controls": "Defines explicit triggers for full lane execution (labels, merge queue, manual, path triggers).",
+      "why_it_matters": "Guarantees high-signal checks run for critical flows even if classifier returns low risk.",
+      "default_behavior": "Merge queue + manual + policy path triggers enabled.",
+      "tradeoffs": "More triggers increase confidence but can reduce CI throughput.",
+      "prerequisites": "Pull request labels and workflow permissions.",
+      "apply_impact": "Updates classifier and PR gate workflow conditions.",
+      "fallback_or_remediation": "Disable unsupported trigger types and rely on path/profile risk rules."
+    },
+    "deployments.environments": {
+      "section": "deployments",
+      "what_this_controls": "Environment list and role mapping used in deployment policies.",
+      "why_it_matters": "Defines release promotion targets and branch-role eligibility.",
+      "default_behavior": "Defaults to dev, staging, production.",
+      "tradeoffs": "More environments increase control and complexity.",
+      "prerequisites": "GitHub environments support when enforcing approvals.",
+      "apply_impact": "Regenerates deployment workflows and approval matrix policies.",
+      "fallback_or_remediation": "If environments API is unsupported, approval requirements remain documented and surfaced."
+    },
+    "deployments.components": {
+      "section": "deployments",
+      "what_this_controls": "Component catalog for per-component deployment and approval rules.",
+      "why_it_matters": "Allows stricter controls for sensitive components while keeping low-risk components fast.",
+      "default_behavior": "Auto-detected and editable.",
+      "tradeoffs": "More components increase precision and policy maintenance cost.",
+      "prerequisites": "Consistent component naming and deployment ownership.",
+      "apply_impact": "Updates matrix rows and deploy workflow validation.",
+      "fallback_or_remediation": "Use auto-detection defaults if manual component definitions drift."
     },
     "deployments.approval_matrix": {
       "section": "deployments",
       "what_this_controls": "Approval requirements per environment and component.",
       "why_it_matters": "Allows fine-grained control so production app deploys can be stricter than docs deploys.",
-      "default_behavior": "Generated from environment defaults + team-size policy.",
+      "default_behavior": "Generated from environment defaults + policy profile.",
       "tradeoffs": "More granularity gives better control but more settings to maintain.",
       "prerequisites": "Components and environments defined.",
-      "apply_impact": "Regenerates deployment approval policy artifacts and deploy guard behavior."
+      "apply_impact": "Regenerates deployment approval policy artifacts and deploy guard behavior.",
+      "fallback_or_remediation": "If approvals cannot be enforced in-platform, matrix policy is still emitted and warned as advisory."
     },
     "planning.required": {
       "section": "planning",
@@ -122,7 +195,58 @@
       "default_behavior": "Enabled by default.",
       "tradeoffs": "Strict planning improves auditability but adds process overhead.",
       "prerequisites": "Canonical plan files in docs/ops/plans.",
-      "apply_impact": "Updates PR policy checks and automation bypass rules."
+      "apply_impact": "Updates policy artifacts consumed by planning checks.",
+      "fallback_or_remediation": "Disable only for intentionally lightweight repos; keep enabled for enterprise-grade governance."
+    },
+    "planning.automation_allowlist": {
+      "section": "planning",
+      "what_this_controls": "Defines constrained automation exceptions for specific branch/path scopes.",
+      "why_it_matters": "Allows safe automation while preserving planning policy integrity.",
+      "default_behavior": "Includes plan archive automation pattern.",
+      "tradeoffs": "Broader allowlists increase automation flexibility and governance risk.",
+      "prerequisites": "Automation branch naming standards.",
+      "apply_impact": "Regenerates planning policy allowlist output.",
+      "fallback_or_remediation": "Reduce allowlist scope if policy bypass risk is detected."
+    },
+    "security.codeql": {
+      "section": "security",
+      "what_this_controls": "Enables CodeQL policy expectation in baseline security defaults.",
+      "why_it_matters": "Adds static analysis guardrails for critical code paths.",
+      "default_behavior": "Enabled by default.",
+      "tradeoffs": "Improves detection with additional CI/runtime overhead.",
+      "prerequisites": "Repository code scanning support and plan entitlement.",
+      "apply_impact": "Influences capability warnings and security policy metadata.",
+      "fallback_or_remediation": "If unsupported, security output is marked degraded with remediation details."
+    },
+    "security.dependency_review": {
+      "section": "security",
+      "what_this_controls": "Enables dependency review expectation in security policy.",
+      "why_it_matters": "Detects risky dependency changes before merge.",
+      "default_behavior": "Enabled by default.",
+      "tradeoffs": "Improves supply-chain safety with slight CI overhead.",
+      "prerequisites": "Dependency graph availability in repository settings.",
+      "apply_impact": "Updates security policy output and capability diagnostics.",
+      "fallback_or_remediation": "If unsupported, keep the policy enabled and resolve platform access before enforcing."
+    },
+    "security.secret_scanning": {
+      "section": "security",
+      "what_this_controls": "Tracks secret scanning expectation as part of baseline security posture.",
+      "why_it_matters": "Reduces risk of credential leakage in repository history.",
+      "default_behavior": "Enabled by default.",
+      "tradeoffs": "Higher security posture with occasional false-positive triage cost.",
+      "prerequisites": "Repository secret scanning availability.",
+      "apply_impact": "Included in generated security policy context.",
+      "fallback_or_remediation": "If unavailable on current plan/account, treat as advisory and document remediation."
+    },
+    "updates.channel": {
+      "section": "updates",
+      "what_this_controls": "Selects baseline release channel.",
+      "why_it_matters": "Controls how quickly new baseline features and migrations are adopted.",
+      "default_behavior": "Defaults to stable.",
+      "tradeoffs": "Stable minimizes change risk; next surfaces new capabilities sooner.",
+      "prerequisites": "Migration compatibility acceptance for target channel.",
+      "apply_impact": "Influences upgrade planning and migration selection.",
+      "fallback_or_remediation": "Switch to stable when next-channel migration risk is not acceptable."
     },
     "updates.apply_mode": {
       "section": "updates",
@@ -131,7 +255,18 @@
       "default_behavior": "Defaults to pr_first.",
       "tradeoffs": "Direct mode is faster but less controlled.",
       "prerequisites": "Git repository for PR-first branch/commit flow.",
-      "apply_impact": "Changes execution path in baseline apply command."
+      "apply_impact": "Changes execution path in baseline apply command.",
+      "fallback_or_remediation": "When PR automation is unavailable, fall back to direct apply and surface warning."
+    },
+    "updates.auto_pr": {
+      "section": "updates",
+      "what_this_controls": "Enables automatic PR opening when apply mode is PR-first.",
+      "why_it_matters": "Reduces operational overhead by automating review-ready change proposals.",
+      "default_behavior": "Enabled by default.",
+      "tradeoffs": "More automation convenience with dependency on git/gh availability.",
+      "prerequisites": "Configured origin remote and authenticated GitHub CLI/token.",
+      "apply_impact": "Controls whether apply attempts branch push + PR create.",
+      "fallback_or_remediation": "Disable when operating in offline/self-managed environments without remote access."
     },
     "modules.enabled": {
       "section": "modules",
@@ -140,7 +275,8 @@
       "default_behavior": "Core modules enabled by default; new modules remain opt-in.",
       "tradeoffs": "Disabling modules reduces surface area but may remove automation outputs.",
       "prerequisites": "Valid module manifests under tooling/apps/baseline-engine/modules.",
-      "apply_impact": "Only enabled modules contribute generated files and policy outputs."
+      "apply_impact": "Only enabled modules contribute generated files and policy outputs.",
+      "fallback_or_remediation": "If module capabilities are unsupported, module features auto-degrade and warnings are emitted."
     }
   },
   "capability_labels": {

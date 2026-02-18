@@ -11,8 +11,9 @@ async function runDiff(args) {
     target: context.targetRoot,
     engine_version: context.engineVersion,
     change_count: context.changes.length,
+    conflict_count: context.changes.filter((entry) => entry && entry.conflicted).length,
     changes: context.changes,
-    warnings: context.capabilities.warnings || [],
+    warnings: context.warnings || [],
   };
 
   printOutput(payload, args);

@@ -11,6 +11,9 @@
         },
         "change_profiles": {
           "type": "array"
+        },
+        "full_lane_triggers": {
+          "type": "object"
         }
       }
     }

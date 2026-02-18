@@ -21,6 +21,7 @@ async function runApply(args) {
 
   const configuredMode = String(context.config && context.config.updates && context.config.updates.apply_mode || 'pr_first');
   const mode = forceDirect ? 'direct' : configuredMode;
+  const autoPrEnabled = !!(context.config && context.config.updates && context.config.updates.auto_pr !== false);
 
   if (!dryRun && context.state) {
     context.state.last_applied_at = new Date().toISOString();
@@ -29,11 +30,13 @@ async function runApply(args) {
       capabilities: context.capabilities,
       state: context.state,
       modules: context.modules,
+      moduleEvaluation: context.moduleEvaluation,
     });
     context.changes = computeDiff({
       targetRoot: context.targetRoot,
       artifacts: context.artifacts,
       readTextSafe,
+      baseContentMap: context.baseContentMap,
     });
   }
 
@@ -47,7 +50,7 @@ async function runApply(args) {
     warnings: [],
   };
 
-  if (!dryRun && mode === 'pr_first') {
+  if (!dryRun && mode === 'pr_first' && autoPrEnabled) {
     const integrationBranch = resolveIntegrationBranch(context.config);
     prSummary = tryPrFirstCommit({
       targetRoot: context.targetRoot,
@@ -62,6 +65,8 @@ async function runApply(args) {
         '- Mode: pr_first',
       ].join('\n'),
     });
+  } else if (!dryRun && mode === 'pr_first' && !autoPrEnabled) {
+    prSummary.warnings.push('PR-first mode selected but updates.auto_pr=false; no PR automation attempted.');
   }
 
   if (!dryRun && context.state) {
@@ -80,8 +85,9 @@ async function runApply(args) {
     apply_mode: mode,
     change_count: context.changes.length,
     written_files: applied.length,
+    conflict_count: applied.filter((entry) => entry && entry.conflicted).length,
     pr_first: prSummary,
-    warnings: (context.capabilities.warnings || []).concat(prSummary.warnings || []),
+    warnings: (context.warnings || []).concat(prSummary.warnings || []),
   };
 
   printOutput(payload, args);

@@ -11,6 +11,8 @@ const CONFIG_FILE = path.posix.join(BASELINE_DIR, 'config.yaml');
 const STATE_FILE = path.posix.join(BASELINE_DIR, 'state.json');
 const MANAGED_FILES_FILE = path.posix.join(BASELINE_DIR, 'managed-files.json');
 const CAPABILITIES_FILE = path.posix.join(BASELINE_DIR, 'capabilities', 'github.json');
+const BASE_CONTENT_FILE = path.posix.join(BASELINE_DIR, 'internal', 'base-content.json');
+const SNAPSHOT_DIR = path.posix.join(BASELINE_DIR, 'snapshots');
 
 const SCHEMA_FILE = path.join(REPO_ROOT, 'config', 'schema', 'baseline-config.schema.json');
 const UI_METADATA_FILE = path.join(REPO_ROOT, 'config', 'schema', 'baseline-ui-metadata.json');
@@ -23,6 +25,7 @@ const DEFAULT_MODULES = ['core-governance', 'core-ci', 'core-deployments', 'core
 
 module.exports = {
   BASELINE_DIR,
+  BASE_CONTENT_FILE,
   CAPABILITIES_FILE,
   CONFIG_FILE,
   CONFIG_VERSION,
@@ -32,6 +35,7 @@ module.exports = {
   MANAGED_FILES_FILE,
   MIGRATIONS_DIR,
   MODULES_DIR,
+  SNAPSHOT_DIR,
   SCHEMA_FILE,
   STATE_FILE,
   UI_APP_DIR,

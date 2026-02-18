@@ -32,6 +32,13 @@ Use the engine when you need fully dynamic, capability-aware setup and upgrades:
    - `npm run baseline:doctor -- --target <target-path>`
    - `npm run baseline:verify -- --target <target-path>`
 
+Engine guarantees:
+- Module-driven generation (core + extensions) from settings only.
+- Capability-aware auto-degrade with explicit warnings/remediation.
+- Strategy-aware managed updates (`replace`, `json_merge`, `yaml_merge`, `three_way`) with preserved user blocks.
+- CI risk classifier + two-lane gate generated from config.
+- Upgrade rollback snapshots + migration-based evolution.
+
 ## How to use in a new project
 
 Preferred: use the bootstrap so new repos are fully ready (local + optional GitHub provisioning) and can be updated from a single SSOT baseline without copying baseline-only plan instances.

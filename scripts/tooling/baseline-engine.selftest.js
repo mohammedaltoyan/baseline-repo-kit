@@ -41,10 +41,16 @@ function run() {
     '.baseline/state.json',
     '.baseline/managed-files.json',
     '.baseline/capabilities/github.json',
+    '.baseline/internal/base-content.json',
     '.github/workflows/baseline-pr-gate.yml',
     '.github/workflows/baseline-node-run.yml',
+    '.github/workflows/baseline-deploy.yml',
     'config/ci/baseline-change-profiles.json',
+    'scripts/ops/ci/change-classifier.js',
     'config/policy/baseline-branch-topology.json',
+    'config/policy/baseline-required-checks.json',
+    'config/policy/baseline-deployment-approval-matrix.json',
+    'config/policy/baseline-planning-policy.json',
   ];
   for (const rel of expectedFiles) {
     assert.strictEqual(fs.existsSync(path.join(repo, rel)), true, `expected file to exist: ${rel}`);
@@ -72,6 +78,13 @@ function run() {
 
   const verify = runEngine(['verify', '--target', repo], process.cwd());
   assert.strictEqual(verify.command, 'verify');
+
+  const state2 = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  state2.custom_flag = { preserved: true };
+  fs.writeFileSync(statePath, `${JSON.stringify(state2, null, 2)}\n`, 'utf8');
+  runEngine(['apply', '--target', repo, '--direct'], process.cwd());
+  const mergedState = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  assert.strictEqual(mergedState.custom_flag.preserved, true, 'json_merge should preserve custom state keys');
 
   console.log('[baseline-engine:selftest] OK');
 }

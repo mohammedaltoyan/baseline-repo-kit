@@ -12,6 +12,7 @@ async function runVerify(args) {
     command: 'verify',
     doctor_ok: true,
     pending_changes: diff.change_count,
+    conflict_count: diff.conflict_count || 0,
     warning_count: (doctor.warnings || []).length,
   };
 

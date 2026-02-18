@@ -1,4 +1,8 @@
 {
   "requires": ["rulesets", "merge_queue"],
-  "degrade_strategy": "warn"
+  "degrade_strategy": "warn",
+  "remediation": {
+    "rulesets": "Grant repository administration permissions and ensure rulesets are enabled for this repository type.",
+    "merge_queue": "Enable merge queue in repository rulesets or upgrade to a GitHub plan that supports merge queue."
+  }
 }
