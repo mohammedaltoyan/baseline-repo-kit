@@ -24,8 +24,9 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 ## Schema SSOT Validation
 
 - Runtime config validation is compiled from `config/schema/baseline-config.schema.json`.
+- Runtime UI metadata validation is compiled from `config/schema/baseline-ui-metadata.schema.json`.
 - Validation is enforced by `baseline doctor`, `baseline verify`, `baseline apply`, and `baseline upgrade` through shared context loading.
-- Keep schema as the single config contract; avoid duplicating ad-hoc config validation logic in command handlers.
+- Keep schemas as single contracts; avoid duplicating ad-hoc validation logic in command handlers.
 
 ## Module SDK runtime
 
