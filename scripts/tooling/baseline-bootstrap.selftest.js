@@ -17,6 +17,7 @@ const {
   parseCodeownerHandlesFromContent,
   parseArgs,
   parseRemoteRepoSlug,
+  resolveGitIdentityFromSources,
   resolvePolicyTemplateToken,
 } = require('./baseline-bootstrap');
 
@@ -285,6 +286,8 @@ function run() {
     dryRun: process.env.npm_config_dry_run,
     overwrite: process.env.npm_config_overwrite,
     codeowners: process.env.npm_config_codeowners,
+    gitUserName: process.env.npm_config_git_user_name,
+    gitUserEmail: process.env.npm_config_git_user_email,
   };
   try {
     process.env.npm_config_to = 'C:\\temp\\target';
@@ -295,6 +298,8 @@ function run() {
     process.env.npm_config_dry_run = '1';
     process.env.npm_config_overwrite = '1';
     process.env.npm_config_codeowners = 'octocat,acme/platform';
+    process.env.npm_config_git_user_name = 'Baseline CLI Bot';
+    process.env.npm_config_git_user_email = 'baseline-cli-bot@example.com';
 
     const parsed = parseArgs([]);
     assert.strictEqual(parsed.to, 'C:\\temp\\target');
@@ -305,12 +310,19 @@ function run() {
     assert.strictEqual(parsed.dryRun, true);
     assert.strictEqual(parsed.overwrite, true);
     assert.strictEqual(parsed.codeowners, 'octocat,acme/platform');
+    assert.strictEqual(parsed.gitUserName, 'Baseline CLI Bot');
+    assert.strictEqual(parsed.gitUserEmail, 'baseline-cli-bot@example.com');
 
     process.env.npm_config_to = 'true';
     process.env.npm_config_mode = 'true';
     const positionalFallback = parseArgs(['C:\\positional\\target', 'overlay']);
     assert.strictEqual(positionalFallback.to, 'C:\\positional\\target');
     assert.strictEqual(positionalFallback.mode, 'overlay');
+
+    const npmDoubleDashForwarding = parseArgs(['--', '--to', 'C:\\forwarded\\target', '--mode', 'init', '--skip-tests']);
+    assert.strictEqual(npmDoubleDashForwarding.to, 'C:\\forwarded\\target');
+    assert.strictEqual(npmDoubleDashForwarding.mode, 'init');
+    assert.strictEqual(npmDoubleDashForwarding.skipTests, true);
   } finally {
     if (previous.to === undefined) delete process.env.npm_config_to;
     else process.env.npm_config_to = previous.to;
@@ -335,7 +347,53 @@ function run() {
 
     if (previous.codeowners === undefined) delete process.env.npm_config_codeowners;
     else process.env.npm_config_codeowners = previous.codeowners;
+
+    if (previous.gitUserName === undefined) delete process.env.npm_config_git_user_name;
+    else process.env.npm_config_git_user_name = previous.gitUserName;
+
+    if (previous.gitUserEmail === undefined) delete process.env.npm_config_git_user_email;
+    else process.env.npm_config_git_user_email = previous.gitUserEmail;
   }
+
+  // Bootstrap git identity resolution: prefer CLI, then env, then git config, then defaults.
+  const identityCli = resolveGitIdentityFromSources({
+    cliName: 'CLI Bot',
+    cliEmail: 'cli-bot@example.com',
+    envName: 'ENV Bot',
+    envEmail: 'env-bot@example.com',
+    gitName: 'Git Bot',
+    gitEmail: 'git-bot@example.com',
+  });
+  assert.strictEqual(identityCli.name, 'CLI Bot');
+  assert.strictEqual(identityCli.email, 'cli-bot@example.com');
+  assert.strictEqual(identityCli.usesBootstrapDefault, false);
+  assert.strictEqual(identityCli.sourceSummary, 'cli/cli');
+
+  const identityEnvFallback = resolveGitIdentityFromSources({
+    cliName: '',
+    cliEmail: '',
+    envName: 'ENV Bot',
+    envEmail: 'env-bot@example.com',
+    gitName: 'Git Bot',
+    gitEmail: 'git-bot@example.com',
+  });
+  assert.strictEqual(identityEnvFallback.name, 'ENV Bot');
+  assert.strictEqual(identityEnvFallback.email, 'env-bot@example.com');
+  assert.strictEqual(identityEnvFallback.usesBootstrapDefault, false);
+  assert.strictEqual(identityEnvFallback.sourceSummary, 'env/env');
+
+  const identityDefault = resolveGitIdentityFromSources({
+    cliName: '',
+    cliEmail: '',
+    envName: '',
+    envEmail: '',
+    gitName: '',
+    gitEmail: '',
+  });
+  assert.strictEqual(identityDefault.name, 'Baseline Bootstrap Bot');
+  assert.strictEqual(identityDefault.email, 'baseline-bootstrap-bot@users.noreply.github.com');
+  assert.strictEqual(identityDefault.usesBootstrapDefault, true);
+  assert.strictEqual(identityDefault.sourceSummary, 'default/default');
 
   console.log('[baseline-bootstrap:selftest] OK');
 }

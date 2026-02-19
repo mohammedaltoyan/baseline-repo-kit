@@ -254,6 +254,7 @@ async function run() {
   ];
 
   function buildStatePayload() {
+    const status = statusForTarget(runtime.session.target);
     if (!runtime.session.target) {
       return {
         target: '',
@@ -287,6 +288,42 @@ async function run() {
           capability_matrix: [],
         },
         warnings: ['Select a target repository path in the UI to continue.'],
+      };
+    }
+    if (status.reason !== 'ok') {
+      return {
+        target: runtime.session.target,
+        target_required: false,
+        target_invalid: true,
+        status: status.reason,
+        engine_version: '2.2.0',
+        schema: { type: 'object' },
+        ui_metadata: {
+          sections: [
+            { id: 'platform', title: 'Platform', description: 'Platform settings.' },
+          ],
+          fields: {},
+        },
+        config: {},
+        effective_config: {},
+        effective_overrides: [],
+        capabilities: {
+          repository: {},
+          auth: {},
+          runtime: {
+            github_app: {
+              effective_required: false,
+            },
+          },
+          capabilities: {},
+        },
+        changes: [],
+        modules: [],
+        module_evaluation: { modules: [] },
+        insights: {
+          capability_matrix: [],
+        },
+        warnings: [`Selected target is not ready for baseline operations (${status.reason}).`],
       };
     }
 
@@ -406,6 +443,8 @@ async function run() {
     const body = options.body ? JSON.parse(options.body) : undefined;
     calls.push({ method, pathname, body });
     const targetSelected = !!String(runtime.session.target || '').trim();
+    const targetReady = targetSelected && String(statusForTarget(runtime.session.target).reason || '') === 'ok';
+    const targetFailure = String(statusForTarget(runtime.session.target).reason || 'target_not_set');
 
     if (pathname === '/api/operations' && method === 'GET') {
       return jsonResponse(200, { operations: clone(operations) });
@@ -439,13 +478,13 @@ async function run() {
     }
 
     if (pathname === '/api/config' && method === 'POST') {
-      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
+      if (!targetReady) return jsonResponse(400, { error: targetFailure });
       runtime.config = clone(body && body.config || runtime.config);
       return jsonResponse(200, { ok: true });
     }
 
     if (pathname === '/api/init' && method === 'POST') {
-      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
+      if (!targetReady) return jsonResponse(400, { error: targetFailure });
       return jsonResponse(200, {
         command: 'init',
         target: runtime.session.target,
@@ -453,7 +492,7 @@ async function run() {
     }
 
     if (pathname === '/api/diff' && method === 'POST') {
-      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
+      if (!targetReady) return jsonResponse(400, { error: targetFailure });
       return jsonResponse(200, {
         command: 'diff',
         target: runtime.session.target,
@@ -461,7 +500,7 @@ async function run() {
     }
 
     if (pathname === '/api/doctor' && method === 'POST') {
-      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
+      if (!targetReady) return jsonResponse(400, { error: targetFailure });
       if (runtime.fail_next_doctor) {
         runtime.fail_next_doctor = false;
         return jsonResponse(500, { error: 'doctor_failed' });
@@ -473,7 +512,7 @@ async function run() {
     }
 
     if (pathname === '/api/verify' && method === 'POST') {
-      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
+      if (!targetReady) return jsonResponse(400, { error: targetFailure });
       return jsonResponse(200, {
         command: 'verify',
         target: runtime.session.target,
@@ -481,7 +520,7 @@ async function run() {
     }
 
     if (pathname === '/api/upgrade' && method === 'POST') {
-      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
+      if (!targetReady) return jsonResponse(400, { error: targetFailure });
       return jsonResponse(200, {
         command: 'upgrade',
         target: runtime.session.target,
@@ -491,7 +530,7 @@ async function run() {
     }
 
     if (pathname === '/api/apply' && method === 'POST') {
-      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
+      if (!targetReady) return jsonResponse(400, { error: targetFailure });
       return jsonResponse(200, {
         command: 'apply',
         target: runtime.session.target,
@@ -501,7 +540,7 @@ async function run() {
     }
 
     if (pathname === '/api/refresh-capabilities' && method === 'POST') {
-      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
+      if (!targetReady) return jsonResponse(400, { error: targetFailure });
       return jsonResponse(200, buildStatePayload());
     }
 
@@ -581,6 +620,11 @@ async function run() {
     document.getElementById('sessionSummary').innerHTML.includes('target_exists_but_not_directory'),
     true,
     'session summary should surface non-directory target error state'
+  );
+  assert.strictEqual(
+    document.getElementById('output').textContent.includes('target_invalid'),
+    true,
+    'invalid target session connect should produce target_invalid output state'
   );
   assert.strictEqual(
     document.getElementById('doctorBtn').disabled,

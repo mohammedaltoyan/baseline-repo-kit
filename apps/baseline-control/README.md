@@ -14,6 +14,7 @@ From repo root:
 
 - UI-only operations after startup (no additional CLI commands required).
 - Target repository path selection/switching/clearing from UI session controls.
+- Invalid targets (non-directory / not writable) are surfaced as explicit UI state with action blocking.
 - Operation catalog rendered from engine API (method/path/options + descriptions).
 - Schema-driven settings editing.
 - Inline explanation per setting (what/why/default/tradeoffs/prerequisites/apply impact).

@@ -203,6 +203,33 @@ async function run() {
     assert.strictEqual(stateAfterClear.payload.target_required, true);
     assert.strictEqual(String(stateAfterClear.payload.target || ''), '');
 
+    const nonDirectoryTarget = path.join(tmpRoot, 'not-a-directory.txt');
+    fs.writeFileSync(nonDirectoryTarget, 'not-a-directory');
+    const invalidTargetSession = await requestJson(baseUrl, 'POST', '/api/session', {
+      target: nonDirectoryTarget,
+    });
+    assert.strictEqual(invalidTargetSession.status, 200);
+    assert.strictEqual(
+      String(invalidTargetSession.payload.target_status.reason || ''),
+      'target_exists_but_not_directory',
+      'session target status should detect non-directory path'
+    );
+
+    const stateInvalidTarget = await requestJson(baseUrl, 'GET', '/api/state');
+    assert.strictEqual(stateInvalidTarget.status, 200);
+    assert.strictEqual(stateInvalidTarget.payload.target_invalid, true);
+    assert.strictEqual(String(stateInvalidTarget.payload.status || ''), 'target_exists_but_not_directory');
+
+    const doctorInvalidTarget = await requestJson(baseUrl, 'POST', '/api/doctor', {});
+    assert.strictEqual(doctorInvalidTarget.status, 400, 'target-bound actions should fail fast for invalid target path');
+    assert.strictEqual(doctorInvalidTarget.payload.error, 'target_exists_but_not_directory');
+
+    const restoreTarget = await requestJson(baseUrl, 'POST', '/api/session', {
+      target: repoB,
+    });
+    assert.strictEqual(restoreTarget.status, 200);
+    assert.strictEqual(String(restoreTarget.payload.target_status.reason || ''), 'ok');
+
     const badJson = await requestRaw(baseUrl, 'POST', '/api/session', '{');
     assert.strictEqual(badJson.status, 400, 'invalid JSON body should return HTTP 400');
     assert.strictEqual(badJson.payload.error, 'invalid_json_body');

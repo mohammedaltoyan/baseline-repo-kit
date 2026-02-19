@@ -150,13 +150,24 @@ function targetStatus(targetRoot) {
   return out;
 }
 
-function hasRuntimeTarget(runtime) {
-  return !!String(runtime && runtime.target || '').trim();
+function runtimeTargetStatus(runtime) {
+  return targetStatus(runtime && runtime.target);
 }
 
-function assertRuntimeTarget(runtime) {
-  if (!hasRuntimeTarget(runtime)) {
-    throw createHttpError(400, 'target_not_set');
+function runtimeTargetFailureReason(runtime) {
+  const status = runtimeTargetStatus(runtime);
+  if (!status || String(status.reason || '').trim() === 'ok') return '';
+  return String(status.reason || 'target_not_set');
+}
+
+function hasRuntimeTarget(runtime) {
+  return !runtimeTargetFailureReason({ target: runtime && runtime.target }) && !!String(runtime && runtime.target || '').trim();
+}
+
+function assertRuntimeTargetReady(runtime) {
+  const reason = runtimeTargetFailureReason(runtime);
+  if (reason) {
+    throw createHttpError(400, reason);
   }
 }
 
@@ -196,6 +207,49 @@ function emptyRuntimeState() {
       capability_matrix: [],
     },
     warnings: ['Select a target repository path in the UI to continue.'],
+  };
+}
+
+function invalidTargetRuntimeState(runtime) {
+  const status = runtimeTargetStatus(runtime);
+  const reason = String(status && status.reason || 'target_invalid');
+  return {
+    target: status && status.resolved_target ? status.resolved_target : '',
+    target_required: false,
+    target_invalid: true,
+    status: reason,
+    target_status: status,
+    engine_version: ENGINE_VERSION,
+    schema: loadSchema(),
+    ui_metadata: loadUiMetadata(),
+    config: {},
+    effective_config: {},
+    effective_overrides: [],
+    capabilities: {
+      repository: {},
+      auth: {},
+      runtime: {
+        required_capabilities: [],
+        missing_required_capabilities: [],
+        modules: [],
+        github_app: {},
+      },
+      capabilities: {},
+      warnings: [],
+    },
+    changes: [],
+    modules: [],
+    module_evaluation: {
+      required_capabilities: [],
+      missing_required_capabilities: [],
+      modules: [],
+      warnings: [],
+      errors: [],
+    },
+    insights: {
+      capability_matrix: [],
+    },
+    warnings: [`Selected target is not ready for baseline operations (${reason}).`],
   };
 }
 
@@ -284,6 +338,11 @@ async function currentState(engineArgs) {
 function serveStatic(req, res) {
   const url = parseRequestUrl(req);
   const pathname = url.pathname === '/' ? '/index.html' : url.pathname;
+  if (pathname === '/favicon.ico') {
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
   const full = path.join(UI_APP_DIR, pathname.replace(/^\/+/, ''));
   const safeRoot = path.resolve(UI_APP_DIR);
   const safePath = path.resolve(full);
@@ -333,9 +392,10 @@ async function startUiServer(args = {}) {
       const pathname = url.pathname;
 
       if (pathname === '/api/session' && req.method === 'GET') {
+        const status = runtimeTargetStatus(runtime);
         return sendJson(res, 200, {
           session: runtime,
-          target_status: targetStatus(runtime.target),
+          target_status: status,
         });
       }
 
@@ -352,10 +412,11 @@ async function startUiServer(args = {}) {
           runtime.profile = String(body.profile || '').trim();
         }
 
+        const status = runtimeTargetStatus(runtime);
         return sendJson(res, 200, {
           ok: true,
           session: runtime,
-          target_status: targetStatus(runtime.target),
+          target_status: status,
         });
       }
 
@@ -366,9 +427,11 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/state' && req.method === 'GET') {
-        if (!hasRuntimeTarget(runtime)) {
+        const reason = runtimeTargetFailureReason(runtime);
+        if (reason === 'target_not_set') {
           return sendJson(res, 200, emptyRuntimeState());
         }
+        if (reason) return sendJson(res, 200, invalidTargetRuntimeState(runtime));
         const engineArgs = createEngineArgs(
           args,
           runtime,
@@ -379,13 +442,13 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/refresh-capabilities' && req.method === 'POST') {
-        assertRuntimeTarget(runtime);
+        assertRuntimeTargetReady(runtime);
         const payload = await currentState(createEngineArgs(args, runtime, { refresh_capabilities: true }));
         return sendJson(res, 200, payload);
       }
 
       if (pathname === '/api/init' && req.method === 'POST') {
-        assertRuntimeTarget(runtime);
+        assertRuntimeTargetReady(runtime);
         const body = await parseJsonBody(req);
         const result = await runInit({
           ...createEngineArgs(args, runtime, body),
@@ -396,7 +459,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/diff' && req.method === 'POST') {
-        assertRuntimeTarget(runtime);
+        assertRuntimeTargetReady(runtime);
         const result = await runDiff({
           ...createEngineArgs(args, runtime, {}),
           json: '1',
@@ -406,7 +469,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/doctor' && req.method === 'POST') {
-        assertRuntimeTarget(runtime);
+        assertRuntimeTargetReady(runtime);
         const result = await runDoctor({
           ...createEngineArgs(args, runtime, {}),
           json: '1',
@@ -416,7 +479,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/verify' && req.method === 'POST') {
-        assertRuntimeTarget(runtime);
+        assertRuntimeTargetReady(runtime);
         const result = await runVerify({
           ...createEngineArgs(args, runtime, {}),
           json: '1',
@@ -426,7 +489,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/apply' && req.method === 'POST') {
-        assertRuntimeTarget(runtime);
+        assertRuntimeTargetReady(runtime);
         const body = await parseJsonBody(req);
         const result = await runApply({
           ...createEngineArgs(args, runtime, body),
@@ -437,7 +500,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/upgrade' && req.method === 'POST') {
-        assertRuntimeTarget(runtime);
+        assertRuntimeTargetReady(runtime);
         const body = await parseJsonBody(req);
         const result = await runUpgrade({
           ...createEngineArgs(args, runtime, body),
@@ -448,7 +511,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/config' && req.method === 'POST') {
-        assertRuntimeTarget(runtime);
+        assertRuntimeTargetReady(runtime);
         const parsed = await parseJsonBody(req);
         const normalized = normalizeDynamicConfig(parsed.config || {}).config;
         validateConfig(normalized);

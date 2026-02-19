@@ -36,7 +36,7 @@ Then operate fully from the web UI at `http://127.0.0.1:4173` (or configured hos
 - `GET /api/session` - current target/profile and target path status.
 - `POST /api/session` - switch target/profile for all subsequent operations.
 - `GET /api/operations` - operation catalog for UI rendering.
-- `GET /api/state` - full runtime state (schema, metadata, config, effective config, capabilities, insights).
+- `GET /api/state` - full runtime state (schema, metadata, config, effective config, capabilities, insights). If target is unset or invalid, returns structured guidance payload instead of runtime exceptions.
 - `POST /api/refresh-capabilities` - force capability re-probe and return fresh state.
 - `POST /api/init` - initialize baseline for current session target.
 - `POST /api/diff` - preview managed-file changes.

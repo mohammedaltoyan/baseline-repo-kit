@@ -35,6 +35,8 @@ const {
 } = require('./install-profiles');
 
 let ACTIVE_RUN_SUMMARY = null;
+const DEFAULT_BOOTSTRAP_GIT_USER_NAME = 'Baseline Bootstrap Bot';
+const DEFAULT_BOOTSTRAP_GIT_USER_EMAIL = 'baseline-bootstrap-bot@users.noreply.github.com';
 
 function die(msg) {
   console.error(`[baseline-bootstrap] ${msg}`);
@@ -68,6 +70,10 @@ function toString(value) {
   return String(value == null ? '' : value).trim();
 }
 
+function sanitizeGitIdentityValue(value) {
+  return toString(value).replace(/\s+/g, ' ').trim();
+}
+
 function toOptionKey(value) {
   const raw = toString(value);
   if (!raw) return '';
@@ -88,6 +94,30 @@ function nonBooleanString(value) {
   if (!v) return '';
   if (isBooleanLikeToken(v)) return '';
   return v;
+}
+
+function resolveGitIdentityFromSources({ cliName, cliEmail, envName, envEmail, gitName, gitEmail }) {
+  const cName = sanitizeGitIdentityValue(cliName);
+  const cEmail = sanitizeGitIdentityValue(cliEmail);
+  const eName = sanitizeGitIdentityValue(envName);
+  const eEmail = sanitizeGitIdentityValue(envEmail);
+  const gName = sanitizeGitIdentityValue(gitName);
+  const gEmail = sanitizeGitIdentityValue(gitEmail);
+
+  const nameSource = cName ? 'cli' : eName ? 'env' : gName ? 'git_config' : 'default';
+  const emailSource = cEmail ? 'cli' : eEmail ? 'env' : gEmail ? 'git_config' : 'default';
+  const name = cName || eName || gName || DEFAULT_BOOTSTRAP_GIT_USER_NAME;
+  const email = cEmail || eEmail || gEmail || DEFAULT_BOOTSTRAP_GIT_USER_EMAIL;
+  const usesBootstrapDefault = nameSource === 'default' || emailSource === 'default';
+
+  return {
+    name,
+    email,
+    nameSource,
+    emailSource,
+    usesBootstrapDefault,
+    sourceSummary: `${nameSource}/${emailSource}`,
+  };
 }
 
 function readNpmConfigArgsFromEnv(env = process.env) {
@@ -418,8 +448,24 @@ function loadBootstrapPolicy(sourceRoot) {
 }
 
 function parseArgs(argv) {
-  const args = parseFlagArgs(argv);
+  const rawArgs = parseFlagArgs(argv);
   const npmConfig = readNpmConfigArgsFromEnv();
+  let args = rawArgs;
+
+  // npm invocations like `npm run baseline:bootstrap -- -- --to <path>` can pass
+  // option tokens after a literal `--`, leaving parseFlagArgs output in args._ only.
+  const rawPositionals = Array.isArray(rawArgs._) ? rawArgs._.map((v) => toString(v)).filter(Boolean) : [];
+  if (!nonBooleanString(rawArgs.to || rawArgs.t || '') && rawPositionals.length >= 2 && /^--[a-z0-9]/i.test(rawPositionals[0])) {
+    const reparsed = parseFlagArgs(rawPositionals);
+    if (nonBooleanString(reparsed.to || reparsed.t || '')) {
+      args = {
+        ...rawArgs,
+        ...reparsed,
+        _: Array.isArray(reparsed._) ? reparsed._ : [],
+      };
+    }
+  }
+
   const positionals = Array.isArray(args._) ? args._.map((v) => toString(v)).filter(Boolean) : [];
   const positionalTo = toString(positionals[0] || '');
   const positionalMode = normalizeMode(positionals[1] || '');
@@ -432,6 +478,8 @@ function parseArgs(argv) {
   const visibilityRaw = pickArgValue({ args, npmConfig, keys: ['visibility'] });
   const mainApproversRaw = pickArgValue({ args, npmConfig, keys: ['main-approvers', 'mainApprovers', 'main_approvers'] });
   const codeownersRaw = pickArgValue({ args, npmConfig, keys: ['codeowners', 'code-owners', 'code_owners'] });
+  const gitUserNameRaw = pickArgValue({ args, npmConfig, keys: ['git-user-name', 'gitUserName', 'git_user_name'] });
+  const gitUserEmailRaw = pickArgValue({ args, npmConfig, keys: ['git-user-email', 'gitUserEmail', 'git_user_email'] });
   const profileRaw = pickArgValue({ args, npmConfig, keys: ['profile'] });
 
   const enableBackportRaw = pickArgValue({ args, npmConfig, keys: ['enableBackport', 'enable-backport', 'enable_backport'] });
@@ -464,6 +512,8 @@ function parseArgs(argv) {
     mergeQueueProduction: isTruthy(pickArgValue({ args, npmConfig, keys: ['merge-queue-production', 'mergeQueueProduction', 'merge_queue_production'] })),
     mainApprovers: toString(nonBooleanString(mainApproversRaw) || ''),
     codeowners: toString(nonBooleanString(codeownersRaw) || ''),
+    gitUserName: toString(nonBooleanString(gitUserNameRaw) || ''),
+    gitUserEmail: toString(nonBooleanString(gitUserEmailRaw) || ''),
     enableBackport: enableBackportRaw === undefined ? null : isTruthy(enableBackportRaw),
     enableSecurity: enableSecurityRaw === undefined ? null : isTruthy(enableSecurityRaw),
     enableDeploy: enableDeployRaw === undefined ? null : isTruthy(enableDeployRaw),
@@ -736,6 +786,48 @@ async function gitGetRemoteUrl({ cwd, remoteName }) {
   const res = await runCapture('git', ['remote', 'get-url', remoteName], { cwd });
   if (res.code !== 0) return '';
   return toString(res.stdout);
+}
+
+async function gitGetConfigValue({ cwd, key }) {
+  const cfgKey = toString(key);
+  if (!cfgKey) return '';
+  const res = await runCapture('git', ['config', '--get', cfgKey], { cwd }).catch(() => null);
+  if (!res || res.code !== 0) return '';
+  return sanitizeGitIdentityValue(res.stdout);
+}
+
+async function resolveBootstrapGitIdentity({ cwd, args, env = process.env }) {
+  const sourceArgs = args && typeof args === 'object' ? args : {};
+  const sourceEnv = env && typeof env === 'object' ? env : {};
+  const gitName = await gitGetConfigValue({ cwd, key: 'user.name' });
+  const gitEmail = await gitGetConfigValue({ cwd, key: 'user.email' });
+  return resolveGitIdentityFromSources({
+    cliName: sourceArgs.gitUserName,
+    cliEmail: sourceArgs.gitUserEmail,
+    envName:
+      sourceEnv.BASELINE_GIT_USER_NAME ||
+      sourceEnv.BASELINE_BOOTSTRAP_GIT_USER_NAME ||
+      sourceEnv.GIT_AUTHOR_NAME ||
+      sourceEnv.GIT_COMMITTER_NAME ||
+      '',
+    envEmail:
+      sourceEnv.BASELINE_GIT_USER_EMAIL ||
+      sourceEnv.BASELINE_BOOTSTRAP_GIT_USER_EMAIL ||
+      sourceEnv.GIT_AUTHOR_EMAIL ||
+      sourceEnv.GIT_COMMITTER_EMAIL ||
+      '',
+    gitName,
+    gitEmail,
+  });
+}
+
+function buildGitCommitArgs({ message, identity }) {
+  const commitMessage = toString(message) || 'chore: bootstrap baseline';
+  const who = identity && typeof identity === 'object' ? identity : {};
+  const name = sanitizeGitIdentityValue(who.name);
+  const email = sanitizeGitIdentityValue(who.email);
+  if (!name || !email) return ['commit', '-m', commitMessage];
+  return ['-c', `user.name=${name}`, '-c', `user.email=${email}`, 'commit', '-m', commitMessage];
 }
 
 async function gitEnsureRemoteOrigin({ cwd, desired, candidateUrl, dryRun }) {
@@ -2172,6 +2264,8 @@ async function main() {
       '  --non-interactive          Fail instead of prompting for missing values',
       '  --skip-env                 Do not create local env file from template',
       '  --skip-tests               Do not run npm install/test in target',
+      '  --git-user-name            Git identity name for initial bootstrap commit (optional)',
+      '  --git-user-email           Git identity email for initial bootstrap commit (optional)',
       '  --merge-queue-production   Recommend enabling Merge Queue on production branch (manual)',
       '  --main-approvers=<csv>     Override MAIN_REQUIRED_APPROVER_LOGINS repo var (when --github)',
       '  --codeowners=<csv>         Ensure .github/CODEOWNERS has fallback owners (users/teams)',
@@ -2420,19 +2514,38 @@ async function main() {
     }
 
     if (!(await gitHasCommit({ cwd: targetRoot }))) {
+      const commitIdentity = await resolveBootstrapGitIdentity({ cwd: targetRoot, args, env: process.env });
+      const commitArgs = buildGitCommitArgs({
+        message: 'chore: bootstrap baseline',
+        identity: commitIdentity,
+      });
       if (args.dryRun) {
         info('[dry-run] git add -A');
-        info('[dry-run] git commit -m "chore: bootstrap baseline"');
+        info(`[dry-run] git ${commitArgs.join(' ')}`);
+        if (commitIdentity.usesBootstrapDefault) {
+          warn(
+            `git user identity not configured; dry-run would use bootstrap identity ` +
+            `"${commitIdentity.name} <${commitIdentity.email}>".`
+          );
+        }
       } else {
         await run('git', ['add', '-A'], { cwd: targetRoot });
         try {
-          await run('git', ['commit', '-m', 'chore: bootstrap baseline'], { cwd: targetRoot });
+          await run('git', commitArgs, { cwd: targetRoot });
         } catch {
           die(
-            'Unable to create initial commit. Configure git user.name and user.email.\n' +
+            'Unable to create initial commit. Configure git user.name/user.email, pass --git-user-name/--git-user-email,\n' +
+            'or set BASELINE_GIT_USER_NAME/BASELINE_GIT_USER_EMAIL.\n' +
             'Example:\n' +
             '  git config --global user.name \"Your Name\"\n' +
-            '  git config --global user.email \"you@example.com\"'
+            '  git config --global user.email \"you@example.com\"\n' +
+            '  npm run baseline:bootstrap -- -- --to <path> --git-user-name \"Bootstrap Bot\" --git-user-email \"bot@example.com\"'
+          );
+        }
+        if (commitIdentity.usesBootstrapDefault) {
+          warn(
+            `git user identity was not configured; used bootstrap default identity ` +
+            `"${commitIdentity.name} <${commitIdentity.email}>".`
           );
         }
       }
@@ -2904,5 +3017,6 @@ module.exports = {
   parseArgs,
   parseRemoteRepoSlug,
   parseWorkflowChecks,
+  resolveGitIdentityFromSources,
   resolvePolicyTemplateToken,
 };

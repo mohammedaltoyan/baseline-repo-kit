@@ -156,6 +156,7 @@ When working on frontend UI/UX:
 - `npm run test:ui:walkthrough` runs app-stack prechecks and generates manual screenshot walkthrough artifacts.
 - `npm run test:github:live` previews GitHub owner-type entitlement matrix validation (`--execute` for live ephemeral provisioning validation).
 - One-button new repo setup (recommended): `npm run baseline:bootstrap -- -- --to <target-path> [--github]` (installs baseline, inits git/branches, optional GitHub provisioning, optional tests).
+  - Initial bootstrap commit identity is configurable via `--git-user-name` / `--git-user-email` (or env `BASELINE_GIT_USER_NAME` / `BASELINE_GIT_USER_EMAIL`); if missing, bootstrap falls back to a default bot identity and emits a warning.
 - Optional installer to overlay this kit onto another repo:
   - Safe positional form: `npm run baseline:install -- <target-path> [overlay|init] [overwrite] [dry-run] [verbose]`
   - Flag form (safe with modern npm): `npm run baseline:install -- --to <path> --mode overlay --dry-run`
@@ -171,7 +172,7 @@ When working on frontend UI/UX:
   - Start once with `npm run baseline:ui`.
   - After startup, run lifecycle actions from UI only (`init`, `diff`, `doctor`, `verify`, `upgrade`, `apply`, capability refresh, config save, target/profile set/clear).
 - UI flow E2E selftest coverage is mandatory in engine gates:
-  - `scripts/tooling/baseline-control.ui-e2e.selftest.js` validates unbound startup (no target), target set/clear, action blocking/unblocking by target validity, settings save, full action-button lifecycle, and UI error-surface behavior through browser-flow logic (no CLI command invocation for lifecycle operations).
+  - `scripts/tooling/baseline-control.ui-e2e.selftest.js` validates unbound startup (no target), target set/clear, invalid-target handling (`target_exists_but_not_directory`, `target_not_writable`), action blocking/unblocking by target validity, settings save, full action-button lifecycle, and UI error-surface behavior through browser-flow logic (no CLI command invocation for lifecycle operations).
 
 ## Baseline Engine v2.2 (Must)
 

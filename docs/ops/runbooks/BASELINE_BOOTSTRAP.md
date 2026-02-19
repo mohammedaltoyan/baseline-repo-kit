@@ -24,6 +24,9 @@ Legacy bootstrap/install scripts can delegate to engine mode with `--engine-v2`.
 
 - `git` installed and available on PATH
 - Node.js (per `.nvmrc`)
+- Optional custom identity for the initial bootstrap commit:
+  - flags: `--git-user-name`, `--git-user-email`
+  - env: `BASELINE_GIT_USER_NAME`, `BASELINE_GIT_USER_EMAIL`
 - Optional GitHub automation:
   - `gh` installed
   - Authenticated for the target host (default `github.com`): `gh auth login -h github.com`
@@ -55,6 +58,10 @@ Dry-run preview (no writes):
 
 - `npm run baseline:bootstrap -- -- --to <target-path> --dry-run --github`
 
+Bootstrap with explicit git identity for first commit:
+
+- `npm run baseline:bootstrap -- -- --to <target-path> --git-user-name "Baseline Bot" --git-user-email "baseline-bot@example.com"`
+
 Live entitlement-matrix verification (user + org owner scenarios):
 
 - Preview-only (no remote changes): `npm run test:github:live`
@@ -66,6 +73,7 @@ Live entitlement-matrix verification (user + org owner scenarios):
 - Never deletes files in the target repo.
 - Does not overwrite an existing `origin` remote; it only validates that it points to the expected repo (host/owner/name). If it does not match, bootstrap fails and prints the mismatch.
 - Does not create or commit secret env files. If it creates `config/env/.env.local`, it is gitignored by default.
+- If `git user.name` / `git user.email` are missing, bootstrap uses a local fallback identity for the initial commit and prints a warning with remediation.
 - When run with `--adopt`, baseline changes are committed to a new branch and applied via a PR (avoids pushing directly to protected branches).
 
 ## Output: end-of-run summary

@@ -303,7 +303,7 @@ function renderBreakdownRows(rows, key) {
 
 function renderRepoSummary() {
   const payload = state.payload || {};
-  if (payload.target_required) {
+  if (payload.target_required || payload.target_invalid) {
     $('repoSummary').innerHTML = '<div>Select a target repository to load capability and repository details.</div>';
     return;
   }
@@ -339,7 +339,7 @@ function renderRepoSummary() {
 
 function renderGovernanceSummary() {
   const payload = state.payload || {};
-  if (payload.target_required) {
+  if (payload.target_required || payload.target_invalid) {
     $('governanceSummary').innerHTML = '<div>Select a target repository to compute effective governance policy.</div>';
     return;
   }
@@ -380,7 +380,7 @@ function renderGovernanceSummary() {
 }
 
 function renderCapabilities() {
-  if (state.payload && state.payload.target_required) {
+  if (state.payload && (state.payload.target_required || state.payload.target_invalid)) {
     $('capabilities').textContent = 'Select a target repository to run capability probes.';
     return;
   }
@@ -463,7 +463,7 @@ function renderSettings() {
   const container = $('settingsContainer');
   container.innerHTML = '';
 
-  if (state.payload && state.payload.target_required) {
+  if (state.payload && (state.payload.target_required || state.payload.target_invalid)) {
     container.textContent = 'Select a target repository to load editable settings.';
     return;
   }
@@ -593,6 +593,15 @@ async function loadState() {
     });
     return;
   }
+  if (payload && payload.target_invalid) {
+    logOutput({
+      status: 'target_invalid',
+      target: payload.target || '<unset>',
+      reason: payload.status || 'target_invalid',
+      message: 'Selected target is not ready for baseline operations.',
+    });
+    return;
+  }
   logOutput({ status: 'ready', target: payload.target, change_count: Array.isArray(payload.changes) ? payload.changes.length : 0 });
 }
 
@@ -694,10 +703,14 @@ async function connectTargetSession() {
   const resolvedTarget = state.targetStatus && state.targetStatus.resolved_target
     ? state.targetStatus.resolved_target
     : '';
+  const reason = state.targetStatus && state.targetStatus.reason || 'target_not_set';
+  let status = 'target_connected';
+  if (reason === 'target_not_set') status = 'target_cleared';
+  if (reason !== 'ok' && reason !== 'target_not_set') status = 'target_invalid';
   logOutput({
-    status: resolvedTarget ? 'target_connected' : 'target_cleared',
+    status,
     target: resolvedTarget || '<unset>',
-    reason: state.targetStatus && state.targetStatus.reason || 'target_not_set',
+    reason,
     profile: state.session && state.session.profile || '',
   });
 }
