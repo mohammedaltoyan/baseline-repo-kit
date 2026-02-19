@@ -20,7 +20,7 @@
     "lint:installer": "node scripts/tooling/install-profiles.selftest.js && node scripts/tooling/baseline-install.selftest.js",
     "lint:bootstrap": "node scripts/tooling/baseline-bootstrap.selftest.js",
     "lint:env": "node scripts/utils/load-env.selftest.js",
-    "lint:engine": "node scripts/tooling/baseline-engine.selftest.js && node scripts/tooling/baseline-engine.merge.selftest.js && node scripts/tooling/baseline-engine.capabilities.selftest.js && node scripts/tooling/baseline-engine.schema.selftest.js && node scripts/tooling/baseline-engine.ui-metadata.selftest.js && node scripts/tooling/baseline-engine.ui-metadata-schema.selftest.js && node scripts/tooling/baseline-engine.workflows.selftest.js && node scripts/tooling/baseline-engine.governance.selftest.js",
+    "lint:engine": "node scripts/tooling/baseline-engine.selftest.js && node scripts/tooling/baseline-engine.normalization.selftest.js && node scripts/tooling/baseline-engine.insights.selftest.js && node scripts/tooling/baseline-engine.merge.selftest.js && node scripts/tooling/baseline-engine.capabilities.selftest.js && node scripts/tooling/baseline-engine.schema.selftest.js && node scripts/tooling/baseline-engine.ui-metadata.selftest.js && node scripts/tooling/baseline-engine.ui-metadata-schema.selftest.js && node scripts/tooling/baseline-engine.workflows.selftest.js && node scripts/tooling/baseline-engine.governance.selftest.js",
     "test:deep": "node scripts/tooling/deep-verify.js",
 
     "docs:clean": "node scripts/tooling/docs-clean.js",

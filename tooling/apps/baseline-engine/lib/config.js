@@ -10,6 +10,7 @@ const {
 } = require('./constants');
 const { resolveTopology } = require('./policy/branching');
 const { defaultEnvironments, buildApprovalMatrix } = require('./policy/deployments');
+const { normalizeDynamicConfig } = require('./policy/normalization');
 const { computeAdaptiveReviewThresholds } = require('./policy/reviewers');
 const { fileExists, readJsonSafe, readYamlSafe, writeJson, writeYaml } = require('./util/fs');
 const { validateConfig } = require('./schema');
@@ -191,6 +192,7 @@ function ensureConfig({ targetRoot, capabilities, components, profile }) {
   } else {
     config = mergeDefaults(defaults, config);
   }
+  config = normalizeDynamicConfig(config).config;
 
   validateConfig(config);
 
@@ -198,8 +200,10 @@ function ensureConfig({ targetRoot, capabilities, components, profile }) {
     state = defaultState({ capabilities });
   }
 
+  const configChanged = JSON.stringify(current.config || null) !== JSON.stringify(config || null);
+  const stateChanged = JSON.stringify(current.state || null) !== JSON.stringify(state || null);
   const shouldWriteCaps = !!capabilities && !fileExists(current.capabilitiesPath);
-  if (!fileExists(current.configPath) || !fileExists(current.statePath) || shouldWriteCaps) {
+  if (configChanged || stateChanged || !fileExists(current.configPath) || !fileExists(current.statePath) || shouldWriteCaps) {
     saveConfigArtifacts({ targetRoot, config, state, capabilities });
   }
 

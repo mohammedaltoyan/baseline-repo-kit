@@ -35,9 +35,9 @@ async function buildContext(args = {}) {
   assertEnabledModulesExist(ensured.config.modules && ensured.config.modules.enabled, modules);
 
   const loaded = loadConfig(targetRoot);
-  const config = loaded.config || ensured.config;
-  const state = loaded.state || ensured.state;
-  const caps = loaded.capabilities || capabilities;
+  const config = ensured.config || loaded.config;
+  const state = ensured.state || loaded.state;
+  const caps = loaded.capabilities || ensured.capabilities || capabilities;
   const moduleEvaluation = evaluateModuleCapabilities({
     modules,
     enabled: config && config.modules && config.modules.enabled,

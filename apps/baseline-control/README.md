@@ -14,4 +14,5 @@ From repo root:
 - Schema-driven settings editing.
 - Inline explanation per setting (what/why/default/tradeoffs/prerequisites/apply impact).
 - Capability-aware status for GitHub features.
+- Effective governance summary (maintainer bucket, reviewer thresholds, topology source, matrix health, GitHub App requirement).
 - API-backed `diff`, `doctor`, and `apply` actions.

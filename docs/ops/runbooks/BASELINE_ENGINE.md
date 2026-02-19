@@ -20,6 +20,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - `.baseline/capabilities/github.json` - capability probe snapshot.
 - `.baseline/internal/base-content.json` - baseline merge base for `three_way` strategy.
 - `.baseline/snapshots/*.json` - rollback snapshots created before upgrades.
+- `config/policy/baseline-resolution-log.json` - effective governance/capability decision log emitted from config SSOT.
 
 ## Schema SSOT Validation
 
@@ -54,6 +55,8 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - Engine computes `github_app_required` from enabled module capability requirements.
 - If `policy.require_github_app=true` and required capabilities are unavailable, `doctor/apply/upgrade` fail fast with remediation warnings.
 - Capability requirements are dynamically resolved from settings (for example, `merge_queue` is only required when merge-queue triggers are enabled).
+- Branching preset modes are normalized from `branching.topology` (`two_branch|three_branch|trunk`); only `custom` topology preserves manual branch graphs.
+- Deployment approval rows are normalized from the `{environment x component}` matrix on every load/apply, while preserving explicit per-row overrides.
 
 ## CI/CD generation
 

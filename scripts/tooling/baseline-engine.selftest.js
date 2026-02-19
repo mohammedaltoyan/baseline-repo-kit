@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const yaml = require('yaml');
 
 const engineCli = path.resolve(__dirname, '..', '..', 'tooling', 'apps', 'baseline-engine', 'cli.js');
 
@@ -50,6 +51,7 @@ function run() {
     'config/policy/baseline-branch-topology.json',
     'config/policy/baseline-required-checks.json',
     'config/policy/baseline-deployment-approval-matrix.json',
+    'config/policy/baseline-resolution-log.json',
     'config/policy/baseline-planning-policy.json',
   ];
   for (const rel of expectedFiles) {
@@ -85,6 +87,59 @@ function run() {
   runEngine(['apply', '--target', repo, '--direct'], process.cwd());
   const mergedState = JSON.parse(fs.readFileSync(statePath, 'utf8'));
   assert.strictEqual(mergedState.custom_flag.preserved, true, 'json_merge should preserve custom state keys');
+
+  const configPath = path.join(repo, '.baseline', 'config.yaml');
+  const config = yaml.parse(fs.readFileSync(configPath, 'utf8'));
+  config.branching.topology = 'trunk';
+  config.branching.branches = [
+    {
+      name: 'dev',
+      role: 'integration',
+      protected: true,
+      allowed_sources: ['feature/*'],
+    },
+    {
+      name: 'main',
+      role: 'production',
+      protected: true,
+      allowed_sources: ['dev'],
+    },
+  ];
+  config.deployments.components = [
+    { id: 'api', name: 'api', path: 'apps/api', enabled: true },
+    { id: 'web', name: 'web', path: 'apps/web', enabled: true },
+  ];
+  config.deployments.approval_matrix = [
+    {
+      environment: 'production',
+      component: 'api',
+      approval_required: true,
+      min_approvers: 3,
+      allow_self_approval: false,
+      allowed_roles: ['maintain', 'admin'],
+    },
+  ];
+  fs.writeFileSync(configPath, yaml.stringify(config), 'utf8');
+
+  runEngine(['apply', '--target', repo, '--direct'], process.cwd());
+
+  const topologyPolicy = JSON.parse(fs.readFileSync(path.join(repo, 'config/policy/baseline-branch-topology.json'), 'utf8'));
+  assert.strictEqual(topologyPolicy.topology, 'trunk');
+  assert.deepStrictEqual(
+    topologyPolicy.branches.map((entry) => entry.name),
+    ['main', 'hotfix/*'],
+    'preset topology should be source-of-truth for non-custom branching modes'
+  );
+
+  const matrixPolicy = JSON.parse(fs.readFileSync(path.join(repo, 'config/policy/baseline-deployment-approval-matrix.json'), 'utf8'));
+  const matrixRows = Array.isArray(matrixPolicy.approval_matrix) ? matrixPolicy.approval_matrix : [];
+  const expectedRows = matrixPolicy.environments.length * matrixPolicy.components.length;
+  assert.strictEqual(matrixRows.length, expectedRows, 'approval matrix should include one row per environment/component');
+  assert.strictEqual(
+    matrixRows.some((row) => String(row.environment) === 'production' && String(row.component) === 'api' && Number(row.min_approvers) === 3),
+    true,
+    'existing per-row overrides should be preserved during matrix normalization'
+  );
 
   console.log('[baseline-engine:selftest] OK');
 }

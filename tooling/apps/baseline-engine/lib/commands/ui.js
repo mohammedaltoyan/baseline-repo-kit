@@ -7,6 +7,8 @@ const { buildContext } = require('../context');
 const { runApply } = require('./apply');
 const { runDiff } = require('./diff');
 const { runDoctor } = require('./doctor');
+const { buildInsights } = require('../insights');
+const { normalizeDynamicConfig } = require('../policy/normalization');
 const { loadSchema, loadUiMetadata, validateConfig } = require('../schema');
 const { UI_APP_DIR } = require('../constants');
 
@@ -39,6 +41,11 @@ function readRequestBody(req) {
 
 async function currentState(args) {
   const context = await buildContext(args);
+  const insights = buildInsights({
+    config: context.config,
+    capabilities: context.capabilities,
+    moduleEvaluation: context.moduleEvaluation,
+  });
   return {
     target: context.targetRoot,
     engine_version: context.engineVersion,
@@ -49,6 +56,7 @@ async function currentState(args) {
     changes: context.changes,
     modules: context.modules,
     module_evaluation: context.moduleEvaluation,
+    insights,
     warnings: context.warnings || [],
   };
 }
@@ -115,10 +123,11 @@ async function runUi(args) {
       if (req.url === '/api/config' && req.method === 'POST') {
         const bodyRaw = await readRequestBody(req);
         const parsed = JSON.parse(bodyRaw || '{}');
-        validateConfig(parsed.config || {});
+        const normalized = normalizeDynamicConfig(parsed.config || {}).config;
+        validateConfig(normalized);
 
         const context = await buildContext(args);
-        context.config = parsed.config;
+        context.config = normalized;
         context.saveConfigArtifacts({
           targetRoot: context.targetRoot,
           config: context.config,

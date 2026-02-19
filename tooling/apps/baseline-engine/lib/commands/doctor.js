@@ -1,6 +1,7 @@
 'use strict';
 
 const { buildContext } = require('../context');
+const { buildInsights } = require('../insights');
 const { loadSchema, loadUiMetadata, validateConfig } = require('../schema');
 const { printOutput } = require('./shared');
 
@@ -39,6 +40,11 @@ async function runDoctor(args) {
     && context.config.security
     && context.config.security.require_pinned_action_refs
   );
+  const insights = buildInsights({
+    config: context.config,
+    capabilities: context.capabilities,
+    moduleEvaluation,
+  });
 
   const payload = {
     command: 'doctor',
@@ -60,6 +66,7 @@ async function runDoctor(args) {
     action_refs: actionRefs,
     unpinned_action_refs: unpinnedActionRefs,
     require_pinned_action_refs: requirePinned,
+    insights,
     warnings: []
       .concat(context.warnings || [])
       .concat(
