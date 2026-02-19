@@ -79,6 +79,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - Generated classifier config: `config/ci/baseline-change-profiles.json`.
 - Generated classifier runtime: `scripts/ops/ci/change-classifier.js`.
 - Generated action reference policy from settings (`ci.action_refs`) to keep workflow actions centrally controlled.
+- `full_lane_triggers` in generated classifier config is emitted directly from effective settings (configured + capability overrides), not reconstructed with path-specific logic.
 - PR gate workflow uses:
   - fast lane always
   - full lane on risk classifier, merge queue event, explicit label, path triggers, and manual dispatch policy.

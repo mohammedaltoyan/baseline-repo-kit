@@ -35,10 +35,6 @@ module.exports = {
     };
   },
   generate({ config, capabilities, evaluation }) {
-    const ci = config && config.ci && typeof config.ci === 'object' ? config.ci : {};
-    const fullLaneTriggers = ci.full_lane_triggers && typeof ci.full_lane_triggers === 'object'
-      ? ci.full_lane_triggers
-      : {};
     const degraded = !!(evaluation && evaluation.degraded);
     const effective = buildEffectiveConfig({
       config,
@@ -47,9 +43,12 @@ module.exports = {
         modules: [evaluation],
       },
     });
-    const effectiveConfig = effective.config;
-    const effectiveOverride = effective.by_path['ci.full_lane_triggers.merge_queue'] || null;
-    const degradedMergeQueue = !!effectiveOverride;
+    const effectiveConfig = effective.config && typeof effective.config === 'object' ? effective.config : {};
+    const effectiveCi = effectiveConfig.ci && typeof effectiveConfig.ci === 'object' ? effectiveConfig.ci : {};
+    const effectiveFullLaneTriggers = effectiveCi.full_lane_triggers
+      && typeof effectiveCi.full_lane_triggers === 'object'
+      ? effectiveCi.full_lane_triggers
+      : {};
 
     return [
       {
@@ -58,12 +57,11 @@ module.exports = {
         content: stableJson({
           version: 1,
           profile_source: 'settings',
-          ci_mode: String(ci.mode || 'two_lane'),
-          action_refs: ci.action_refs && typeof ci.action_refs === 'object' ? ci.action_refs : {},
-          full_lane_triggers: {
-            ...fullLaneTriggers,
-            merge_queue: degradedMergeQueue ? false : fullLaneTriggers.merge_queue !== false,
-          },
+          ci_mode: String(effectiveCi.mode || 'two_lane'),
+          action_refs: effectiveCi.action_refs && typeof effectiveCi.action_refs === 'object'
+            ? effectiveCi.action_refs
+            : {},
+          full_lane_triggers: effectiveFullLaneTriggers,
           degraded,
           effective_overrides: effective.overrides,
           degraded_reasons: (evaluation && Array.isArray(evaluation.missing) ? evaluation.missing : []).map((entry) => ({
@@ -71,7 +69,7 @@ module.exports = {
             reason: entry.reason,
             remediation: entry.remediation || '',
           })),
-          profiles: Array.isArray(ci.change_profiles) ? ci.change_profiles : [],
+          profiles: Array.isArray(effectiveCi.change_profiles) ? effectiveCi.change_profiles : [],
         }),
       },
       {

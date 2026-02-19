@@ -117,10 +117,16 @@ function run() {
   assert.strictEqual(apply.command, 'apply');
   assert.ok(Array.isArray(apply.warnings));
   const ciProfile = JSON.parse(fs.readFileSync(path.join(repo, 'config', 'ci', 'baseline-change-profiles.json'), 'utf8'));
+  const doctorAfterApply = runEngine(['doctor', '--target', repo], process.cwd());
   assert.strictEqual(
     ciProfile.full_lane_triggers.merge_queue,
     false,
     'effective settings should auto-disable merge queue trigger when unsupported'
+  );
+  assert.deepStrictEqual(
+    ciProfile.full_lane_triggers,
+    doctorAfterApply.insights.effective_settings.config.ci.full_lane_triggers,
+    'generated CI profile triggers must match effective config SSOT'
   );
   assert.strictEqual(
     Array.isArray(ciProfile.effective_overrides),
