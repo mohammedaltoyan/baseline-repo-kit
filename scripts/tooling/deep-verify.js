@@ -210,9 +210,16 @@ function assertInstalledMonorepoScaffold({ targetRoot }) {
   const required = [
     'apps/README.md',
     'apps/backend/README.md',
+    'apps/backend/index.js',
+    'apps/backend/server.js',
     'apps/frontend/README.md',
+    'apps/frontend/index.html',
+    'apps/frontend/app.js',
+    'apps/frontend/client.js',
+    'apps/frontend/dev-server.js',
     'packages/README.md',
     'packages/shared/README.md',
+    'packages/shared/app-stack-contract.js',
   ];
   for (const rel of required) {
     assert.ok(fs.existsSync(path.join(targetRoot, rel)), `[deep-verify] expected target repo to include ${rel}`);

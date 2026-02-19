@@ -132,11 +132,24 @@ When working on frontend UI/UX:
 - Do not track generated artifacts (logs, caches, exports, `node_modules`, secret env files).
 - Keep "generated dashboards" generated: do not hand-edit; regenerate via commands.
 
+## App Stack Contract SSOT (Must)
+
+- Baseline runtime app integration is contract-first:
+  - Shared SSOT: `packages/shared/app-stack-contract.js`
+  - Backend runtime: `apps/backend/`
+  - Frontend runtime: `apps/frontend/`
+- Backend and frontend must not duplicate contract/config parsing logic; both must consume shared helpers from `packages/shared/`.
+- Frontend endpoint wiring must be contract-discovered (`/api/v1/contract`) and metadata-driven (`/api/v1/meta`) rather than hardcoded route tables.
+- Any new cross-app runtime setting must be added once in the shared contract module and surfaced in metadata catalog for UI explanations.
+
 ## Build, Test, and Development Commands (Baseline)
 
-- `npm test` runs baseline guardrails (plans + objectives + structure).
+- `npm test` runs baseline guardrails and app-stack tests (shared + backend + frontend).
 - `npm run docs:clean` validates docs hygiene (and can optionally fix issues via env flags when supported).
 - `npm run pr:ready` runs baseline gates before opening a PR (and can optionally enforce clean/up-to-date branches).
+- `npm run start:backend` runs the generic backend API runtime.
+- `npm run start:frontend` runs the generic frontend runtime server.
+- `npm run test:apps` runs integrated app-stack suites.
 - One-button new repo setup (recommended): `npm run baseline:bootstrap -- -- --to <target-path> [--github]` (installs baseline, inits git/branches, optional GitHub provisioning, optional tests).
 - Optional installer to overlay this kit onto another repo:
   - Safe positional form: `npm run baseline:install -- <target-path> [overlay|init] [overwrite] [dry-run] [verbose]`

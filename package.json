@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Reusable baseline kit: docs + ops tooling + repo guardrails (project-agnostic)",
   "scripts": {
-    "test": "npm run lint:plans && npm run lint:pr-policy && npm run lint:workflow-security && npm run lint:auto-pr && npm run lint:release-pr && npm run lint:release-policy && npm run lint:deploy-guard && npm run lint:deploy-registry && npm run lint:branch-policy && npm run lint:contract && npm run lint:docs && npm run lint:objectives && npm run lint:structure && npm run lint:installer && npm run lint:bootstrap && npm run lint:env && npm run lint:engine",
+    "test": "npm run lint:plans && npm run lint:pr-policy && npm run lint:workflow-security && npm run lint:auto-pr && npm run lint:release-pr && npm run lint:release-policy && npm run lint:deploy-guard && npm run lint:deploy-registry && npm run lint:branch-policy && npm run lint:contract && npm run lint:docs && npm run lint:objectives && npm run lint:structure && npm run lint:installer && npm run lint:bootstrap && npm run lint:env && npm run lint:engine && npm run test:apps",
     "lint:structure": "node scripts/tooling/check-structure.js",
     "lint:objectives": "node scripts/ops/objectives-lint.js",
     "lint:objectives:enforce": "OBJECTIVES_ENFORCE_RLS_MISSING=1 node scripts/ops/objectives-lint.js",
@@ -23,6 +23,12 @@
     "lint:env": "node scripts/utils/load-env.selftest.js",
     "lint:engine": "node scripts/tooling/baseline-engine.selftest.js && node scripts/tooling/baseline-engine.normalization.selftest.js && node scripts/tooling/baseline-engine.effective-settings.selftest.js && node scripts/tooling/baseline-engine.effective-rules.selftest.js && node scripts/tooling/baseline-engine.insights.selftest.js && node scripts/tooling/baseline-engine.entitlements.selftest.js && node scripts/tooling/baseline-engine.merge.selftest.js && node scripts/tooling/baseline-engine.capabilities.selftest.js && node scripts/tooling/baseline-engine.schema.selftest.js && node scripts/tooling/baseline-engine.ui-metadata.selftest.js && node scripts/tooling/baseline-engine.ui-metadata-schema.selftest.js && node scripts/tooling/baseline-engine.workflows.selftest.js && node scripts/tooling/baseline-engine.governance.selftest.js",
     "test:deep": "node scripts/tooling/deep-verify.js",
+    "test:apps": "npm run test:shared && npm run test:backend && npm run test:frontend",
+    "test:shared": "node --test packages/shared/*.test.js",
+    "test:backend": "node --test apps/backend/*.test.js",
+    "test:frontend": "node --test apps/frontend/*.test.js",
+    "start:backend": "node apps/backend/index.js",
+    "start:frontend": "node apps/frontend/dev-server.js",
 
     "docs:clean": "node scripts/tooling/docs-clean.js",
     "baseline:install": "node scripts/tooling/baseline-install.js",

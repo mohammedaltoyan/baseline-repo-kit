@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Baseline App Stack Console</title>
+  <link rel="stylesheet" href="/app.css">
+  <script defer src="/runtime-config.js"></script>
+  <script defer src="/client.js"></script>
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">Baseline Repo Kit</p>
+      <h1>App Stack Console</h1>
+      <p class="subtitle">
+        Dynamic backend/frontend integration driven by runtime settings and contract discovery. Every setting below explains what it controls and why it matters.
+      </p>
+      <div id="status" class="statusBar" data-kind="loading">Initializing...</div>
+    </header>
+
+    <section class="layout">
+      <article class="card">
+        <div class="cardHeader">
+          <div>
+            <h2>Runtime Connection</h2>
+            <p>Frontend runtime config resolved from environment-backed settings.</p>
+          </div>
+          <button id="reloadButton" type="button">Reload Snapshot</button>
+        </div>
+        <div id="runtimeSummary" class="runtimeSummary"></div>
+      </article>
+
+      <article class="card">
+        <div class="cardHeader">
+          <div>
+            <h2>Echo API</h2>
+            <p>Send JSON to the backend and validate contract + response behavior.</p>
+          </div>
+        </div>
+        <form id="echoForm">
+          <label for="echoPayload">JSON payload</label>
+          <textarea id="echoPayload" spellcheck="false">{ "message": "hello from frontend" }</textarea>
+          <div class="actions">
+            <button type="submit">Send Echo</button>
+          </div>
+        </form>
+        <h3>Echo Response</h3>
+        <pre id="echoResponse">{}</pre>
+      </article>
+
+      <article class="card span2">
+        <div class="cardHeader">
+          <div>
+            <h2>Settings Catalog</h2>
+            <p>Returned by backend metadata endpoint; powers explanation-first UI.</p>
+          </div>
+        </div>
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Environment Variable</th>
+                <th>Effective Value</th>
+                <th>What This Controls</th>
+                <th>Why It Matters</th>
+                <th>Apply Impact</th>
+              </tr>
+            </thead>
+            <tbody id="settingsRows"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="card span2">
+        <div class="cardHeader">
+          <div>
+            <h2>API Snapshot</h2>
+            <p>Contract + health + metadata payloads captured live from backend.</p>
+          </div>
+        </div>
+        <div class="grid3">
+          <div>
+            <h3>Contract</h3>
+            <pre id="contractData">{}</pre>
+          </div>
+          <div>
+            <h3>Health</h3>
+            <pre id="healthData">{}</pre>
+          </div>
+          <div>
+            <h3>Meta</h3>
+            <pre id="metaData">{}</pre>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

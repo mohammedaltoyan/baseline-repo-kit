@@ -11,10 +11,10 @@ Goals:
 
 ```text
 apps/
-  backend/     # API / workers / jobs (deployable unit)
-  frontend/    # UI (deployable unit)
+  backend/     # API / workers / jobs (deployable unit; includes generic runtime template)
+  frontend/    # UI (deployable unit; includes generic runtime template)
 packages/
-  shared/      # reusable libraries/config used by multiple apps
+  shared/      # reusable libraries/config used by multiple apps (includes app-stack contract SSOT)
 config/        # repo-wide config + templates (no secrets committed)
 docs/          # documentation (guides + ops + product)
 scripts/       # repo automation (plans + lint gates)
@@ -32,6 +32,6 @@ tooling/       # internal tooling (standalone tooling apps under tooling/apps/)
 
 - Backend migrations: `apps/backend/` (or a backend-owned subfolder) so ownership is explicit.
 - Shared types/contracts: `packages/shared/` (or multiple packages split by domain).
+- Baseline generic app-stack contract SSOT: `packages/shared/app-stack-contract.js`.
 - Repo automation: `scripts/` (single implementations; parameterized; no copy/paste variants).
 - Tooling apps with their own dependencies: `tooling/apps/<name>/` (avoid random root-level tooling packages).
-

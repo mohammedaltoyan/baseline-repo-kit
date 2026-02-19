@@ -1,14 +1,35 @@
-# Backend App (Template)
+# Backend App (Generic Runtime)
 
-Place your backend/API/worker code here.
+`apps/backend` is a production-ready generic Node.js API runtime for baseline repos.
 
-Recommended responsibilities:
-- API endpoints / service boundaries
-- Background jobs and schedulers
-- Database migrations (if the backend owns the database)
+## Start
 
-Enterprise defaults:
-- Configuration-driven behavior (avoid hard-coded routing/decisions).
-- Clear ownership for schema and data contracts.
-- Deterministic local + CI verification (wire suites into `npm test` or a repo `verify` command).
+- `npm run start:backend`
 
+The server exposes:
+- `GET /api/health`
+- `GET /api/v1/contract` (runtime API contract for frontend discovery)
+- `GET /api/v1/meta` (runtime metadata + settings explanations)
+- `POST /api/v1/echo`
+
+## Configuration (environment variables)
+
+- `BACKEND_HOST` (default: `0.0.0.0`)
+- `BACKEND_PORT` (default: `4310`)
+- `BACKEND_SERVICE_NAME` (default: `baseline-backend`)
+- `BACKEND_ENVIRONMENT` (default: `development`)
+- `BACKEND_API_BASE_PATH` (default: `/api/v1`)
+- `BACKEND_REQUEST_TIMEOUT_MS` (default: `10000`)
+- `BACKEND_MAX_BODY_BYTES` (default: `1048576`)
+- `BACKEND_KEEP_ALIVE_TIMEOUT_MS` (default: `5000`)
+- `BACKEND_CORS_ALLOWED_ORIGINS` (CSV; default: `*`)
+- `BACKEND_CORS_ALLOW_CREDENTIALS` (default: `false`)
+- `BACKEND_CORS_ALLOWED_METHODS` (CSV; default: `GET,POST,OPTIONS`)
+- `BACKEND_CORS_ALLOWED_HEADERS` (CSV; default: `content-type,authorization,x-request-id`)
+- `BACKEND_CORS_MAX_AGE_SECONDS` (default: `600`)
+
+All parsing/default logic is shared from `packages/shared/app-stack-contract.js` (single source of truth).
+
+## Tests
+
+- `npm run test:backend`

@@ -29,10 +29,10 @@ function run() {
 
   // Monorepo scaffolding should be installable in overlay mode.
   assert.strictEqual(allowedByMode('apps/README.md', 'overlay'), true);
-  assert.strictEqual(allowedByMode('apps/backend/README.md', 'overlay'), true);
-  assert.strictEqual(allowedByMode('apps/frontend/README.md', 'overlay'), true);
+  assert.strictEqual(allowedByMode('apps/backend/index.js', 'overlay'), true);
+  assert.strictEqual(allowedByMode('apps/frontend/index.html', 'overlay'), true);
   assert.strictEqual(allowedByMode('packages/README.md', 'overlay'), true);
-  assert.strictEqual(allowedByMode('packages/shared/README.md', 'overlay'), true);
+  assert.strictEqual(allowedByMode('packages/shared/app-stack-contract.js', 'overlay'), true);
 
   // Overlay safety: avoid overwriting project identity by default.
   assert.strictEqual(allowedByMode('README.md', 'overlay'), false);
