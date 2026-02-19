@@ -52,6 +52,8 @@ async function currentState(args) {
     schema: loadSchema(),
     ui_metadata: loadUiMetadata(),
     config: context.config,
+    effective_config: insights && insights.effective_settings ? insights.effective_settings.config : context.config,
+    effective_overrides: insights && insights.effective_settings ? insights.effective_settings.overrides : [],
     capabilities: context.capabilities,
     changes: context.changes,
     modules: context.modules,

@@ -1,6 +1,7 @@
 'use strict';
 
 const { deriveBranchRolePolicies } = require('./policy/branching');
+const { buildEffectiveConfig } = require('./policy/effective-settings');
 const { evaluateGithubEntitlements } = require('./policy/entitlements');
 const { deriveRequiredChecksByRole } = require('./policy/required-checks');
 const { computeAdaptiveReviewThresholds, resolveActiveReviewPolicy } = require('./policy/reviewers');
@@ -391,6 +392,11 @@ function capabilitySummary(capabilities) {
 }
 
 function buildInsights({ config, capabilities, moduleEvaluation }) {
+  const effectiveSettings = buildEffectiveConfig({
+    config,
+    capabilities,
+    moduleEvaluation,
+  });
   const capability = capabilitySummary(capabilities);
   const entitlements = evaluateGithubEntitlements({
     ownerType: capability.owner_type,
@@ -407,6 +413,7 @@ function buildInsights({ config, capabilities, moduleEvaluation }) {
 
   return {
     capability,
+    effective_settings: effectiveSettings,
     entitlements,
     capability_matrix: capabilityMatrix,
     reviewer,

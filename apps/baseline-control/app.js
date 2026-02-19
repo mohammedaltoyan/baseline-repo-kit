@@ -142,6 +142,22 @@ function capabilityRemediation(capabilityKey) {
   return '';
 }
 
+function effectiveOverrideByPath(path) {
+  const overrides = state.payload && Array.isArray(state.payload.effective_overrides)
+    ? state.payload.effective_overrides
+    : [];
+  return overrides.find((entry) => String(entry && entry.path || '') === String(path || '')) || null;
+}
+
+function effectiveValueForPath(path, fallbackValue) {
+  const effectiveConfig = state.payload && state.payload.effective_config && typeof state.payload.effective_config === 'object'
+    ? state.payload.effective_config
+    : null;
+  if (!effectiveConfig) return fallbackValue;
+  const resolved = getPath(effectiveConfig, path);
+  return typeof resolved === 'undefined' ? fallbackValue : resolved;
+}
+
 function parseTypedValue(raw, currentValue) {
   if (typeof currentValue === 'boolean') {
     return !!raw;
@@ -395,19 +411,23 @@ function renderSettings() {
 
       const capability = capabilityLabel(entry.capabilityKey);
       const remediation = capabilityRemediation(capability.key);
+      const effectiveValue = effectiveValueForPath(entry.path, current);
+      const override = effectiveOverrideByPath(entry.path);
       const meta = document.createElement('div');
       meta.className = 'meta';
       meta.innerHTML = [
         `<div><strong>What:</strong> ${entry.meta.what_this_controls || ''}</div>`,
         `<div><strong>Why:</strong> ${entry.meta.why_it_matters || ''}</div>`,
         `<div><strong>Default:</strong> ${entry.meta.default_behavior || ''}</div>`,
-        `<div><strong>Effective value:</strong> ${formatValue(current)}</div>`,
+        `<div><strong>Configured value:</strong> ${formatValue(current)}</div>`,
+        `<div><strong>Effective value:</strong> ${formatValue(effectiveValue)}</div>`,
+        override ? `<div class="cap-warn"><strong>Effective override:</strong> ${override.detail || override.reason || 'runtime override applied'} (${override.source || 'engine'})</div>` : '',
         `<div><strong>Tradeoffs:</strong> ${entry.meta.tradeoffs || ''}</div>`,
         `<div><strong>Prerequisites:</strong> ${entry.meta.prerequisites || ''}</div>`,
         `<div><strong>Apply impact:</strong> ${entry.meta.apply_impact || ''}</div>`,
         entry.inheritedMeta ? `<div><strong>Explanation source:</strong> ${entry.metaPath}</div>` : '',
         `<div class="${capability.className}"><strong>Detected support:</strong> ${capability.text}</div>`,
-        `<div><strong>Fallback/remediation:</strong> ${entry.meta.fallback_or_remediation || remediation || 'No fallback required when supported. See capability panel when unsupported.'}</div>`,
+        `<div><strong>Fallback/remediation:</strong> ${override && override.remediation ? override.remediation : (entry.meta.fallback_or_remediation || remediation || 'No fallback required when supported. See capability panel when unsupported.')}</div>`,
       ].join('');
       row.appendChild(meta);
 

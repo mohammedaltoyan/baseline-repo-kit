@@ -176,6 +176,7 @@ When working on frontend UI/UX:
   - Only `branching.topology=custom` may persist user-defined branch graphs.
   - `deployments.approval_matrix` must be normalized to the `{environment x component}` cartesian matrix while preserving explicit row overrides.
 - Decision logging is mandatory: emit effective governance/capability decisions to `config/policy/baseline-resolution-log.json` so matrix/threshold/topology behavior is explainable from SSOT artifacts.
+- Effective settings SSOT is mandatory: derive configured-vs-effective overrides once in `tooling/apps/baseline-engine/lib/policy/effective-settings.js` and reuse that output in generators, insights, UI, and decision logs (no per-surface override logic duplication).
 - Governance matrix SSOT is mandatory: reviewer thresholds, branch-role required checks, deployment approval enforcement mode, and GitHub App status/reason must be computed once in `tooling/apps/baseline-engine/lib/insights.js` and consumed by doctor/UI/log outputs (no duplicated derivation logic).
 - GitHub entitlement advisories are mandatory in the same SSOT path: derive owner-type/visibility feature advisories (for example merge queue and deployment environment protections) centrally and surface them as non-blocking guidance in UI/log outputs.
 - CI lane control must remain classifier-driven via generated `config/ci/baseline-change-profiles.json` and `scripts/ops/ci/change-classifier.js` (no per-repo hardcoded lane logic).
