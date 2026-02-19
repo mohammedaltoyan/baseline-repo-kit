@@ -6,6 +6,7 @@ const { CAPABILITY_KEYS } = require('../../tooling/apps/baseline-engine/lib/capa
 const { defaultConfig } = require('../../tooling/apps/baseline-engine/lib/config');
 const { loadModules } = require('../../tooling/apps/baseline-engine/lib/modules');
 const {
+  deriveModuleCapabilityRequirements,
   getPath,
   loadEffectiveSettingRules,
 } = require('../../tooling/apps/baseline-engine/lib/policy/effective-settings');
@@ -34,6 +35,30 @@ function run() {
     assert.strictEqual(capabilitySet.has(capability), true, `rule capability must be known: ${capability}`);
     assert.strictEqual(moduleSet.has(moduleId), true, `rule module must exist: ${moduleId}`);
   }
+
+  const requiresWhenEnabled = deriveModuleCapabilityRequirements({
+    moduleId: 'core-ci',
+    config,
+    baseRequires: ['rulesets'],
+  });
+  assert.deepStrictEqual(
+    requiresWhenEnabled,
+    ['rulesets', 'merge_queue'],
+    'core-ci capability requirements should include merge_queue when trigger is enabled'
+  );
+
+  const configMergeQueueDisabled = JSON.parse(JSON.stringify(config));
+  configMergeQueueDisabled.ci.full_lane_triggers.merge_queue = false;
+  const requiresWhenDisabled = deriveModuleCapabilityRequirements({
+    moduleId: 'core-ci',
+    config: configMergeQueueDisabled,
+    baseRequires: ['rulesets'],
+  });
+  assert.deepStrictEqual(
+    requiresWhenDisabled,
+    ['rulesets'],
+    'core-ci capability requirements should drop merge_queue when trigger is disabled'
+  );
 
   console.log('[baseline-engine:effective-rules-selftest] OK');
 }

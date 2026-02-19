@@ -5,7 +5,10 @@ const {
   generateNodeRunWorkflow,
   generatePrGateWorkflow,
 } = require('../../../lib/generator/workflows');
-const { buildEffectiveConfig } = require('../../../lib/policy/effective-settings');
+const {
+  buildEffectiveConfig,
+  deriveModuleCapabilityRequirements,
+} = require('../../../lib/policy/effective-settings');
 
 function stableJson(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
@@ -14,21 +17,20 @@ function stableJson(value) {
 module.exports = {
   id: 'core-ci',
   resolve_capability_requirements({ config, module }) {
-    const ci = config && config.ci && typeof config.ci === 'object' ? config.ci : {};
-    const triggers = ci.full_lane_triggers && typeof ci.full_lane_triggers === 'object'
-      ? ci.full_lane_triggers
+    const capabilityRequirements = module && module.capability_requirements
+      && typeof module.capability_requirements === 'object'
+      ? module.capability_requirements
       : {};
-    const requires = ['rulesets'];
-    if (triggers.merge_queue !== false) {
-      requires.push('merge_queue');
-    }
+    const requires = deriveModuleCapabilityRequirements({
+      moduleId: 'core-ci',
+      config,
+      baseRequires: capabilityRequirements.requires,
+    });
     return {
       requires,
-      degrade_strategy: module && module.capability_requirements
-        ? module.capability_requirements.degrade_strategy
-        : 'warn',
-      remediation: module && module.capability_requirements
-        ? module.capability_requirements.remediation
+      degrade_strategy: String(capabilityRequirements.degrade_strategy || '').trim() || 'warn',
+      remediation: capabilityRequirements.remediation && typeof capabilityRequirements.remediation === 'object'
+        ? capabilityRequirements.remediation
         : {},
     };
   },

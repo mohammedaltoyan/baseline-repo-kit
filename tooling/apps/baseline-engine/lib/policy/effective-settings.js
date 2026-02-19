@@ -176,6 +176,37 @@ function renderDetail(template, context) {
     .replace(/\{capability_reason\}/g, String(source.capability_reason || 'unknown'));
 }
 
+function deriveModuleCapabilityRequirements({ moduleId, config, baseRequires }) {
+  const targetModuleId = String(moduleId || '').trim();
+  const sourceConfig = config && typeof config === 'object' ? config : {};
+  const requirements = [];
+  const seen = new Set();
+
+  function addRequirement(value) {
+    const key = String(value || '').trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    requirements.push(key);
+  }
+
+  for (const capability of Array.isArray(baseRequires) ? baseRequires : []) {
+    addRequirement(capability);
+  }
+
+  if (!targetModuleId) return requirements;
+
+  const ruleset = loadEffectiveSettingRules();
+  for (const rule of ruleset.rules) {
+    if (String(rule && rule.module || '') !== targetModuleId) continue;
+    const configured = getPath(sourceConfig, rule.path);
+    if (configured === rule.when_configured_equals) {
+      addRequirement(rule.capability);
+    }
+  }
+
+  return requirements;
+}
+
 function buildEffectiveConfig({ config, capabilities, moduleEvaluation }) {
   const sourceConfig = config && typeof config === 'object' ? config : {};
   const effectiveConfig = cloneJson(sourceConfig);
@@ -228,6 +259,7 @@ function buildEffectiveConfig({ config, capabilities, moduleEvaluation }) {
 
 module.exports = {
   buildEffectiveConfig,
+  deriveModuleCapabilityRequirements,
   getPath,
   loadEffectiveSettingRules,
   setPath,

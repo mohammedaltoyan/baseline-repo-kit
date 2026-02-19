@@ -46,6 +46,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - Enabled modules are loaded from `tooling/apps/baseline-engine/modules/*`.
 - Each module contributes generated artifacts via `generators/index.js`.
 - Module capability requirements are evaluated centrally and exposed in `.baseline/capabilities/github.json.runtime`.
+- Capability requirement derivation must stay settings-driven: module base requirements are combined with matching rows from `config/policy/effective-settings-rules.json` so feature toggles (for example merge-queue triggers) dynamically add/remove required capabilities without module-local conditionals.
 - Unsupported module capabilities never fail silently:
   - `degrade_strategy: warn` -> generate degraded outputs + warnings.
   - `degrade_strategy: skip` -> skip module generation.
