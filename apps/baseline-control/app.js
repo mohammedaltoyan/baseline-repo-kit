@@ -198,6 +198,9 @@ function renderRepoSummary() {
   const payload = state.payload || {};
   const insights = payload.insights && typeof payload.insights === 'object' ? payload.insights : {};
   const capability = insights.capability && typeof insights.capability === 'object' ? insights.capability : {};
+  const entitlements = insights.entitlements && typeof insights.entitlements === 'object' ? insights.entitlements : {};
+  const entitlementFeatures = Array.isArray(entitlements.features) ? entitlements.features : [];
+  const advisoryFeatures = entitlementFeatures.filter((entry) => String(entry && entry.state) !== 'likely_supported').length;
   const repo = payload.capabilities && payload.capabilities.repository ? payload.capabilities.repository : {};
   const auth = payload.capabilities && payload.capabilities.auth ? payload.capabilities.auth : {};
   const githubApp = payload.capabilities && payload.capabilities.runtime && payload.capabilities.runtime.github_app
@@ -216,6 +219,7 @@ function renderRepoSummary() {
     `<div><strong>Token scopes:</strong> ${Number(capability.token_scope_count || 0)}</div>`,
     `<div><strong>Maintainers:</strong> ${Number(capability.maintainer_count || 0)}</div>`,
     `<div><strong>Maintainer roles:</strong> ${formatRoleCounts(capability.role_counts)}</div>`,
+    `<div><strong>Entitlement advisories:</strong> ${advisoryFeatures} / ${entitlementFeatures.length}</div>`,
     `<div><strong>GitHub App required:</strong> ${githubApp.effective_required ? 'yes' : 'no'}</div>`,
     `<div><strong>Warnings:</strong> ${warnings.length}</div>`,
     `<div><strong>Engine:</strong> ${payload.engine_version || '2.2.0'}</div>`,
@@ -252,7 +256,7 @@ function renderGovernanceSummary() {
     `<div><strong>Deployment matrix:</strong> ${matrixHealth}</div>`,
     `<div><strong>Matrix rows:</strong> ${typeof matrix.actual_rows === 'number' ? matrix.actual_rows : 0} / ${typeof matrix.expected_rows === 'number' ? matrix.expected_rows : 0}</div>`,
     `<div><strong>Approval-required rows:</strong> ${Number(deployments.approval_required_rows || 0)}</div>`,
-    `<div><strong>Approval enforcement mode:</strong> ${deployments.enforcement && deployments.enforcement.mode ? deployments.enforcement.mode : 'unknown'} (${deployments.enforcement && deployments.enforcement.reason ? deployments.enforcement.reason : 'unknown'})</div>`,
+    `<div><strong>Approval enforcement mode:</strong> ${deployments.enforcement && deployments.enforcement.mode ? deployments.enforcement.mode : 'unknown'} (${deployments.enforcement && deployments.enforcement.reason ? deployments.enforcement.reason : 'unknown'}; entitlement=${deployments.enforcement && deployments.enforcement.entitlement_state ? deployments.enforcement.entitlement_state : 'unknown'})</div>`,
     `<div><strong>Rows by environment:</strong></div>${renderBreakdownRows(deployments.rows_by_environment, 'environment')}`,
     `<div><strong>Rows by component:</strong></div>${renderBreakdownRows(deployments.rows_by_component, 'component')}`,
     `<div><strong>GitHub App status:</strong> ${githubApp.status || (githubApp.effective_required ? 'required' : 'not_required')}</div>`,
@@ -261,22 +265,41 @@ function renderGovernanceSummary() {
 }
 
 function renderCapabilities() {
+  const matrixRows = state.payload
+    && state.payload.insights
+    && Array.isArray(state.payload.insights.capability_matrix)
+    ? state.payload.insights.capability_matrix
+    : [];
   const capabilities = state.payload && state.payload.capabilities && state.payload.capabilities.capabilities
     ? state.payload.capabilities.capabilities
     : {};
+  const legacyRows = Object.entries(capabilities).map(([capability, value]) => ({
+    capability,
+    supported: value && value.supported === true,
+    state: value && value.state || 'unknown',
+    reason: value && value.reason || 'unknown',
+    remediation: capabilityRemediation(capability),
+    source: 'runtime_probe',
+  }));
+  const rows = matrixRows.length > 0 ? matrixRows : legacyRows;
 
-  const entries = Object.entries(capabilities);
-  if (!entries.length) {
+  if (!rows.length) {
     $('capabilities').textContent = 'No capability probe data available.';
     return;
   }
 
-  $('capabilities').innerHTML = entries
-    .map(([key, value]) => {
-      const cls = value.supported ? 'cap-ok' : value.state === 'unsupported' ? 'cap-error' : 'cap-warn';
-      const remediation = capabilityRemediation(key);
+  $('capabilities').innerHTML = rows
+    .map((row) => {
+      const supported = row && row.supported;
+      const cls = supported === true ? 'cap-ok' : supported === false ? 'cap-error' : 'cap-warn';
+      const remediation = String(row && row.remediation || '').trim();
+      const entitlement = String(row && row.entitlement_state || '').trim();
+      const docsUrl = String(row && row.docs_url || '').trim();
+      const source = String(row && row.source || 'runtime_probe').trim();
       const remediationLine = remediation ? ` | remediation: ${remediation}` : '';
-      return `<div class="${cls}"><strong>${key}</strong>: ${value.state} (${value.reason})${remediationLine}</div>`;
+      const entitlementLine = entitlement ? ` | entitlement: ${entitlement}` : '';
+      const docsLine = docsUrl ? ` | docs: ${docsUrl}` : '';
+      return `<div class="${cls}"><strong>${row.capability}</strong>: ${row.state} (${row.reason}) | source: ${source}${entitlementLine}${remediationLine}${docsLine}</div>`;
     })
     .join('');
 }
