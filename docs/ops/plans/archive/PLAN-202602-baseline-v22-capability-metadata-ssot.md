@@ -1,10 +1,10 @@
 ﻿---
-plan_id: PLAN-202602-baseline-v22-ui-metadata-schema
-title: Baseline v2.2 UI metadata schema + runtime validation
+plan_id: PLAN-202602-baseline-v22-capability-metadata-ssot
+title: Baseline v2.2 capability mapping SSOT in UI metadata
 owner: @owner
 status: done # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
 current_step: S99
-updated: 2026-02-18
+updated: 2026-02-19
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-02 # required for queued
 links:
@@ -27,9 +27,9 @@ Checklist
 - [x] S95 - Testing coverage design and execution (unit + integration/E2E; perf/load if applicable; evidence recorded)
 
 Phase Map (fill during S02)
-- S10: add UI metadata schema contract (`config/schema/baseline-ui-metadata.schema.json`) and capability key constants in engine capability adapter.
-- S20: enforce runtime metadata validation in `lib/schema.js` (schema validation + semantic checks for section references and capability keys).
-- S30: add dedicated metadata-schema selftest and wire into engine lint/test gate.
+- S10: move UI capability mapping from hardcoded JS map into metadata SSOT (`config/schema/baseline-ui-metadata.json`).
+- S20: update UI runtime to resolve capability labels from metadata entries (with inherited metadata support).
+- S30: extend metadata selftests to validate capability key integrity and required mappings.
 
 Objectives Gate (must pass before testing)
 - [x] S98 - Objectives Gate - SIMPLE, best practice, SCALABLE, and DYNAMIC with ZERO REDUNDANCY and ZERO HARD CODING; configuration-driven where applicable; SSOT; least-privilege security (RLS/policies if supported) (manual check with Objectives Evidence)
@@ -38,14 +38,14 @@ Testing Gate (required to mark plan done)
 - [x] S99 - Tests Gate - All required suites passing; change-aware check (code changes require matching test artifacts). Include evidence for unit + integration/E2E; perf/load marked N/A if not applicable.
 
 Decisions & Notes
-- 2026-02-18 - Added UI metadata schema and runtime validator path so UI metadata is a validated SSOT contract instead of trusted raw JSON.
-- 2026-02-18 - Centralized capability key list in `lib/capabilities/github.js` and reused it in metadata validation/selftests to remove duplicated allowed-key lists.
+- 2026-02-18 - Removed hardcoded UI capability map and made capability labeling metadata-driven to preserve SSOT and extensibility.
+- 2026-02-18 - Added metadata integrity checks for `capability_key` values and expected governed paths.
 - Standards references:
-  - https://ajv.js.org/options.html
-  - https://json-schema.org/understanding-json-schema/reference/object
   - https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions
+  - https://docs.github.com/en/actions/using-workflows/reusing-workflows
+  - https://json-schema.org/understanding-json-schema/reference/annotations
 - PR: pending (next bot-authored codex PR)
-- CI Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/22161737455/job/64079864247
-- Objectives Evidence: auto-verified at 2026-02-18T23:59:50Z (commit pending) - UI metadata is now validated by schema + semantic checks, eliminating ungoverned metadata drift.
+- CI Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/22161554713/job/64079243320
+- Objectives Evidence: auto-verified at 2026-02-18T23:59:30Z (commit pending) - capability mapping is now metadata SSOT with no duplicated UI hardcoding.
 
 
