@@ -2,7 +2,7 @@
 plan_id: PLAN-202602-ui-only-control-plane
 title: Deliver complete UI-only baseline operations flow
 owner: @codex
-status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
+status: done # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
 current_step: S99
 updated: 2026-02-19
 priority: P2 # P0|P1|P2|P3
@@ -12,8 +12,8 @@ links:
 ---
 
 At-a-Glance
-- Now: S99 - Tests Gate evidence captured for UI-only control-plane phase
-- Next: Ship phase PR and merge to integration branch
+- Now: S99 - Tests and external validation evidence captured (UI walkthrough + live GitHub execute matrix)
+- Next: Mark plan done and merge phase PR
 - Blockers: none
 - ETA: 2026-02-19
 
@@ -46,11 +46,18 @@ Testing Gate (required to mark plan done)
 - [x] S99 - Tests Gate - All required suites passing; change-aware check (code changes require matching test artifacts). Include evidence for unit + integration/E2E; perf/load marked N/A if not applicable.
 
 Decisions & Notes
-- Objectives Evidence: auto-verified at 2026-02-19T17:55:12.708Z (commit 41ea766775224c054ee5e856a5474e32a76f8a87)
+- Objectives Evidence: auto-verified at 2026-02-19T18:56:28.001Z (commit d7140d06bcd807badab5e5e694e902a8ad345fd3)
 - 2026-02-19 - UI-only operation model finalized: one startup command (`baseline ui`), all lifecycle operations available through UI API and baseline-control interface.
 - 2026-02-19 - Engine UI API hardened with explicit JSON/body error contracts (`400 invalid_json_body`, `413 request_body_too_large`) and session target/profile switching.
 - 2026-02-19 - Added integration selftest `scripts/tooling/baseline-engine.ui-api.selftest.js` and wired into `lint:engine`.
-- 2026-02-19 - Not included in this phase (explicitly deferred): manual visual UAT/screenshot walkthrough; live `--github` provisioning validation against external user/org entitlement matrix.
+- 2026-02-19 - Manual visual UAT walkthrough executed with screenshot capture:
+  - report: `tmp/ui-visual-uat/manual-2026-02-19/ui-visual-uat.report.json`
+  - checklist: `tmp/ui-visual-uat/manual-2026-02-19/ui-visual-uat.checklist.md`
+  - screenshots: `tmp/ui-visual-uat/manual-2026-02-19/screenshots/01-happy-home.png`, `tmp/ui-visual-uat/manual-2026-02-19/screenshots/02-openapi-snapshot.png`, `tmp/ui-visual-uat/manual-2026-02-19/screenshots/03-backend-error-state.png`, `tmp/ui-visual-uat/manual-2026-02-19/screenshots/04-settings-table.png`
+- 2026-02-19 - Live GitHub provisioning validation executed in `--execute` mode against user + org owner matrix:
+  - report: `tmp/github-live-verify/report-2026-02-19T18-48-00-291Z.json`
+  - summary: executed=2, successful=1, degraded_success=1, failed=0
+  - entitlement outcome: user-owned private repo rulesets unavailable (degraded success with explicit remediation); org-owned private repo full success
+  - cleanup note: `delete_repo` scope unavailable on current token, so ephemeral live-verify repos were not auto-deleted by cleanup mode
 - PR: pending (branch `codex/202602-ui-only-control-plane`)
-- CI Evidence: local `npm test` pass on 2026-02-19
-
+- CI Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/22193609006 (branch workflow evidence) + local `npm test` pass on 2026-02-19

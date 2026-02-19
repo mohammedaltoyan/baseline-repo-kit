@@ -78,12 +78,16 @@ function toAbsoluteTarget(value) {
 function buildRuntimeSession(args = {}) {
   const inputTarget = String(args.target || args.to || args.t || '').trim();
   const resolvedTarget = resolveTargetRoot(args);
+  const explicitPort = Object.prototype.hasOwnProperty.call(args, 'port')
+    ? args.port
+    : process.env.BASELINE_UI_PORT;
+  const resolvedPort = String(explicitPort == null ? '' : explicitPort).trim();
   return {
     target_input: inputTarget || resolvedTarget,
     target: resolvedTarget,
     profile: String(args.profile || '').trim(),
     host: String(args.host || process.env.BASELINE_UI_HOST || '0.0.0.0').trim(),
-    port: Number(args.port || process.env.BASELINE_UI_PORT || 4173),
+    port: Number(resolvedPort || 4173),
   };
 }
 
