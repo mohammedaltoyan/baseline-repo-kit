@@ -10,4 +10,5 @@ Baseline recommendations:
 - `baseline-control/` is the web-first control panel for Baseline Engine v2.2:
   - renders settings from schema/ui metadata
   - shows effective values + capability support + remediation per setting
-  - runs save/diff/doctor/apply flows against the engine API
+  - runs full lifecycle flows (`init`, `diff`, `doctor`, `verify`, `upgrade`, `apply`, capability refresh, config save) against the engine API
+  - supports UI session target/profile switching so one started UI can operate on different local repos without new CLI commands

@@ -105,7 +105,24 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 
 ## UI
 
-Run `npm run baseline:ui` and open `http://0.0.0.0:4173` (or configured host/port).
+Run `npm run baseline:ui -- --target <target-path>` once, then operate fully from UI.
+No additional CLI command is required after the UI starts.
+
+Default URL: `http://127.0.0.1:4173` (or configured host/port).
+
+UI API endpoints:
+- `GET /api/session` - returns current target/profile and target path health.
+- `POST /api/session` - switches target/profile for all subsequent operations.
+- `GET /api/operations` - returns operation catalog (used by UI as runtime source of action metadata).
+- `GET /api/state` - returns schema + metadata + config + effective config + capabilities + insights.
+- `POST /api/refresh-capabilities` - forces capability re-probe and returns refreshed state.
+- `POST /api/init` - initialize baseline files in current target.
+- `POST /api/diff` - preview managed-file diff.
+- `POST /api/doctor` - run diagnostics.
+- `POST /api/verify` - run verification.
+- `POST /api/config` - persist normalized settings from UI.
+- `POST /api/upgrade` - run migrations/upgrades.
+- `POST /api/apply` - apply managed changes (PR-first unless direct override selected).
 
 The UI surfaces per setting:
 - what it controls

@@ -167,6 +167,9 @@ When working on frontend UI/UX:
   - `npm run baseline:upgrade -- --target <target-path>`
   - `npm run baseline:doctor -- --target <target-path>`
   - `npm run baseline:verify -- --target <target-path>`
+- UI-first operation mode is mandatory for interactive usage:
+  - Start once with `npm run baseline:ui -- --target <target-path>`.
+  - After startup, run lifecycle actions from UI only (`init`, `diff`, `doctor`, `verify`, `upgrade`, `apply`, capability refresh, config save, target/profile switch).
 
 ## Baseline Engine v2.2 (Must)
 
@@ -204,6 +207,7 @@ When working on frontend UI/UX:
 - Workflow action references must be settings-driven (`ci.action_refs`) so pinning policy can be centrally controlled.
 - Baseline GitHub workflows must follow checkout credential SSOT in `config/policy/workflow-security.json`: `actions/checkout` must set `persist-credentials` explicitly, default `false`, with explicit allowlisted write flows only.
 - UI explanation + capability-label SSOT is `config/schema/baseline-ui-metadata.json`, governed by `config/schema/baseline-ui-metadata.schema.json`; runtime and CI must validate metadata structure, section references, and capability keys.
+- UI control-plane API is contracted in engine runtime (`tooling/apps/baseline-engine/lib/commands/ui.js`) and must include lifecycle endpoints (`/api/init|diff|doctor|verify|upgrade|apply`), settings/session endpoints (`/api/config`, `/api/session`), and discovery/state endpoints (`/api/operations`, `/api/state`, `/api/refresh-capabilities`) with explicit error signaling for invalid JSON (`400`) and oversized payloads (`413`).
 - If `security.require_pinned_action_refs=true`, generated workflow action refs must be full SHA pins and doctor must fail otherwise.
 - Deployment OIDC behavior must be settings-driven (`deployments.oidc`) with secure defaults and no hardcoded cloud vendor assumptions.
 - For generated GitHub Actions workflows, if a job defines `permissions`, include every required scope there (for OIDC: `id-token: write`) because job-level `permissions` override workflow-level defaults.

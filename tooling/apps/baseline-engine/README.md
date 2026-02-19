@@ -23,3 +23,25 @@ Core dynamic engine for baseline repository installation, policy generation, cap
 - Effective decision logging to `config/policy/baseline-resolution-log.json`.
 - Module-based extension contract.
 - Backward-compatible upgrades by default.
+
+## UI-first operation mode
+
+Start once:
+- `npm run baseline:ui -- --target <target-path>`
+
+Then operate fully from the web UI at `http://127.0.0.1:4173` (or configured host/port) with no further CLI commands required.
+
+### UI API contract
+
+- `GET /api/session` - current target/profile and target path status.
+- `POST /api/session` - switch target/profile for all subsequent operations.
+- `GET /api/operations` - operation catalog for UI rendering.
+- `GET /api/state` - full runtime state (schema, metadata, config, effective config, capabilities, insights).
+- `POST /api/refresh-capabilities` - force capability re-probe and return fresh state.
+- `POST /api/init` - initialize baseline for current session target.
+- `POST /api/diff` - preview managed-file changes.
+- `POST /api/doctor` - configuration/capability diagnostics.
+- `POST /api/verify` - combined integrity checks.
+- `POST /api/config` - save normalized config from UI.
+- `POST /api/upgrade` - run managed migrations/upgrades.
+- `POST /api/apply` - apply managed changes (PR-first unless direct).

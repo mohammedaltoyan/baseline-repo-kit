@@ -43,6 +43,7 @@ Use the engine when you need fully dynamic, capability-aware setup and upgrades:
    - `npm run baseline:init -- --target <target-path>`
 2. Launch web UI:
    - `npm run baseline:ui -- --target <target-path>`
+   - After startup, use only the UI for `init`, `diff`, `doctor`, `verify`, `upgrade`, `apply`, target/profile switching, and capability refresh.
 3. Preview generated changes:
    - `npm run baseline:diff -- --target <target-path>`
 4. Apply generated changes (PR-first by default):

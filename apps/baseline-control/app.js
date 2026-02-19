@@ -4,6 +4,9 @@ const state = {
   payload: null,
   config: null,
   dirty: false,
+  session: null,
+  targetStatus: null,
+  operations: [],
 };
 
 const DEFAULT_FIELD_META = {
@@ -19,6 +22,14 @@ const DEFAULT_FIELD_META = {
 
 function $(id) {
   return document.getElementById(id);
+}
+
+function currentActionOptions() {
+  return {
+    dry_run: !!($('dryRunToggle') && $('dryRunToggle').checked),
+    direct: !!($('applyDirectToggle') && $('applyDirectToggle').checked),
+    target_version: String(($('upgradeVersionInput') && $('upgradeVersionInput').value) || '').trim(),
+  };
 }
 
 function logOutput(value) {
@@ -182,6 +193,46 @@ function parseTypedValue(raw, currentValue) {
 function formatRoleCounts(value) {
   const source = value && typeof value === 'object' ? value : {};
   return `admin=${Number(source.admin || 0)}, maintain=${Number(source.maintain || 0)}, write=${Number(source.write || 0)}`;
+}
+
+function syncSessionInputs() {
+  const session = state.session && typeof state.session === 'object' ? state.session : {};
+  if ($('targetInput')) $('targetInput').value = session.target_input || session.target || '';
+  if ($('profileInput')) $('profileInput').value = session.profile || '';
+}
+
+function renderSessionSummary() {
+  const session = state.session && typeof state.session === 'object' ? state.session : {};
+  const targetStatus = state.targetStatus && typeof state.targetStatus === 'object' ? state.targetStatus : {};
+
+  $('sessionSummary').innerHTML = [
+    `<div><strong>Configured target:</strong> ${session.target_input || '<unset>'}</div>`,
+    `<div><strong>Resolved target:</strong> ${targetStatus.resolved_target || session.target || '<unknown>'}</div>`,
+    `<div><strong>Profile:</strong> ${session.profile || 'standard'}</div>`,
+    `<div><strong>Exists:</strong> ${targetStatus.exists ? 'yes' : 'no'}</div>`,
+    `<div><strong>Directory:</strong> ${targetStatus.is_directory ? 'yes' : targetStatus.exists ? 'no' : 'n/a'}</div>`,
+    `<div><strong>Writable:</strong> ${targetStatus.writable ? 'yes' : 'no'} (parent=${targetStatus.parent_writable ? 'yes' : 'no'})</div>`,
+    `<div><strong>Status:</strong> ${targetStatus.reason || 'unknown'}</div>`,
+  ].join('');
+}
+
+function renderOperationsCatalog() {
+  const list = Array.isArray(state.operations) ? state.operations : [];
+  if (!list.length) {
+    $('operationsCatalog').innerHTML = '<div>Operation catalog unavailable.</div>';
+    return;
+  }
+
+  $('operationsCatalog').innerHTML = list.map((operation) => {
+    const id = String(operation && operation.id || '').trim() || '<unknown>';
+    const method = String(operation && operation.method || '').trim() || 'POST';
+    const path = String(operation && operation.path || '').trim() || '/api/<unknown>';
+    const description = String(operation && operation.description || '').trim() || 'No description.';
+    const options = Array.isArray(operation && operation.options) && operation.options.length
+      ? ` | options: ${operation.options.join(', ')}`
+      : '';
+    return `<div><strong>${id}</strong>: ${method} ${path} - ${description}${options}</div>`;
+  }).join('');
 }
 
 function renderThresholdRows(rows) {
@@ -454,15 +505,35 @@ async function api(method, url, body) {
   return payload;
 }
 
-async function loadState() {
-  state.payload = await api('GET', '/api/state');
-  state.config = JSON.parse(JSON.stringify(state.payload.config || {}));
+function hydrateFromPayload(payload) {
+  state.payload = payload;
+  state.config = JSON.parse(JSON.stringify((payload && payload.config) || {}));
   state.dirty = false;
   renderRepoSummary();
   renderGovernanceSummary();
   renderCapabilities();
   renderSettings();
-  logOutput({ status: 'ready', target: state.payload.target, change_count: state.payload.changes.length });
+}
+
+async function loadSession() {
+  const sessionPayload = await api('GET', '/api/session');
+  state.session = sessionPayload && sessionPayload.session ? sessionPayload.session : null;
+  state.targetStatus = sessionPayload && sessionPayload.target_status ? sessionPayload.target_status : null;
+  syncSessionInputs();
+  renderSessionSummary();
+}
+
+async function loadState() {
+  await loadSession();
+  const payload = await api('GET', '/api/state');
+  hydrateFromPayload(payload);
+  logOutput({ status: 'ready', target: payload.target, change_count: payload.changes.length });
+}
+
+async function loadOperationsCatalog() {
+  const payload = await api('GET', '/api/operations');
+  state.operations = Array.isArray(payload && payload.operations) ? payload.operations : [];
+  renderOperationsCatalog();
 }
 
 async function saveSettings() {
@@ -484,19 +555,88 @@ async function runDoctor() {
   logOutput(payload);
 }
 
-async function applyChanges() {
+async function runVerify() {
   if (state.dirty) await saveSettings();
-  const payload = await api('POST', '/api/apply', {});
+  const payload = await api('POST', '/api/verify', {});
   logOutput(payload);
 }
 
+async function initializeBaseline() {
+  if (state.dirty) await saveSettings();
+  const options = currentActionOptions();
+  const payload = await api('POST', '/api/init', {
+    dry_run: options.dry_run,
+  });
+  await loadState();
+  logOutput(payload);
+}
+
+async function applyChanges() {
+  if (state.dirty) await saveSettings();
+  const options = currentActionOptions();
+  const payload = await api('POST', '/api/apply', {
+    dry_run: options.dry_run,
+    direct: options.direct,
+  });
+  await loadState();
+  logOutput(payload);
+}
+
+async function runUpgrade() {
+  if (state.dirty) await saveSettings();
+  const options = currentActionOptions();
+  const payload = await api('POST', '/api/upgrade', {
+    dry_run: options.dry_run,
+    target_version: options.target_version || undefined,
+  });
+  await loadState();
+  logOutput(payload);
+}
+
+async function refreshCapabilities() {
+  if (state.dirty) await saveSettings();
+  const payload = await api('POST', '/api/refresh-capabilities', {});
+  hydrateFromPayload(payload);
+  logOutput({
+    status: 'capabilities_refreshed',
+    target: payload.target,
+    warning_count: Array.isArray(payload.warnings) ? payload.warnings.length : 0,
+  });
+}
+
+async function connectTargetSession() {
+  if (state.dirty) await saveSettings();
+  const target = String(($('targetInput') && $('targetInput').value) || '').trim();
+  const profile = String(($('profileInput') && $('profileInput').value) || '').trim();
+  const payload = await api('POST', '/api/session', {
+    target,
+    profile,
+  });
+  state.session = payload && payload.session ? payload.session : null;
+  state.targetStatus = payload && payload.target_status ? payload.target_status : null;
+  syncSessionInputs();
+  renderSessionSummary();
+  await loadState();
+  logOutput({
+    status: 'target_connected',
+    target: state.targetStatus && state.targetStatus.resolved_target,
+    profile: state.session && state.session.profile || '',
+  });
+}
+
 async function boot() {
+  $('setTargetBtn').addEventListener('click', () => connectTargetSession().catch((error) => logOutput({ error: error.message })));
+  $('refreshCapsBtn').addEventListener('click', () => refreshCapabilities().catch((error) => logOutput({ error: error.message })));
+  $('initBtn').addEventListener('click', () => initializeBaseline().catch((error) => logOutput({ error: error.message })));
   $('refreshBtn').addEventListener('click', () => loadState().catch((error) => logOutput({ error: error.message })));
   $('saveBtn').addEventListener('click', () => saveSettings().catch((error) => logOutput({ error: error.message })));
   $('diffBtn').addEventListener('click', () => previewDiff().catch((error) => logOutput({ error: error.message })));
   $('doctorBtn').addEventListener('click', () => runDoctor().catch((error) => logOutput({ error: error.message })));
+  $('verifyBtn').addEventListener('click', () => runVerify().catch((error) => logOutput({ error: error.message })));
+  $('upgradeBtn').addEventListener('click', () => runUpgrade().catch((error) => logOutput({ error: error.message })));
   $('applyBtn').addEventListener('click', () => applyChanges().catch((error) => logOutput({ error: error.message })));
 
+  await loadOperationsCatalog();
   await loadState();
 }
 
