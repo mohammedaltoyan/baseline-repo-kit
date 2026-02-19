@@ -2,7 +2,7 @@
 plan_id: PLAN-202602-app-stack-integration
 title: Implement generic production app stack (backend+frontend+api)
 owner: @ai
-status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
+status: done # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
 current_step: S99
 updated: 2026-02-19
 priority: P2 # P0|P1|P2|P3
@@ -39,16 +39,17 @@ Objectives Gate (must pass before testing)
 - [x] S98 - Objectives Gate - SIMPLE, best practice, SCALABLE, and DYNAMIC with ZERO REDUNDANCY and ZERO HARD CODING; configuration-driven where applicable; SSOT; least-privilege security (RLS/policies if supported) (manual check with Objectives Evidence)
 
 Testing Gate (required to mark plan done)
-- [ ] S99 - Tests Gate - All required suites passing; change-aware check (code changes require matching test artifacts). Include evidence for unit + integration/E2E; perf/load marked N/A if not applicable.
+- [x] S99 - Tests Gate - All required suites passing; change-aware check (code changes require matching test artifacts). Include evidence for unit + integration/E2E; perf/load marked N/A if not applicable.
 
 Decisions & Notes
+- Objectives Evidence: auto-verified at 2026-02-19T15:03:23.162Z (commit 69d3d3cbed7783bf58a6459f93ff8850023c91ac)
 - 2026-02-19 - Adopt shared-contract-first architecture: backend and frontend consume one canonical API/metadata contract in `packages/shared`.
 - 2026-02-19 - Keep baseline-engine (`apps/baseline-control` + `tooling/apps/baseline-engine`) as governance control plane; add separate generic app stack (`apps/backend`, `apps/frontend`) as deployable template baseline.
 - 2026-02-19 - Treat app-stack verification as part of baseline guardrails (selftests + deep-verify), not optional docs-only scaffolding.
 - 2026-02-19 - Removed localhost literals from runtime/tests and switched to config-driven/non-local defaults to satisfy objectives lint and hardcoding policy.
-- PR: pending
-- CI Evidence:
+- PR: https://github.com/mohammedaltoyan/baseline-repo-kit/pull/79
+- CI Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/22187038413
+- Local Evidence:
   - `npm run test:apps` (pass)
   - `npm test` (pass)
   - `npm run test:deep` (pass; install/init/overlay/bootstrap idempotence and tests across temp targets)
-- Objectives Evidence: Shared contract/config parsing centralized in `packages/shared/app-stack-contract.js`; backend/frontend consume shared SSOT; no localhost/tenant hardcoding; install/deep-verify assertions updated for new generic runtime stack.
