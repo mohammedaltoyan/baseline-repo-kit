@@ -4,6 +4,7 @@
 const assert = require('assert');
 const {
   looksLikeActionsPrCreationPermissionError,
+  looksLikeExistingPrValidationError,
   selectAuthToken,
 } = require('./auto-pr-open');
 
@@ -34,6 +35,16 @@ function run() {
     false,
     'expected non-permission API errors to not match blocked-actions classifier'
   );
+  assert.strictEqual(
+    looksLikeExistingPrValidationError('GitHub API 422 POST /repos/acme/repo/pulls: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for acme:feat/branch."}]}'),
+    true,
+    'expected duplicate PR validation error shape to be detected'
+  );
+  assert.strictEqual(
+    looksLikeExistingPrValidationError('GitHub API 422 POST /repos/acme/repo/pulls: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"invalid","message":"head invalid"}]}'),
+    false,
+    'expected unrelated 422 validation errors to remain fatal'
+  );
 
   console.log('[auto-pr-open:selftest] OK');
 }
@@ -43,4 +54,3 @@ if (require.main === module) {
 }
 
 module.exports = { run };
-

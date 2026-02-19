@@ -86,6 +86,12 @@ function looksLikeActionsPrCreationPermissionError(raw) {
   );
 }
 
+function looksLikeExistingPrValidationError(raw) {
+  const msg = toString(raw).toLowerCase();
+  if (!msg) return false;
+  return msg.includes('validation failed') && msg.includes('pull request already exists');
+}
+
 function selectAuthToken(env = process.env) {
   const source = env && typeof env === 'object' ? env : {};
   return toString(source.AUTOPR_TOKEN) || toString(source.GITHUB_TOKEN) || toString(source.GH_TOKEN);
@@ -224,21 +230,43 @@ async function ghJson({ token, apiBase, method, path: apiPath, body }) {
   }
 }
 
-async function findExistingPr({ token, apiBase, owner, repo, head, base }) {
+function selectPreferredPr(rows) {
+  const list = Array.isArray(rows) ? rows.slice() : [];
+  if (list.length === 0) return null;
+  list.sort((a, b) => {
+    const aOpen = String(a && a.state || '').toLowerCase() === 'open' ? 0 : 1;
+    const bOpen = String(b && b.state || '').toLowerCase() === 'open' ? 0 : 1;
+    if (aOpen !== bOpen) return aOpen - bOpen;
+    const aUpdated = String(a && a.updated_at || '');
+    const bUpdated = String(b && b.updated_at || '');
+    if (aUpdated !== bUpdated) return bUpdated.localeCompare(aUpdated);
+    return Number(b && b.number || 0) - Number(a && a.number || 0);
+  });
+  return list[0] || null;
+}
+
+async function findPrByHead({ token, apiBase, owner, repo, head, base, state }) {
   const o = toString(owner);
   const r = toString(repo);
   const h = toString(head);
   if (!o || !r || !h) return null;
 
   const params = new URLSearchParams({
-    state: 'open',
+    state: toString(state) || 'open',
     head: `${o}:${h}`,
     ...(toString(base) ? { base: String(base) } : {}),
     per_page: '100',
   });
   const rows = await ghJson({ token, apiBase, method: 'GET', path: `/repos/${encodeURIComponent(o)}/${encodeURIComponent(r)}/pulls?${params}` });
-  const list = Array.isArray(rows) ? rows : [];
-  return list[0] || null;
+  return selectPreferredPr(rows);
+}
+
+async function findExistingPr({ token, apiBase, owner, repo, head, base }) {
+  return findPrByHead({ token, apiBase, owner, repo, head, base, state: 'open' });
+}
+
+async function findAnyPr({ token, apiBase, owner, repo, head, base }) {
+  return findPrByHead({ token, apiBase, owner, repo, head, base, state: 'all' });
 }
 
 function buildPrBody({ planId, step, head, base }) {
@@ -320,19 +348,34 @@ async function main() {
   const draft = toBool(process.env.AUTOPR_DRAFT);
   const prBody = buildPrBody({ planId, step, head, base });
 
-  const created = await ghJson({
-    token,
-    apiBase,
-    method: 'POST',
-    path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`,
-    body: {
-      title,
-      head,
-      base,
-      body: prBody,
-      draft,
-    },
-  });
+  let created = null;
+  try {
+    created = await ghJson({
+      token,
+      apiBase,
+      method: 'POST',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`,
+      body: {
+        title,
+        head,
+        base,
+        body: prBody,
+        draft,
+      },
+    });
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    if (looksLikeExistingPrValidationError(message)) {
+      const existingAfterRace = await findAnyPr({ token, apiBase, owner, repo, head, base });
+      if (existingAfterRace && existingAfterRace.html_url) {
+        info(`Skip: PR already exists (${existingAfterRace.html_url}).`);
+        return;
+      }
+      warn('GitHub reported an existing PR during creation, but no matching PR could be resolved; treating as non-fatal.');
+      return;
+    }
+    throw error;
+  }
 
   const url = created && (created.html_url || created.url);
   info(`PR created: ${url || '<unknown>'}`);
@@ -357,5 +400,6 @@ if (require.main === module) {
 
 module.exports = {
   looksLikeActionsPrCreationPermissionError,
+  looksLikeExistingPrValidationError,
   selectAuthToken,
 };
