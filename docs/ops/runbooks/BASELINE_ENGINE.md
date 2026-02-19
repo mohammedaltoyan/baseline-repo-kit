@@ -46,6 +46,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - Enabled modules are loaded from `tooling/apps/baseline-engine/modules/*`.
 - Each module contributes generated artifacts via `generators/index.js`.
 - Module capability requirements are evaluated centrally and exposed in `.baseline/capabilities/github.json.runtime`.
+- Capability requirement derivation must stay settings-driven: module base requirements are combined with matching rows from `config/policy/effective-settings-rules.json` so feature toggles (for example merge-queue triggers) dynamically add/remove required capabilities without module-local conditionals.
 - Unsupported module capabilities never fail silently:
   - `degrade_strategy: warn` -> generate degraded outputs + warnings.
   - `degrade_strategy: skip` -> skip module generation.
@@ -71,7 +72,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - Deployment approval rows are normalized from the `{environment x component}` matrix on every load/apply, while preserving explicit per-row overrides.
 - Governance insight rows are generated from one SSOT path (`buildInsights`) and reused by doctor output, UI summaries, and resolution log artifacts (no duplicated policy calculators per surface).
 - Owner-type and repo-visibility entitlement advisories are generated centrally (for example, merge queue and deployment protection feature expectations) and surfaced as non-blocking guidance alongside runtime API probe results.
-- Effective-settings overrides are generated from one SSOT path (`lib/policy/effective-settings.js`) and reused by module generation, insights, and UI so configured values vs runtime-effective values cannot drift.
+- Effective-settings override rules are row-driven in `config/policy/effective-settings-rules.json` (validated by `config/schema/effective-settings-rules.schema.json`); runtime evaluation in `lib/policy/effective-settings.js` is reused by module generation, insights, and UI so configured values vs runtime-effective values cannot drift.
 
 ## CI/CD generation
 

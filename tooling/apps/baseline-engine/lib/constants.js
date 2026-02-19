@@ -17,6 +17,8 @@ const SNAPSHOT_DIR = path.posix.join(BASELINE_DIR, 'snapshots');
 const SCHEMA_FILE = path.join(REPO_ROOT, 'config', 'schema', 'baseline-config.schema.json');
 const UI_METADATA_FILE = path.join(REPO_ROOT, 'config', 'schema', 'baseline-ui-metadata.json');
 const UI_METADATA_SCHEMA_FILE = path.join(REPO_ROOT, 'config', 'schema', 'baseline-ui-metadata.schema.json');
+const EFFECTIVE_SETTINGS_RULES_FILE = path.join(REPO_ROOT, 'config', 'policy', 'effective-settings-rules.json');
+const EFFECTIVE_SETTINGS_RULES_SCHEMA_FILE = path.join(REPO_ROOT, 'config', 'schema', 'effective-settings-rules.schema.json');
 const MODULES_DIR = path.resolve(__dirname, '..', 'modules');
 const MIGRATIONS_DIR = path.join(REPO_ROOT, 'scripts', 'tooling', 'migrations');
 const UI_APP_DIR = path.join(REPO_ROOT, 'apps', 'baseline-control');
@@ -32,6 +34,8 @@ module.exports = {
   CONFIG_VERSION,
   DEFAULT_ENVIRONMENTS,
   DEFAULT_MODULES,
+  EFFECTIVE_SETTINGS_RULES_FILE,
+  EFFECTIVE_SETTINGS_RULES_SCHEMA_FILE,
   ENGINE_VERSION,
   MANAGED_FILES_FILE,
   MIGRATIONS_DIR,
