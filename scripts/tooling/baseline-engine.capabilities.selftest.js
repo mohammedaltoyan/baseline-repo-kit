@@ -54,6 +54,12 @@ function run() {
   assert.ok(doctor.capability_degraded_modules.length >= 1, 'at least one module should degrade when capabilities are unsupported');
   assert.strictEqual(doctor.github_app.required_for_full_feature_set, true);
   assert.strictEqual(doctor.github_app.effective_required, false);
+  const applyWithOverride = runEngine(['apply', '--target', repo, '--direct'], process.cwd());
+  assert.strictEqual(
+    applyWithOverride.warnings.some((warning) => String(warning).includes('Auto-degraded setting ci.full_lane_triggers.merge_queue')),
+    true,
+    'apply output should explicitly warn when effective settings are auto-degraded'
+  );
 
   const configPath = path.join(repo, '.baseline', 'config.yaml');
   const configRaw = fs.readFileSync(configPath, 'utf8');

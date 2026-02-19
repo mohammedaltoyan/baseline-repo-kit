@@ -73,6 +73,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - Governance insight rows are generated from one SSOT path (`buildInsights`) and reused by doctor output, UI summaries, and resolution log artifacts (no duplicated policy calculators per surface).
 - Owner-type and repo-visibility entitlement advisories are generated centrally (for example, merge queue and deployment protection feature expectations) and surfaced as non-blocking guidance alongside runtime API probe results.
 - Effective-settings override rules are row-driven in `config/policy/effective-settings-rules.json` (validated by `config/schema/effective-settings-rules.schema.json`); rule conditions use predicate operators (`equals`, `not_equals`, `in`, `not_in`) and runtime evaluation in `lib/policy/effective-settings.js` is reused by module generation, insights, and UI so configured values vs runtime-effective values cannot drift.
+- `baseline apply` emits explicit warning rows for each effective override (path + reason + remediation) so auto-degrades are visible in CLI/JSON output and never silent.
 
 ## CI/CD generation
 

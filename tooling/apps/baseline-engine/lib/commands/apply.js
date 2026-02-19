@@ -1,6 +1,7 @@
 'use strict';
 
 const { buildContext } = require('../context');
+const { buildInsights } = require('../insights');
 const { buildGeneratedArtifacts, computeDiff } = require('../managed-files');
 const { readTextSafe } = require('../util/fs');
 const { applyArtifacts, printOutput, tryPrFirstCommit } = require('./shared');
@@ -12,6 +13,26 @@ function resolveIntegrationBranch(config) {
     : [];
   const integration = branches.find((branch) => String(branch && branch.role || '').trim() === 'integration');
   return String(integration && integration.name || 'dev').replace(/\/$/, '');
+}
+
+function buildEffectiveOverrideWarnings(context) {
+  const insights = buildInsights({
+    config: context.config,
+    capabilities: context.capabilities,
+    moduleEvaluation: context.moduleEvaluation,
+  });
+  const effectiveSettings = insights && insights.effective_settings && typeof insights.effective_settings === 'object'
+    ? insights.effective_settings
+    : {};
+  const overrides = Array.isArray(effectiveSettings.overrides) ? effectiveSettings.overrides : [];
+  return overrides.map((entry) => {
+    const path = String(entry && entry.path || '').trim() || '<unknown>';
+    const detail = String(entry && entry.detail || '').trim() || 'capability-driven override applied';
+    const remediation = String(entry && entry.remediation || '').trim();
+    return remediation
+      ? `Auto-degraded setting ${path}: ${detail}. Remediation: ${remediation}`
+      : `Auto-degraded setting ${path}: ${detail}.`;
+  });
 }
 
 async function runApply(args) {
@@ -87,7 +108,10 @@ async function runApply(args) {
     written_files: applied.length,
     conflict_count: applied.filter((entry) => entry && entry.conflicted).length,
     pr_first: prSummary,
-    warnings: (context.warnings || []).concat(prSummary.warnings || []),
+    warnings: []
+      .concat(context.warnings || [])
+      .concat(buildEffectiveOverrideWarnings(context))
+      .concat(prSummary.warnings || []),
   };
 
   printOutput(payload, args);
