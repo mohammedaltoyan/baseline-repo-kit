@@ -29,6 +29,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -42,4 +43,3 @@ jobs:
           RELEASE_PR_DRAFT: ${{ inputs.draft }}
           RELEASE_PR_UPDATE_EXISTING: ${{ inputs.update_existing }}
         run: node scripts/ops/release-pr-open.js
-

@@ -38,6 +38,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: true
 
       - name: Configure git
         run: |

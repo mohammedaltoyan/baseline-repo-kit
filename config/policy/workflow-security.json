@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "checkout": {
+    "enforce_explicit_persist_credentials": true,
+    "default_persist_credentials": false,
+    "allow_persist_true": [
+      {
+        "workflow": ".github/workflows/collect-evidence.yml",
+        "step": "Checkout (source SHA)",
+        "reason": "Collects evidence and pushes commits to the evidence branch."
+      },
+      {
+        "workflow": ".github/workflows/evidence-retention.yml",
+        "step": "Checkout (default branch)",
+        "reason": "Prunes evidence artifacts and pushes retention commits."
+      },
+      {
+        "workflow": ".github/workflows/deploy.yml",
+        "step": "Checkout (full)",
+        "reason": "Deploy receipt writer commits and pushes deploy evidence."
+      }
+    ]
+  }
+}
