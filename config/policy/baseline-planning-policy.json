@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "required": true,
+  "automation_allowlist": [
+    {
+      "id": "plan_archive",
+      "head_ref_prefix": "automation/plan-archive/",
+      "base_ref": "dev",
+      "allowed_paths": [
+        "docs/ops/plans/"
+      ]
+    }
+  ],
+  "degraded": false,
+  "degraded_reasons": []
+}

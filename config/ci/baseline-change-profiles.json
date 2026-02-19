@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "profile_source": "settings",
+  "ci_mode": "two_lane",
+  "action_refs": {
+    "checkout": "actions/checkout@v6",
+    "setup_node": "actions/setup-node@v6"
+  },
+  "full_lane_triggers": {
+    "merge_queue": false,
+    "manual_dispatch": true,
+    "label": "ci:full",
+    "paths": [
+      ".github/workflows/",
+      "config/policy/",
+      "scripts/ops/"
+    ]
+  },
+  "degraded": true,
+  "effective_overrides": [
+    {
+      "id": "core_ci_merge_queue_trigger",
+      "path": "ci.full_lane_triggers.merge_queue",
+      "configured": true,
+      "effective": false,
+      "source": "core-ci",
+      "reason": "capability_auto_degrade",
+      "detail": "merge_queue capability is unsupported (merge_queue_rule_not_found)",
+      "capability": "merge_queue",
+      "remediation": "Enable merge queue in repository rulesets or upgrade to a GitHub plan that supports merge queue."
+    }
+  ],
+  "degraded_reasons": [
+    {
+      "capability": "merge_queue",
+      "reason": "merge_queue_rule_not_found",
+      "remediation": "Enable merge queue in repository rulesets or upgrade to a GitHub plan that supports merge queue."
+    }
+  ],
+  "profiles": [
+    {
+      "id": "docs",
+      "description": "Docs-only changes",
+      "include_re": [
+        "^docs/",
+        "\\.(md|mdx)$"
+      ],
+      "exclude_re": [],
+      "skip_full_lane": true,
+      "run_fast_checks": true
+    },
+    {
+      "id": "ci",
+      "description": "CI/policy changes",
+      "include_re": [
+        "^\\.github/",
+        "^config/ci/",
+        "^scripts/ops/ci/"
+      ],
+      "exclude_re": [],
+      "skip_full_lane": false,
+      "run_fast_checks": true
+    },
+    {
+      "id": "app",
+      "description": "Application/runtime changes",
+      "include_re": [
+        "^apps/",
+        "^packages/",
+        "^scripts/"
+      ],
+      "exclude_re": [
+        "^docs/"
+      ],
+      "skip_full_lane": false,
+      "run_fast_checks": true
+    }
+  ]
+}

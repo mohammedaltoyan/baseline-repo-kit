@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "installed_version": "2.2.0",
+  "installed_at": "2026-02-19T21:54:44.454Z",
+  "last_applied_at": "2026-02-19T21:54:58.759Z",
+  "channel": "stable",
+  "maintainer_count_observed": 1,
+  "migrations": [],
+  "warnings": []
+}

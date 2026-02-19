@@ -1,0 +1,85 @@
+name: Baseline PR Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: baseline-pr-gate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run_full: ${{ steps.mode.outputs.run_full }}
+      reasons: ${{ steps.mode.outputs.reasons }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve lane mode
+        id: mode
+        env:
+          BASELINE_MODE: "two_lane"
+          BASELINE_LABEL: "ci:full"
+          BASELINE_MERGE_QUEUE: 0
+          BASELINE_MANUAL_DISPATCH: 1
+          BASELINE_TRIGGER_PATHS: ".github/workflows/,config/policy/,scripts/ops/"
+        run: |
+          base_sha=""
+          head_sha=""
+          labels_json="[]"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+            labels_json='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          fi
+          node scripts/ops/ci/change-classifier.js             --event-name "${{ github.event_name }}"             --mode "$BASELINE_MODE"             --base-sha "$base_sha"             --head-sha "$head_sha"             --label "$BASELINE_LABEL"             --labels-json "$labels_json"             --merge-queue "$BASELINE_MERGE_QUEUE"             --manual-dispatch "$BASELINE_MANUAL_DISPATCH"             --trigger-paths "$BASELINE_TRIGGER_PATHS"             --profiles-file "config/ci/baseline-change-profiles.json" > .baseline-classifier.json
+          run_full=$(node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('.baseline-classifier.json','utf8'));process.stdout.write(p.run_full?'1':'0');")
+          reasons=$(node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('.baseline-classifier.json','utf8'));process.stdout.write((p.reasons||[]).join(','));")
+          echo "run_full=$run_full" >> "$GITHUB_OUTPUT"
+          echo "reasons=$reasons" >> "$GITHUB_OUTPUT"
+      - name: Classifier summary
+        run: cat .baseline-classifier.json
+
+  fast_lane:
+    name: baseline-fast-lane
+    needs: [classify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Fast checks
+        run: npm test
+
+  full_lane:
+    name: baseline-full-lane
+    needs: [classify]
+    if: ${{ needs.classify.outputs.run_full == '1' }}
+    uses: ./.github/workflows/baseline-node-run.yml
+    with:
+      run: npm run plans:verify

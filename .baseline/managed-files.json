@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "engine_version": "2.2.0",
+  "generated_at": "2026-02-19T21:54:58.759Z",
+  "files": [
+    {
+      "path": ".baseline/state.json",
+      "owner": "engine-core",
+      "strategy": "json_merge",
+      "preserve_user_blocks": true,
+      "checksum": "4d1f56226ce6c0d3e3f0508557d9d79aef854e8d16f7867b1a8d9a44b5d11218"
+    },
+    {
+      "path": ".baseline/capabilities/github.json",
+      "owner": "engine-core",
+      "strategy": "json_merge",
+      "preserve_user_blocks": true,
+      "checksum": "935af28d5582e14e346dbaeefbe19414603ae2b22972a5b7a3ae01aa815bbfcd"
+    },
+    {
+      "path": "config/ci/baseline-change-profiles.json",
+      "owner": "core-ci",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "bb400b68db96ca54390a9f2232f94774aeb828432bd61fa81c72253746f794c3"
+    },
+    {
+      "path": "scripts/ops/ci/change-classifier.js",
+      "owner": "core-ci",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "bcb1ff52d795326fe2d33cfd037ddc73caacaeb99bf94947052ceda1b7cb63d3"
+    },
+    {
+      "path": ".github/workflows/baseline-node-run.yml",
+      "owner": "core-ci",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "468aec561f46efead31783bbf146f09aad38761cad1c7a276929835d6dfdf91a"
+    },
+    {
+      "path": ".github/workflows/baseline-pr-gate.yml",
+      "owner": "core-ci",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "5df65bdb1f8a3e0a9b9d2b3aff33ba76177ce6aff5934006714c75e5a57237ee"
+    },
+    {
+      "path": "config/policy/baseline-deployment-approval-matrix.json",
+      "owner": "core-deployments",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "2872a5881da6fd96eaa6248d6ad60912b8347e5a9dc1aa65565ecc6dd0b92eaf"
+    },
+    {
+      "path": ".github/workflows/baseline-deploy.yml",
+      "owner": "core-deployments",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "86fa05ed6cc008b77fce17b4a3befe278a5b6dd1b98cad0e93988b16c8c28633"
+    },
+    {
+      "path": "config/policy/baseline-branch-topology.json",
+      "owner": "core-governance",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "030889c23df0df495afde074cf42102e9dc3ee9b52fffbb357382e9da47c7724"
+    },
+    {
+      "path": "config/policy/baseline-review-thresholds.json",
+      "owner": "core-governance",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "113c5496e8736074325a9397f5475bb6dfd1a252b024f561a1fb18ba1b9db1c3"
+    },
+    {
+      "path": "config/policy/baseline-required-checks.json",
+      "owner": "core-governance",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "d466d7d80aa9e5db0c3412284c689201c2231d1424646d4175a49fb32eb33074"
+    },
+    {
+      "path": "config/policy/baseline-planning-policy.json",
+      "owner": "core-planning",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "1475856824365bee228ac66d4c66961597c7ddbef28a0a6ad711975fa860b273"
+    },
+    {
+      "path": "config/policy/baseline-modules.json",
+      "owner": "engine-core",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "ad8b4204a7f6a4822e1860bb0e309afd530f528b8b8b9b5e3cf9fda5ca5e8bd3"
+    },
+    {
+      "path": "config/policy/baseline-resolution-log.json",
+      "owner": "engine-core",
+      "strategy": "replace",
+      "preserve_user_blocks": true,
+      "checksum": "d5cba68ee6a2a27f49d124096ddb040062550d8ee6143320096d669a3793e467"
+    }
+  ]
+}

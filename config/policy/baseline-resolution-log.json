@@ -1,0 +1,782 @@
+{
+  "version": 1,
+  "engine_version": "2.2.0",
+  "generated_at": "2026-02-19T21:54:58.759Z",
+  "decisions": {
+    "capability": {
+      "owner_type": "unknown",
+      "repository_private": false,
+      "repository_visibility": "public_or_unknown",
+      "repo_admin": false,
+      "token_present": true,
+      "token_source": "gh_auth_token",
+      "token_scope_count": 0,
+      "viewer_login": "",
+      "maintainer_count": 1,
+      "maintainer_logins": [
+        "mohammedaltoyan"
+      ],
+      "role_counts": {
+        "admin": 1,
+        "maintain": 0,
+        "write": 0
+      }
+    },
+    "effective_settings": {
+      "rules_version": 1,
+      "config": {
+        "version": 1,
+        "platform": {
+          "provider": "github"
+        },
+        "policy": {
+          "profile": "strict",
+          "require_github_app": false,
+          "enforce_codeowners_protected_paths": true
+        },
+        "branching": {
+          "topology": "two_branch",
+          "branches": [
+            {
+              "name": "dev",
+              "role": "integration",
+              "protected": true,
+              "allowed_sources": [
+                "feature/*",
+                "fix/*",
+                "backport/*",
+                "automation/*"
+              ]
+            },
+            {
+              "name": "main",
+              "role": "production",
+              "protected": true,
+              "allowed_sources": [
+                "dev",
+                "hotfix/*"
+              ]
+            },
+            {
+              "name": "hotfix/*",
+              "role": "hotfix",
+              "protected": false,
+              "allowed_sources": [
+                "main"
+              ]
+            }
+          ],
+          "review_thresholds": {
+            "maintainers_le_1": {
+              "required_non_author_approvals": 0,
+              "require_strict_ci": true,
+              "require_codeowners": false
+            },
+            "maintainers_2_to_5": {
+              "required_non_author_approvals": 1,
+              "require_strict_ci": true,
+              "require_codeowners": false
+            },
+            "maintainers_ge_6": {
+              "required_non_author_approvals": 2,
+              "require_strict_ci": true,
+              "require_codeowners": true
+            }
+          }
+        },
+        "ci": {
+          "mode": "two_lane",
+          "action_refs": {
+            "checkout": "actions/checkout@v6",
+            "setup_node": "actions/setup-node@v6"
+          },
+          "change_profiles": [
+            {
+              "id": "docs",
+              "description": "Docs-only changes",
+              "include_re": [
+                "^docs/",
+                "\\.(md|mdx)$"
+              ],
+              "exclude_re": [],
+              "skip_full_lane": true,
+              "run_fast_checks": true
+            },
+            {
+              "id": "ci",
+              "description": "CI/policy changes",
+              "include_re": [
+                "^\\.github/",
+                "^config/ci/",
+                "^scripts/ops/ci/"
+              ],
+              "exclude_re": [],
+              "skip_full_lane": false,
+              "run_fast_checks": true
+            },
+            {
+              "id": "app",
+              "description": "Application/runtime changes",
+              "include_re": [
+                "^apps/",
+                "^packages/",
+                "^scripts/"
+              ],
+              "exclude_re": [
+                "^docs/"
+              ],
+              "skip_full_lane": false,
+              "run_fast_checks": true
+            }
+          ],
+          "full_lane_triggers": {
+            "merge_queue": false,
+            "manual_dispatch": true,
+            "label": "ci:full",
+            "paths": [
+              ".github/workflows/",
+              "config/policy/",
+              "scripts/ops/"
+            ]
+          }
+        },
+        "deployments": {
+          "environments": [
+            {
+              "name": "dev",
+              "branch_roles": [
+                "integration",
+                "feature"
+              ],
+              "default": true
+            },
+            {
+              "name": "staging",
+              "branch_roles": [
+                "integration",
+                "release"
+              ],
+              "default": true
+            },
+            {
+              "name": "production",
+              "branch_roles": [
+                "production"
+              ],
+              "default": true
+            }
+          ],
+          "components": [
+            {
+              "id": "backend",
+              "name": "backend",
+              "path": "apps/backend",
+              "enabled": true
+            },
+            {
+              "id": "baseline-control",
+              "name": "baseline-control",
+              "path": "apps/baseline-control",
+              "enabled": true
+            },
+            {
+              "id": "frontend",
+              "name": "frontend",
+              "path": "apps/frontend",
+              "enabled": true
+            },
+            {
+              "id": "application",
+              "name": "application",
+              "path": ".github/workflows/deploy.yml",
+              "enabled": true
+            }
+          ],
+          "approval_matrix": [
+            {
+              "environment": "dev",
+              "component": "backend",
+              "approval_required": false,
+              "min_approvers": 0,
+              "allow_self_approval": true,
+              "allowed_roles": [
+                "write",
+                "maintain",
+                "admin"
+              ]
+            },
+            {
+              "environment": "dev",
+              "component": "baseline-control",
+              "approval_required": false,
+              "min_approvers": 0,
+              "allow_self_approval": true,
+              "allowed_roles": [
+                "write",
+                "maintain",
+                "admin"
+              ]
+            },
+            {
+              "environment": "dev",
+              "component": "frontend",
+              "approval_required": false,
+              "min_approvers": 0,
+              "allow_self_approval": true,
+              "allowed_roles": [
+                "write",
+                "maintain",
+                "admin"
+              ]
+            },
+            {
+              "environment": "dev",
+              "component": "application",
+              "approval_required": false,
+              "min_approvers": 0,
+              "allow_self_approval": true,
+              "allowed_roles": [
+                "write",
+                "maintain",
+                "admin"
+              ]
+            },
+            {
+              "environment": "staging",
+              "component": "backend",
+              "approval_required": true,
+              "min_approvers": 1,
+              "allow_self_approval": false,
+              "allowed_roles": [
+                "maintain",
+                "admin"
+              ]
+            },
+            {
+              "environment": "staging",
+              "component": "baseline-control",
+              "approval_required": true,
+              "min_approvers": 1,
+              "allow_self_approval": false,
+              "allowed_roles": [
+                "maintain",
+                "admin"
+              ]
+            },
+            {
+              "environment": "staging",
+              "component": "frontend",
+              "approval_required": true,
+              "min_approvers": 1,
+              "allow_self_approval": false,
+              "allowed_roles": [
+                "maintain",
+                "admin"
+              ]
+            },
+            {
+              "environment": "staging",
+              "component": "application",
+              "approval_required": true,
+              "min_approvers": 1,
+              "allow_self_approval": false,
+              "allowed_roles": [
+                "maintain",
+                "admin"
+              ]
+            },
+            {
+              "environment": "production",
+              "component": "backend",
+              "approval_required": true,
+              "min_approvers": 2,
+              "allow_self_approval": false,
+              "allowed_roles": [
+                "maintain",
+                "admin"
+              ]
+            },
+            {
+              "environment": "production",
+              "component": "baseline-control",
+              "approval_required": true,
+              "min_approvers": 2,
+              "allow_self_approval": false,
+              "allowed_roles": [
+                "maintain",
+                "admin"
+              ]
+            },
+            {
+              "environment": "production",
+              "component": "frontend",
+              "approval_required": true,
+              "min_approvers": 2,
+              "allow_self_approval": false,
+              "allowed_roles": [
+                "maintain",
+                "admin"
+              ]
+            },
+            {
+              "environment": "production",
+              "component": "application",
+              "approval_required": true,
+              "min_approvers": 2,
+              "allow_self_approval": false,
+              "allowed_roles": [
+                "maintain",
+                "admin"
+              ]
+            }
+          ],
+          "oidc": {
+            "enabled": false,
+            "audience": ""
+          }
+        },
+        "planning": {
+          "required": true,
+          "automation_allowlist": [
+            {
+              "id": "plan_archive",
+              "head_ref_prefix": "automation/plan-archive/",
+              "base_ref": "dev",
+              "allowed_paths": [
+                "docs/ops/plans/"
+              ]
+            }
+          ]
+        },
+        "security": {
+          "codeql": true,
+          "dependency_review": true,
+          "secret_scanning": true,
+          "require_pinned_action_refs": false
+        },
+        "updates": {
+          "channel": "stable",
+          "apply_mode": "pr_first",
+          "auto_pr": true
+        },
+        "modules": {
+          "enabled": [
+            "core-governance",
+            "core-ci",
+            "core-deployments",
+            "core-planning"
+          ]
+        }
+      },
+      "overrides": [
+        {
+          "id": "core_ci_merge_queue_trigger",
+          "path": "ci.full_lane_triggers.merge_queue",
+          "configured": true,
+          "effective": false,
+          "source": "core-ci",
+          "reason": "capability_auto_degrade",
+          "detail": "merge_queue capability is unsupported (merge_queue_rule_not_found)",
+          "capability": "merge_queue",
+          "remediation": "Enable merge queue in repository rulesets or upgrade to a GitHub plan that supports merge queue."
+        }
+      ],
+      "by_path": {
+        "ci.full_lane_triggers.merge_queue": {
+          "id": "core_ci_merge_queue_trigger",
+          "path": "ci.full_lane_triggers.merge_queue",
+          "configured": true,
+          "effective": false,
+          "source": "core-ci",
+          "reason": "capability_auto_degrade",
+          "detail": "merge_queue capability is unsupported (merge_queue_rule_not_found)",
+          "capability": "merge_queue",
+          "remediation": "Enable merge queue in repository rulesets or upgrade to a GitHub plan that supports merge queue."
+        }
+      },
+      "override_count": 1
+    },
+    "entitlements": {
+      "owner_type": "unknown",
+      "repository_visibility": "public_or_unknown",
+      "feature_count": 4,
+      "features": [
+        {
+          "feature": "rulesets",
+          "state": "likely_supported",
+          "reason": "public_repository",
+          "remediation": "",
+          "docs_url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets"
+        },
+        {
+          "feature": "merge_queue",
+          "state": "unlikely_supported",
+          "reason": "organization_repo_expected",
+          "remediation": "Merge queue is typically available for organization-owned repositories. Use organization ownership or disable merge-queue triggers.",
+          "docs_url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue"
+        },
+        {
+          "feature": "environment_required_reviewers",
+          "state": "likely_supported",
+          "reason": "public_repository",
+          "remediation": "",
+          "docs_url": "https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#required-reviewers"
+        },
+        {
+          "feature": "custom_deployment_protection_rules",
+          "state": "likely_supported",
+          "reason": "public_repository",
+          "remediation": "",
+          "docs_url": "https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#deployment-protection-rules"
+        }
+      ],
+      "by_feature": {
+        "rulesets": {
+          "feature": "rulesets",
+          "state": "likely_supported",
+          "reason": "public_repository",
+          "remediation": "",
+          "docs_url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets"
+        },
+        "merge_queue": {
+          "feature": "merge_queue",
+          "state": "unlikely_supported",
+          "reason": "organization_repo_expected",
+          "remediation": "Merge queue is typically available for organization-owned repositories. Use organization ownership or disable merge-queue triggers.",
+          "docs_url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue"
+        },
+        "environment_required_reviewers": {
+          "feature": "environment_required_reviewers",
+          "state": "likely_supported",
+          "reason": "public_repository",
+          "remediation": "",
+          "docs_url": "https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#required-reviewers"
+        },
+        "custom_deployment_protection_rules": {
+          "feature": "custom_deployment_protection_rules",
+          "state": "likely_supported",
+          "reason": "public_repository",
+          "remediation": "",
+          "docs_url": "https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#deployment-protection-rules"
+        }
+      }
+    },
+    "capability_matrix": [
+      {
+        "capability": "code_scanning",
+        "supported": true,
+        "state": "supported",
+        "reason": "api_success",
+        "remediation": "",
+        "source": "runtime_probe"
+      },
+      {
+        "capability": "custom_deployment_protection_rules",
+        "supported": null,
+        "state": "likely_supported",
+        "reason": "public_repository",
+        "remediation": "",
+        "source": "entitlement_advisory",
+        "docs_url": "https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#deployment-protection-rules",
+        "entitlement_state": "likely_supported",
+        "entitlement_reason": "public_repository"
+      },
+      {
+        "capability": "dependency_review",
+        "supported": true,
+        "state": "supported",
+        "reason": "api_success",
+        "remediation": "",
+        "source": "runtime_probe"
+      },
+      {
+        "capability": "environment_required_reviewers",
+        "supported": null,
+        "state": "likely_supported",
+        "reason": "public_repository",
+        "remediation": "",
+        "source": "entitlement_advisory",
+        "docs_url": "https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#required-reviewers",
+        "entitlement_state": "likely_supported",
+        "entitlement_reason": "public_repository"
+      },
+      {
+        "capability": "environments",
+        "supported": true,
+        "state": "supported",
+        "reason": "api_success",
+        "remediation": "",
+        "source": "runtime_probe"
+      },
+      {
+        "capability": "github_app_required",
+        "supported": false,
+        "state": "unsupported",
+        "reason": "missing_capabilities_for_enabled_modules",
+        "remediation": "",
+        "source": "runtime_probe"
+      },
+      {
+        "capability": "merge_queue",
+        "supported": false,
+        "state": "unsupported",
+        "reason": "merge_queue_rule_not_found",
+        "remediation": "Enable merge queue in repository rulesets or upgrade to a GitHub plan that supports merge queue.",
+        "source": "runtime_probe",
+        "entitlement_state": "unlikely_supported",
+        "entitlement_reason": "organization_repo_expected",
+        "docs_url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue"
+      },
+      {
+        "capability": "repo_variables",
+        "supported": true,
+        "state": "supported",
+        "reason": "api_success",
+        "remediation": "",
+        "source": "runtime_probe"
+      },
+      {
+        "capability": "rulesets",
+        "supported": true,
+        "state": "supported",
+        "reason": "api_success",
+        "remediation": "",
+        "source": "runtime_probe",
+        "entitlement_state": "likely_supported",
+        "entitlement_reason": "public_repository",
+        "docs_url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets"
+      }
+    ],
+    "reviewer": {
+      "active_bucket": "maintainers_le_1",
+      "maintainer_count": 1,
+      "policy": {
+        "required_non_author_approvals": 0,
+        "require_strict_ci": true,
+        "require_codeowners": false
+      },
+      "thresholds": {
+        "maintainers_le_1": {
+          "required_non_author_approvals": 0,
+          "require_strict_ci": true,
+          "require_codeowners": false
+        },
+        "maintainers_2_to_5": {
+          "required_non_author_approvals": 1,
+          "require_strict_ci": true,
+          "require_codeowners": false
+        },
+        "maintainers_ge_6": {
+          "required_non_author_approvals": 2,
+          "require_strict_ci": true,
+          "require_codeowners": true
+        }
+      },
+      "threshold_rows": [
+        {
+          "bucket": "maintainers_le_1",
+          "label": "<=1 maintainer",
+          "maintainer_range": "0-1",
+          "applies": true,
+          "policy": {
+            "required_non_author_approvals": 0,
+            "require_strict_ci": true,
+            "require_codeowners": false
+          }
+        },
+        {
+          "bucket": "maintainers_2_to_5",
+          "label": "2-5 maintainers",
+          "maintainer_range": "2-5",
+          "applies": false,
+          "policy": {
+            "required_non_author_approvals": 1,
+            "require_strict_ci": true,
+            "require_codeowners": false
+          }
+        },
+        {
+          "bucket": "maintainers_ge_6",
+          "label": ">=6 maintainers",
+          "maintainer_range": "6+",
+          "applies": false,
+          "policy": {
+            "required_non_author_approvals": 2,
+            "require_strict_ci": true,
+            "require_codeowners": true
+          }
+        }
+      ],
+      "active_reason": "Maintainer count 1 matched maintainers_le_1."
+    },
+    "branching": {
+      "topology": "two_branch",
+      "source": "topology_preset",
+      "branch_count": 3,
+      "protected_count": 2,
+      "roles": [
+        "integration",
+        "production",
+        "hotfix"
+      ],
+      "role_counts": {
+        "integration": 1,
+        "production": 1,
+        "hotfix": 1
+      },
+      "required_checks_by_role": {
+        "integration": [
+          "Baseline PR Gate / baseline-fast-lane",
+          "Baseline PR Gate / baseline-full-lane"
+        ],
+        "production": [
+          "Baseline PR Gate / baseline-fast-lane",
+          "Baseline PR Gate / baseline-full-lane",
+          "Baseline Deploy / baseline-deploy"
+        ],
+        "release": [
+          "Baseline PR Gate / baseline-fast-lane",
+          "Baseline PR Gate / baseline-full-lane",
+          "Baseline Deploy / baseline-deploy"
+        ],
+        "hotfix": [
+          "Baseline PR Gate / baseline-fast-lane",
+          "Baseline PR Gate / baseline-full-lane"
+        ],
+        "feature": [
+          "Baseline PR Gate / baseline-fast-lane"
+        ],
+        "custom": [
+          "Baseline PR Gate / baseline-fast-lane"
+        ]
+      },
+      "branch_role_policies": [
+        {
+          "branch": "dev",
+          "role": "integration",
+          "protected": true,
+          "allowed_sources": [
+            "feature/*",
+            "fix/*",
+            "backport/*",
+            "automation/*"
+          ],
+          "required_checks": [
+            "Baseline PR Gate / baseline-fast-lane",
+            "Baseline PR Gate / baseline-full-lane"
+          ]
+        },
+        {
+          "branch": "main",
+          "role": "production",
+          "protected": true,
+          "allowed_sources": [
+            "dev",
+            "hotfix/*"
+          ],
+          "required_checks": [
+            "Baseline PR Gate / baseline-fast-lane",
+            "Baseline PR Gate / baseline-full-lane",
+            "Baseline Deploy / baseline-deploy"
+          ]
+        },
+        {
+          "branch": "hotfix/*",
+          "role": "hotfix",
+          "protected": false,
+          "allowed_sources": [
+            "main"
+          ],
+          "required_checks": [
+            "Baseline PR Gate / baseline-fast-lane",
+            "Baseline PR Gate / baseline-full-lane"
+          ]
+        }
+      ]
+    },
+    "deployments": {
+      "matrix": {
+        "expected_rows": 12,
+        "actual_rows": 12,
+        "missing_rows": [],
+        "stale_rows": [],
+        "duplicate_row_keys": [],
+        "healthy": true
+      },
+      "environment_count": 3,
+      "component_count": 4,
+      "approval_required_rows": 8,
+      "self_approval_allowed_rows": 4,
+      "advisory_rows": 0,
+      "enforcement": {
+        "mode": "enforced",
+        "reason": "api_success",
+        "capability_state": "supported",
+        "entitlement_state": "likely_supported"
+      },
+      "rows_by_environment": [
+        {
+          "environment": "dev",
+          "total_rows": 4,
+          "approval_required_rows": 0,
+          "self_approval_allowed_rows": 4,
+          "max_min_approvers": 0
+        },
+        {
+          "environment": "production",
+          "total_rows": 4,
+          "approval_required_rows": 4,
+          "self_approval_allowed_rows": 0,
+          "max_min_approvers": 2
+        },
+        {
+          "environment": "staging",
+          "total_rows": 4,
+          "approval_required_rows": 4,
+          "self_approval_allowed_rows": 0,
+          "max_min_approvers": 1
+        }
+      ],
+      "rows_by_component": [
+        {
+          "component": "application",
+          "total_rows": 3,
+          "approval_required_rows": 2,
+          "self_approval_allowed_rows": 1,
+          "max_min_approvers": 2
+        },
+        {
+          "component": "backend",
+          "total_rows": 3,
+          "approval_required_rows": 2,
+          "self_approval_allowed_rows": 1,
+          "max_min_approvers": 2
+        },
+        {
+          "component": "baseline-control",
+          "total_rows": 3,
+          "approval_required_rows": 2,
+          "self_approval_allowed_rows": 1,
+          "max_min_approvers": 2
+        },
+        {
+          "component": "frontend",
+          "total_rows": 3,
+          "approval_required_rows": 2,
+          "self_approval_allowed_rows": 1,
+          "max_min_approvers": 2
+        }
+      ]
+    },
+    "github_app": {
+      "required_for_full_feature_set": true,
+      "policy_requires_app": false,
+      "effective_required": false,
+      "reason": "missing_capabilities_for_enabled_modules",
+      "status": "recommended_for_full_feature_set"
+    }
+  },
+  "warnings": [
+    "Repository probe failed: network_error:This operation was aborted"
+  ]
+}

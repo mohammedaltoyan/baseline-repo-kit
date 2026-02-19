@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "degraded": false,
+  "degraded_reasons": [],
+  "environments": [
+    {
+      "name": "dev",
+      "branch_roles": [
+        "integration",
+        "feature"
+      ],
+      "default": true
+    },
+    {
+      "name": "staging",
+      "branch_roles": [
+        "integration",
+        "release"
+      ],
+      "default": true
+    },
+    {
+      "name": "production",
+      "branch_roles": [
+        "production"
+      ],
+      "default": true
+    }
+  ],
+  "components": [
+    {
+      "id": "backend",
+      "name": "backend",
+      "path": "apps/backend",
+      "enabled": true
+    },
+    {
+      "id": "baseline-control",
+      "name": "baseline-control",
+      "path": "apps/baseline-control",
+      "enabled": true
+    },
+    {
+      "id": "frontend",
+      "name": "frontend",
+      "path": "apps/frontend",
+      "enabled": true
+    },
+    {
+      "id": "application",
+      "name": "application",
+      "path": ".github/workflows/deploy.yml",
+      "enabled": true
+    }
+  ],
+  "oidc": {
+    "enabled": false,
+    "audience": ""
+  },
+  "approval_matrix": [
+    {
+      "environment": "dev",
+      "component": "backend",
+      "approval_required": false,
+      "min_approvers": 0,
+      "allow_self_approval": true,
+      "allowed_roles": [
+        "write",
+        "maintain",
+        "admin"
+      ]
+    },
+    {
+      "environment": "dev",
+      "component": "baseline-control",
+      "approval_required": false,
+      "min_approvers": 0,
+      "allow_self_approval": true,
+      "allowed_roles": [
+        "write",
+        "maintain",
+        "admin"
+      ]
+    },
+    {
+      "environment": "dev",
+      "component": "frontend",
+      "approval_required": false,
+      "min_approvers": 0,
+      "allow_self_approval": true,
+      "allowed_roles": [
+        "write",
+        "maintain",
+        "admin"
+      ]
+    },
+    {
+      "environment": "dev",
+      "component": "application",
+      "approval_required": false,
+      "min_approvers": 0,
+      "allow_self_approval": true,
+      "allowed_roles": [
+        "write",
+        "maintain",
+        "admin"
+      ]
+    },
+    {
+      "environment": "staging",
+      "component": "backend",
+      "approval_required": true,
+      "min_approvers": 1,
+      "allow_self_approval": false,
+      "allowed_roles": [
+        "maintain",
+        "admin"
+      ]
+    },
+    {
+      "environment": "staging",
+      "component": "baseline-control",
+      "approval_required": true,
+      "min_approvers": 1,
+      "allow_self_approval": false,
+      "allowed_roles": [
+        "maintain",
+        "admin"
+      ]
+    },
+    {
+      "environment": "staging",
+      "component": "frontend",
+      "approval_required": true,
+      "min_approvers": 1,
+      "allow_self_approval": false,
+      "allowed_roles": [
+        "maintain",
+        "admin"
+      ]
+    },
+    {
+      "environment": "staging",
+      "component": "application",
+      "approval_required": true,
+      "min_approvers": 1,
+      "allow_self_approval": false,
+      "allowed_roles": [
+        "maintain",
+        "admin"
+      ]
+    },
+    {
+      "environment": "production",
+      "component": "backend",
+      "approval_required": true,
+      "min_approvers": 2,
+      "allow_self_approval": false,
+      "allowed_roles": [
+        "maintain",
+        "admin"
+      ]
+    },
+    {
+      "environment": "production",
+      "component": "baseline-control",
+      "approval_required": true,
+      "min_approvers": 2,
+      "allow_self_approval": false,
+      "allowed_roles": [
+        "maintain",
+        "admin"
+      ]
+    },
+    {
+      "environment": "production",
+      "component": "frontend",
+      "approval_required": true,
+      "min_approvers": 2,
+      "allow_self_approval": false,
+      "allowed_roles": [
+        "maintain",
+        "admin"
+      ]
+    },
+    {
+      "environment": "production",
+      "component": "application",
+      "approval_required": true,
+      "min_approvers": 2,
+      "allow_self_approval": false,
+      "allowed_roles": [
+        "maintain",
+        "admin"
+      ]
+    }
+  ]
+}

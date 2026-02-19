@@ -1,0 +1,132 @@
+{
+  "provider": "github",
+  "detected_at": "2026-02-19T21:54:33.830Z",
+  "repository": {
+    "owner": "mohammedaltoyan",
+    "repo": "baseline-repo-kit",
+    "owner_type": "unknown",
+    "private": null,
+    "permissions": {
+      "admin": false,
+      "maintain": false,
+      "push": false,
+      "pull": false
+    }
+  },
+  "auth": {
+    "token_present": true,
+    "token_source": "gh_auth_token",
+    "token_scopes": [],
+    "viewer_login": ""
+  },
+  "collaborators": {
+    "maintainers": [
+      "mohammedaltoyan"
+    ],
+    "maintainer_count": 1,
+    "role_counts": {
+      "admin": 1,
+      "maintain": 0,
+      "write": 0
+    }
+  },
+  "capabilities": {
+    "rulesets": {
+      "supported": true,
+      "state": "supported",
+      "reason": "api_success"
+    },
+    "merge_queue": {
+      "supported": false,
+      "state": "unsupported",
+      "reason": "merge_queue_rule_not_found"
+    },
+    "environments": {
+      "supported": true,
+      "state": "supported",
+      "reason": "api_success"
+    },
+    "code_scanning": {
+      "supported": true,
+      "state": "supported",
+      "reason": "api_success"
+    },
+    "dependency_review": {
+      "supported": true,
+      "state": "supported",
+      "reason": "api_success"
+    },
+    "repo_variables": {
+      "supported": true,
+      "state": "supported",
+      "reason": "api_success"
+    },
+    "github_app_required": {
+      "supported": false,
+      "state": "unsupported",
+      "reason": "missing_capabilities_for_enabled_modules",
+      "effective_required": false,
+      "policy_requires_app": false
+    }
+  },
+  "warnings": [
+    "Repository probe failed: network_error:This operation was aborted"
+  ],
+  "runtime": {
+    "required_capabilities": [
+      "environments",
+      "merge_queue",
+      "rulesets"
+    ],
+    "missing_required_capabilities": [
+      "merge_queue"
+    ],
+    "modules": [
+      {
+        "id": "core-ci",
+        "enabled": true,
+        "degraded": true,
+        "skipped": false,
+        "hard_error": false,
+        "missing": [
+          {
+            "capability": "merge_queue",
+            "state": "unsupported",
+            "reason": "merge_queue_rule_not_found",
+            "remediation": "Enable merge queue in repository rulesets or upgrade to a GitHub plan that supports merge queue."
+          }
+        ]
+      },
+      {
+        "id": "core-deployments",
+        "enabled": true,
+        "degraded": false,
+        "skipped": false,
+        "hard_error": false,
+        "missing": []
+      },
+      {
+        "id": "core-governance",
+        "enabled": true,
+        "degraded": false,
+        "skipped": false,
+        "hard_error": false,
+        "missing": []
+      },
+      {
+        "id": "core-planning",
+        "enabled": true,
+        "degraded": false,
+        "skipped": false,
+        "hard_error": false,
+        "missing": []
+      }
+    ],
+    "github_app": {
+      "required_for_full_feature_set": true,
+      "policy_requires_app": false,
+      "effective_required": false,
+      "reason": "missing_capabilities_for_enabled_modules"
+    }
+  }
+}

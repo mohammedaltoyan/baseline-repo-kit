@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "generated_at": "2026-02-19T21:54:58.759Z",
+  "degraded": false,
+  "degraded_reasons": [],
+  "topology": "two_branch",
+  "branches": [
+    {
+      "name": "dev",
+      "role": "integration",
+      "protected": true,
+      "allowed_sources": [
+        "feature/*",
+        "fix/*",
+        "backport/*",
+        "automation/*"
+      ]
+    },
+    {
+      "name": "main",
+      "role": "production",
+      "protected": true,
+      "allowed_sources": [
+        "dev",
+        "hotfix/*"
+      ]
+    },
+    {
+      "name": "hotfix/*",
+      "role": "hotfix",
+      "protected": false,
+      "allowed_sources": [
+        "main"
+      ]
+    }
+  ],
+  "branch_role_policies": [
+    {
+      "branch": "dev",
+      "role": "integration",
+      "protected": true,
+      "allowed_sources": [
+        "feature/*",
+        "fix/*",
+        "backport/*",
+        "automation/*"
+      ],
+      "required_checks": [
+        "Baseline PR Gate / baseline-fast-lane",
+        "Baseline PR Gate / baseline-full-lane"
+      ]
+    },
+    {
+      "branch": "main",
+      "role": "production",
+      "protected": true,
+      "allowed_sources": [
+        "dev",
+        "hotfix/*"
+      ],
+      "required_checks": [
+        "Baseline PR Gate / baseline-fast-lane",
+        "Baseline PR Gate / baseline-full-lane",
+        "Baseline Deploy / baseline-deploy"
+      ]
+    },
+    {
+      "branch": "hotfix/*",
+      "role": "hotfix",
+      "protected": false,
+      "allowed_sources": [
+        "main"
+      ],
+      "required_checks": [
+        "Baseline PR Gate / baseline-fast-lane",
+        "Baseline PR Gate / baseline-full-lane"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "engine_version": "2.2.0",
+  "enabled_modules": [
+    "core-governance",
+    "core-ci",
+    "core-deployments",
+    "core-planning"
+  ],
+  "active_modules": [
+    {
+      "id": "core-ci",
+      "name": "Core CI",
+      "version": "1.0.0",
+      "degraded": true,
+      "skipped": false,
+      "missing_capabilities": [
+        {
+          "capability": "merge_queue",
+          "state": "unsupported",
+          "reason": "merge_queue_rule_not_found",
+          "remediation": "Enable merge queue in repository rulesets or upgrade to a GitHub plan that supports merge queue."
+        }
+      ]
+    },
+    {
+      "id": "core-deployments",
+      "name": "Core Deployments",
+      "version": "1.0.0",
+      "degraded": false,
+      "skipped": false,
+      "missing_capabilities": []
+    },
+    {
+      "id": "core-governance",
+      "name": "Core Governance",
+      "version": "1.0.0",
+      "degraded": false,
+      "skipped": false,
+      "missing_capabilities": []
+    },
+    {
+      "id": "core-planning",
+      "name": "Core Planning",
+      "version": "1.0.0",
+      "degraded": false,
+      "skipped": false,
+      "missing_capabilities": []
+    }
+  ],
+  "degraded_modules": [
+    {
+      "id": "core-ci",
+      "missing_capabilities": [
+        {
+          "capability": "merge_queue",
+          "state": "unsupported",
+          "reason": "merge_queue_rule_not_found",
+          "remediation": "Enable merge queue in repository rulesets or upgrade to a GitHub plan that supports merge queue."
+        }
+      ]
+    }
+  ],
+  "github_app": {
+    "required_for_full_feature_set": true,
+    "policy_requires_app": false,
+    "effective_required": false,
+    "reason": "missing_capabilities_for_enabled_modules"
+  }
+}

@@ -1,0 +1,41 @@
+name: Baseline Node Run (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      timeout_minutes:
+        type: number
+        required: false
+        default: 20
+      node_version:
+        type: string
+        required: false
+        default: "22"
+      run:
+        type: string
+        required: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Run
+        shell: bash
+        run: ${{ inputs.run }}

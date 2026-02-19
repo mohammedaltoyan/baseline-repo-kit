@@ -1,0 +1,61 @@
+name: Baseline Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      component:
+        description: Deployment component
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: baseline-deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment: ${{ github.event.inputs.environment }}
+    concurrency:
+      group: baseline-deploy-${{ github.event.inputs.environment }}-${{ github.event.inputs.component }}
+      cancel-in-progress: false
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate deployment approval matrix
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const env = process.env.GITHUB_EVENT_INPUTS_ENVIRONMENT || '';
+          const component = process.env.GITHUB_EVENT_INPUTS_COMPONENT || '';
+          const data = JSON.parse(fs.readFileSync('config/policy/baseline-deployment-approval-matrix.json', 'utf8'));
+          const rows = Array.isArray(data.approval_matrix) ? data.approval_matrix : [];
+          const row = rows.find((entry) => String(entry.environment) === env && String(entry.component) === component);
+          if (!row) {
+            console.error(`No deployment matrix entry found for environment="${env}" component="${component}"`);
+            process.exit(1);
+          }
+          console.log(JSON.stringify({ env, component, rule: row }, null, 2));
+          NODE
+        env:
+          GITHUB_EVENT_INPUTS_ENVIRONMENT: ${{ github.event.inputs.environment }}
+          GITHUB_EVENT_INPUTS_COMPONENT: ${{ github.event.inputs.component }}
+      - name: Show deployment selection
+        run: |
+          echo "environment=${{ github.event.inputs.environment }}"
+          echo "component=${{ github.event.inputs.component }}"
+          echo "Implement project-specific deploy hook in scripts/deploy/deploy.sh"
