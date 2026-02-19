@@ -166,10 +166,12 @@ When working on frontend UI/UX:
   - `npm run baseline:apply -- --target <target-path>`
   - `npm run baseline:upgrade -- --target <target-path>`
   - `npm run baseline:doctor -- --target <target-path>`
-  - `npm run baseline:verify -- --target <target-path>`
+- `npm run baseline:verify -- --target <target-path>`
 - UI-first operation mode is mandatory for interactive usage:
   - Start once with `npm run baseline:ui -- --target <target-path>`.
   - After startup, run lifecycle actions from UI only (`init`, `diff`, `doctor`, `verify`, `upgrade`, `apply`, capability refresh, config save, target/profile switch).
+- UI flow E2E selftest coverage is mandatory in engine gates:
+  - `scripts/tooling/baseline-control.ui-e2e.selftest.js` validates URL/session target selection, settings save, full action-button lifecycle, and UI error-surface behavior through browser-flow logic (no CLI command invocation for lifecycle operations).
 
 ## Baseline Engine v2.2 (Must)
 

@@ -124,6 +124,14 @@ UI API endpoints:
 - `POST /api/upgrade` - run migrations/upgrades.
 - `POST /api/apply` - apply managed changes (PR-first unless direct override selected).
 
+UI lifecycle test coverage:
+- `node scripts/tooling/baseline-control.ui-e2e.selftest.js` verifies UI-only flow end-to-end:
+  - UI boot from URL data endpoints
+  - target/profile selection from UI session controls
+  - settings edit + auto-save behavior
+  - action buttons (`init`, `diff`, `doctor`, `verify`, `upgrade`, `apply`, capability refresh)
+  - output-panel error rendering when API actions fail
+
 The UI surfaces per setting:
 - what it controls
 - why it matters
