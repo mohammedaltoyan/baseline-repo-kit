@@ -154,6 +154,7 @@ When working on frontend UI/UX:
 
 - Baseline behavior must be generated from settings (`.baseline/config.yaml`) and capability probes (`.baseline/capabilities/github.json`), not hardcoded in scripts/workflows.
 - Config schema SSOT is `config/schema/baseline-config.schema.json`; runtime validation must compile/execute this schema (do not duplicate parallel rule sets in command code).
+- Locked-decision SSOT for v2.2 is `config/policy/baseline-v22-contract.json`; CI must enforce it via `scripts/ops/baseline-v22-contract-lint.js` (`npm run lint:contract`).
 - Managed upgrades must be migration-based (`scripts/tooling/migrations/<semver>/`) with explicit state tracking in `.baseline/state.json`.
 - Generated file ownership and merge strategy must be tracked in `.baseline/managed-files.json`.
 - Module generators are the only source for managed outputs; core engine orchestrates modules and does not hardcode module artifacts.

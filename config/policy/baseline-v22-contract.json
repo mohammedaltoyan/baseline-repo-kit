@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "required_paths": [
+    "tooling/apps/baseline-engine/cli.js",
+    "tooling/apps/baseline-engine/modules",
+    "config/schema/baseline-config.schema.json",
+    "config/schema/baseline-ui-metadata.schema.json",
+    "config/schema/baseline-ui-metadata.json",
+    "apps/baseline-control/index.html",
+    "apps/baseline-control/app.js",
+    "scripts/tooling/migrations/2.2.0/index.js"
+  ],
+  "required_cli_commands": [
+    "baseline:init",
+    "baseline:ui",
+    "baseline:diff",
+    "baseline:apply",
+    "baseline:upgrade",
+    "baseline:doctor",
+    "baseline:verify"
+  ],
+  "required_target_state_files": [
+    ".baseline/config.yaml",
+    ".baseline/state.json",
+    ".baseline/managed-files.json",
+    ".baseline/capabilities/github.json"
+  ],
+  "required_capability_keys": [
+    "rulesets",
+    "merge_queue",
+    "environments",
+    "code_scanning",
+    "dependency_review",
+    "repo_variables",
+    "github_app_required"
+  ],
+  "required_default_values": {
+    "platform.provider": "github",
+    "policy.profile": "strict",
+    "ci.mode": "two_lane",
+    "updates.apply_mode": "pr_first"
+  },
+  "required_default_environments": [
+    "dev",
+    "staging",
+    "production"
+  ],
+  "required_default_modules": [
+    "core-governance",
+    "core-ci",
+    "core-deployments",
+    "core-planning"
+  ],
+  "require_non_core_modules_opt_in": true,
+  "required_module_contract_files": [
+    "module.json",
+    "schema.fragment.json",
+    "capability_requirements.json",
+    "generators/index.js",
+    "migrations/index.js"
+  ]
+}

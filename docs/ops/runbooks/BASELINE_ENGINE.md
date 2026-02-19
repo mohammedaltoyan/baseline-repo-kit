@@ -29,6 +29,18 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - Validation is enforced by `baseline doctor`, `baseline verify`, `baseline apply`, and `baseline upgrade` through shared context loading.
 - Keep schemas as single contracts; avoid duplicating ad-hoc validation logic in command handlers.
 
+## Locked-Decision Contract Gate
+
+- v2.2 locked decisions are codified in `config/policy/baseline-v22-contract.json`.
+- CI enforcement: `npm run lint:contract` (`scripts/ops/baseline-v22-contract-lint.js` + selftest).
+- Gate coverage includes:
+  - required engine/UI/schema/contract paths
+  - required CLI scripts (`baseline:init|ui|diff|apply|upgrade|doctor|verify`)
+  - required capability keys and target baseline state files
+  - strict defaults (`policy.profile=strict`, `ci.mode=two_lane`, `updates.apply_mode=pr_first`, default envs)
+  - module contract completeness (`module.json`, `schema.fragment.json`, `capability_requirements.json`, `generators/index.js`, `migrations/index.js`)
+  - non-core modules remain opt-in by default unless an explicit migration enables them
+
 ## Module SDK runtime
 
 - Enabled modules are loaded from `tooling/apps/baseline-engine/modules/*`.
