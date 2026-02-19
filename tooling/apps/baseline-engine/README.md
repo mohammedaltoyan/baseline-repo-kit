@@ -27,9 +27,9 @@ Core dynamic engine for baseline repository installation, policy generation, cap
 ## UI-first operation mode
 
 Start once:
-- `npm run baseline:ui -- --target <target-path>`
+- `npm run baseline:ui`
 
-Then operate fully from the web UI at `http://127.0.0.1:4173` (or configured host/port) with no further CLI commands required.
+Then operate fully from the web UI at `http://127.0.0.1:4173` (or configured host/port) with no further CLI commands required. Target selection/switching/clearing is handled by `POST /api/session` from the UI.
 
 ### UI API contract
 

@@ -16,12 +16,13 @@
       <aside class="panel left">
         <h2>Workspace</h2>
         <div class="controlGroup">
-          <label for="targetInput">Target repository path</label>
+          <label for="targetInput">Target repository path (set in UI after startup)</label>
           <input id="targetInput" type="text" placeholder="/absolute/or/relative/target/path" />
           <label for="profileInput">Install profile (optional)</label>
           <input id="profileInput" type="text" placeholder="standard" />
           <div class="actions inline">
-            <button id="setTargetBtn">Connect Target</button>
+            <button id="setTargetBtn">Set Target</button>
+            <button id="clearTargetBtn">Clear Target</button>
             <button id="refreshCapsBtn">Refresh Capabilities</button>
           </div>
         </div>

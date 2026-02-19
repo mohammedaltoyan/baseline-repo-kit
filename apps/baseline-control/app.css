@@ -64,7 +64,7 @@ body {
 }
 
 .actions.inline {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .controlGroup {
@@ -112,6 +112,11 @@ button {
 
 button:hover {
   border-color: var(--accent);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .summary {
@@ -234,5 +239,11 @@ button:hover {
 
   #output {
     min-height: 240px;
+  }
+}
+
+@media (max-width: 880px) {
+  .actions.inline {
+    grid-template-columns: 1fr;
   }
 }

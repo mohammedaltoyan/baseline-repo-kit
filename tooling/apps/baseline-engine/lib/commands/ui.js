@@ -3,7 +3,7 @@
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
-const { buildContext, resolveTargetRoot } = require('../context');
+const { buildContext } = require('../context');
 const { runApply } = require('./apply');
 const { runDiff } = require('./diff');
 const { runDoctor } = require('./doctor');
@@ -14,7 +14,7 @@ const { buildInsights } = require('../insights');
 const { normalizeDynamicConfig } = require('../policy/normalization');
 const { loadSchema, loadUiMetadata, validateConfig } = require('../schema');
 const { isTruthy } = require('../util/args');
-const { UI_APP_DIR } = require('../constants');
+const { ENGINE_VERSION, UI_APP_DIR } = require('../constants');
 
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -72,18 +72,18 @@ function parseRequestUrl(req) {
 
 function toAbsoluteTarget(value) {
   const raw = String(value || '').trim();
-  return raw ? path.resolve(process.cwd(), raw) : process.cwd();
+  return raw ? path.resolve(process.cwd(), raw) : '';
 }
 
 function buildRuntimeSession(args = {}) {
   const inputTarget = String(args.target || args.to || args.t || '').trim();
-  const resolvedTarget = resolveTargetRoot(args);
+  const resolvedTarget = toAbsoluteTarget(inputTarget);
   const explicitPort = Object.prototype.hasOwnProperty.call(args, 'port')
     ? args.port
     : process.env.BASELINE_UI_PORT;
   const resolvedPort = String(explicitPort == null ? '' : explicitPort).trim();
   return {
-    target_input: inputTarget || resolvedTarget,
+    target_input: inputTarget,
     target: resolvedTarget,
     profile: String(args.profile || '').trim(),
     host: String(args.host || process.env.BASELINE_UI_HOST || '0.0.0.0').trim(),
@@ -93,6 +93,16 @@ function buildRuntimeSession(args = {}) {
 
 function targetStatus(targetRoot) {
   const resolved = toAbsoluteTarget(targetRoot);
+  if (!resolved) {
+    return {
+      resolved_target: '',
+      exists: false,
+      is_directory: false,
+      writable: false,
+      parent_writable: false,
+      reason: 'target_not_set',
+    };
+  }
   const out = {
     resolved_target: resolved,
     exists: false,
@@ -140,6 +150,55 @@ function targetStatus(targetRoot) {
   return out;
 }
 
+function hasRuntimeTarget(runtime) {
+  return !!String(runtime && runtime.target || '').trim();
+}
+
+function assertRuntimeTarget(runtime) {
+  if (!hasRuntimeTarget(runtime)) {
+    throw createHttpError(400, 'target_not_set');
+  }
+}
+
+function emptyRuntimeState() {
+  return {
+    target: '',
+    target_required: true,
+    status: 'target_not_set',
+    engine_version: ENGINE_VERSION,
+    schema: loadSchema(),
+    ui_metadata: loadUiMetadata(),
+    config: {},
+    effective_config: {},
+    effective_overrides: [],
+    capabilities: {
+      repository: {},
+      auth: {},
+      runtime: {
+        required_capabilities: [],
+        missing_required_capabilities: [],
+        modules: [],
+        github_app: {},
+      },
+      capabilities: {},
+      warnings: [],
+    },
+    changes: [],
+    modules: [],
+    module_evaluation: {
+      required_capabilities: [],
+      missing_required_capabilities: [],
+      modules: [],
+      warnings: [],
+      errors: [],
+    },
+    insights: {
+      capability_matrix: [],
+    },
+    warnings: ['Select a target repository path in the UI to continue.'],
+  };
+}
+
 function boolArg(value) {
   if (typeof value === 'boolean') return value ? '1' : '0';
   if (typeof value === 'number') return value ? '1' : '0';
@@ -149,8 +208,13 @@ function boolArg(value) {
 function createEngineArgs(baseArgs, runtime, body = {}) {
   const out = {
     ...baseArgs,
-    target: runtime.target,
   };
+  delete out.target;
+  delete out.to;
+  delete out.t;
+  if (hasRuntimeTarget(runtime)) {
+    out.target = runtime.target;
+  }
 
   if (runtime.profile) out.profile = runtime.profile;
 
@@ -252,7 +316,7 @@ function operationsCatalog() {
     { id: 'upgrade', method: 'POST', path: '/api/upgrade', description: 'Run migrations and apply managed updates.', options: ['dry_run', 'target_version'] },
     { id: 'refresh_capabilities', method: 'POST', path: '/api/refresh-capabilities', description: 'Re-probe GitHub capabilities and refresh runtime state.' },
     { id: 'save_config', method: 'POST', path: '/api/config', description: 'Persist normalized config from UI edits.' },
-    { id: 'session', method: 'POST', path: '/api/session', description: 'Set target path/profile for UI operations.' },
+    { id: 'session', method: 'POST', path: '/api/session', description: 'Set or clear target path/profile for UI operations.' },
   ];
 }
 
@@ -280,8 +344,8 @@ async function startUiServer(args = {}) {
 
         if (Object.prototype.hasOwnProperty.call(body, 'target')) {
           const targetValue = String(body.target || '').trim();
-          runtime.target_input = targetValue || runtime.target_input;
-          runtime.target = toAbsoluteTarget(targetValue || runtime.target_input);
+          runtime.target_input = targetValue;
+          runtime.target = toAbsoluteTarget(targetValue);
         }
 
         if (Object.prototype.hasOwnProperty.call(body, 'profile')) {
@@ -302,6 +366,9 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/state' && req.method === 'GET') {
+        if (!hasRuntimeTarget(runtime)) {
+          return sendJson(res, 200, emptyRuntimeState());
+        }
         const engineArgs = createEngineArgs(
           args,
           runtime,
@@ -312,11 +379,13 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/refresh-capabilities' && req.method === 'POST') {
+        assertRuntimeTarget(runtime);
         const payload = await currentState(createEngineArgs(args, runtime, { refresh_capabilities: true }));
         return sendJson(res, 200, payload);
       }
 
       if (pathname === '/api/init' && req.method === 'POST') {
+        assertRuntimeTarget(runtime);
         const body = await parseJsonBody(req);
         const result = await runInit({
           ...createEngineArgs(args, runtime, body),
@@ -327,6 +396,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/diff' && req.method === 'POST') {
+        assertRuntimeTarget(runtime);
         const result = await runDiff({
           ...createEngineArgs(args, runtime, {}),
           json: '1',
@@ -336,6 +406,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/doctor' && req.method === 'POST') {
+        assertRuntimeTarget(runtime);
         const result = await runDoctor({
           ...createEngineArgs(args, runtime, {}),
           json: '1',
@@ -345,6 +416,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/verify' && req.method === 'POST') {
+        assertRuntimeTarget(runtime);
         const result = await runVerify({
           ...createEngineArgs(args, runtime, {}),
           json: '1',
@@ -354,6 +426,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/apply' && req.method === 'POST') {
+        assertRuntimeTarget(runtime);
         const body = await parseJsonBody(req);
         const result = await runApply({
           ...createEngineArgs(args, runtime, body),
@@ -364,6 +437,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/upgrade' && req.method === 'POST') {
+        assertRuntimeTarget(runtime);
         const body = await parseJsonBody(req);
         const result = await runUpgrade({
           ...createEngineArgs(args, runtime, body),
@@ -374,6 +448,7 @@ async function startUiServer(args = {}) {
       }
 
       if (pathname === '/api/config' && req.method === 'POST') {
+        assertRuntimeTarget(runtime);
         const parsed = await parseJsonBody(req);
         const normalized = normalizeDynamicConfig(parsed.config || {}).config;
         validateConfig(normalized);

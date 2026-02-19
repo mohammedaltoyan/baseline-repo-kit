@@ -144,6 +144,16 @@ function findProfileInput(settingsRoot) {
 
 function statusForTarget(targetPath) {
   const target = String(targetPath || '').trim();
+  if (!target) {
+    return {
+      resolved_target: '',
+      exists: false,
+      is_directory: false,
+      writable: false,
+      parent_writable: false,
+      reason: 'target_not_set',
+    };
+  }
   if (target.endsWith('.txt')) {
     return {
       resolved_target: target,
@@ -187,6 +197,7 @@ async function run() {
     'targetInput',
     'profileInput',
     'setTargetBtn',
+    'clearTargetBtn',
     'refreshCapsBtn',
     'dryRunToggle',
     'applyDirectToggle',
@@ -218,11 +229,11 @@ async function run() {
 
   const runtime = {
     session: {
-      target_input: '/tmp/repo-a',
-      target: '/tmp/repo-a',
+      target_input: '',
+      target: '',
       profile: '',
     },
-    target_status: statusForTarget('/tmp/repo-a'),
+    target_status: statusForTarget(''),
     config: {
       policy: { profile: 'strict' },
       updates: { apply_mode: 'pr_first', auto_pr: true },
@@ -239,10 +250,46 @@ async function run() {
     { id: 'upgrade', method: 'POST', path: '/api/upgrade', description: 'Run migrations and apply managed updates.', options: ['dry_run', 'target_version'] },
     { id: 'refresh_capabilities', method: 'POST', path: '/api/refresh-capabilities', description: 'Refresh capability probe.' },
     { id: 'save_config', method: 'POST', path: '/api/config', description: 'Persist normalized config from UI edits.' },
-    { id: 'session', method: 'POST', path: '/api/session', description: 'Set target path/profile for UI operations.' },
+    { id: 'session', method: 'POST', path: '/api/session', description: 'Set or clear target path/profile for UI operations.' },
   ];
 
   function buildStatePayload() {
+    if (!runtime.session.target) {
+      return {
+        target: '',
+        target_required: true,
+        status: 'target_not_set',
+        engine_version: '2.2.0',
+        schema: { type: 'object' },
+        ui_metadata: {
+          sections: [
+            { id: 'platform', title: 'Platform', description: 'Platform settings.' },
+          ],
+          fields: {},
+        },
+        config: {},
+        effective_config: {},
+        effective_overrides: [],
+        capabilities: {
+          repository: {},
+          auth: {},
+          runtime: {
+            github_app: {
+              effective_required: false,
+            },
+          },
+          capabilities: {},
+        },
+        changes: [],
+        modules: [],
+        module_evaluation: { modules: [] },
+        insights: {
+          capability_matrix: [],
+        },
+        warnings: ['Select a target repository path in the UI to continue.'],
+      };
+    }
+
     return {
       target: runtime.session.target,
       engine_version: '2.2.0',
@@ -358,6 +405,7 @@ async function run() {
     const pathname = parsedUrl.pathname;
     const body = options.body ? JSON.parse(options.body) : undefined;
     calls.push({ method, pathname, body });
+    const targetSelected = !!String(runtime.session.target || '').trim();
 
     if (pathname === '/api/operations' && method === 'GET') {
       return jsonResponse(200, { operations: clone(operations) });
@@ -373,7 +421,7 @@ async function run() {
     if (pathname === '/api/session' && method === 'POST') {
       if (body && Object.prototype.hasOwnProperty.call(body, 'target')) {
         runtime.session.target_input = String(body.target || '').trim();
-        runtime.session.target = runtime.session.target_input || runtime.session.target;
+        runtime.session.target = runtime.session.target_input;
         runtime.target_status = statusForTarget(runtime.session.target);
       }
       if (body && Object.prototype.hasOwnProperty.call(body, 'profile')) {
@@ -391,11 +439,13 @@ async function run() {
     }
 
     if (pathname === '/api/config' && method === 'POST') {
+      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
       runtime.config = clone(body && body.config || runtime.config);
       return jsonResponse(200, { ok: true });
     }
 
     if (pathname === '/api/init' && method === 'POST') {
+      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
       return jsonResponse(200, {
         command: 'init',
         target: runtime.session.target,
@@ -403,6 +453,7 @@ async function run() {
     }
 
     if (pathname === '/api/diff' && method === 'POST') {
+      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
       return jsonResponse(200, {
         command: 'diff',
         target: runtime.session.target,
@@ -410,6 +461,7 @@ async function run() {
     }
 
     if (pathname === '/api/doctor' && method === 'POST') {
+      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
       if (runtime.fail_next_doctor) {
         runtime.fail_next_doctor = false;
         return jsonResponse(500, { error: 'doctor_failed' });
@@ -421,6 +473,7 @@ async function run() {
     }
 
     if (pathname === '/api/verify' && method === 'POST') {
+      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
       return jsonResponse(200, {
         command: 'verify',
         target: runtime.session.target,
@@ -428,6 +481,7 @@ async function run() {
     }
 
     if (pathname === '/api/upgrade' && method === 'POST') {
+      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
       return jsonResponse(200, {
         command: 'upgrade',
         target: runtime.session.target,
@@ -437,6 +491,7 @@ async function run() {
     }
 
     if (pathname === '/api/apply' && method === 'POST') {
+      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
       return jsonResponse(200, {
         command: 'apply',
         target: runtime.session.target,
@@ -446,6 +501,7 @@ async function run() {
     }
 
     if (pathname === '/api/refresh-capabilities' && method === 'POST') {
+      if (!targetSelected) return jsonResponse(400, { error: 'target_not_set' });
       return jsonResponse(200, buildStatePayload());
     }
 
@@ -476,6 +532,21 @@ async function run() {
   assert.strictEqual(listCalls(calls, 'GET', '/api/session').length >= 1, true, 'boot should load session state');
   assert.strictEqual(listCalls(calls, 'GET', '/api/state').length >= 1, true, 'boot should load runtime state');
   assert.strictEqual(document.getElementById('operationsCatalog').innerHTML.includes('/api/apply'), true);
+  assert.strictEqual(
+    document.getElementById('sessionSummary').innerHTML.includes('target_not_set'),
+    true,
+    'boot should show no-target session status'
+  );
+  assert.strictEqual(document.getElementById('initBtn').disabled, true, 'target-bound actions should be disabled until target is selected');
+
+  document.getElementById('initBtn').click();
+  await flush();
+  assert.strictEqual(
+    document.getElementById('output').textContent.includes('target_not_set'),
+    true,
+    'blocked actions should surface target_not_set before any API call'
+  );
+  assert.strictEqual(listCalls(calls, 'POST', '/api/init').length, 0, 'blocked action must not call API when target is unset');
 
   document.getElementById('targetInput').value = '/tmp/repo-b';
   document.getElementById('profileInput').value = 'strict';
@@ -485,6 +556,23 @@ async function run() {
   assert.strictEqual(runtime.session.target, '/tmp/repo-b', 'connect target should update session target');
   assert.strictEqual(runtime.session.profile, 'strict', 'connect target should update session profile');
   assert.strictEqual(document.getElementById('sessionSummary').innerHTML.includes('/tmp/repo-b'), true);
+  assert.strictEqual(document.getElementById('initBtn').disabled, false, 'target-bound actions should re-enable once target is valid');
+
+  document.getElementById('clearTargetBtn').click();
+  await flush();
+  assert.strictEqual(runtime.session.target, '', 'clear target should reset runtime session target');
+  assert.strictEqual(document.getElementById('initBtn').disabled, true, 'clear target should disable target-bound actions');
+  assert.strictEqual(
+    document.getElementById('output').textContent.includes('target_cleared'),
+    true,
+    'clear target action should emit target_cleared status'
+  );
+
+  document.getElementById('targetInput').value = '/tmp/repo-b';
+  document.getElementById('setTargetBtn').click();
+  await flush();
+  assert.strictEqual(runtime.session.target, '/tmp/repo-b');
+  assert.strictEqual(document.getElementById('initBtn').disabled, false);
 
   document.getElementById('targetInput').value = '/tmp/config-file.txt';
   document.getElementById('setTargetBtn').click();
@@ -494,10 +582,16 @@ async function run() {
     true,
     'session summary should surface non-directory target error state'
   );
+  assert.strictEqual(
+    document.getElementById('doctorBtn').disabled,
+    true,
+    'non-directory target should disable target-bound actions'
+  );
 
   document.getElementById('targetInput').value = '/tmp/repo-c';
   document.getElementById('setTargetBtn').click();
   await flush();
+  assert.strictEqual(document.getElementById('doctorBtn').disabled, false, 'valid target should re-enable target-bound actions');
 
   const settingsRoot = document.getElementById('settingsContainer');
   const policyProfileInput = findProfileInput(settingsRoot) || findFirstByTag(settingsRoot, 'INPUT');

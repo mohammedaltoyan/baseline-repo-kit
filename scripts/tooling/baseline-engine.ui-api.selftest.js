@@ -73,7 +73,6 @@ async function run() {
   });
 
   const ui = await startUiServer({
-    target: repoA,
     // objectives:allow LOCALHOST Justification: Hermetic selftest binds loopback interface for local HTTP assertions only.
     host: '127.0.0.1',
     port: 0,
@@ -103,18 +102,21 @@ async function run() {
 
     const sessionA = await requestJson(baseUrl, 'GET', '/api/session');
     assert.strictEqual(sessionA.status, 200);
-    assert.strictEqual(
-      path.resolve(sessionA.payload.session.target),
-      path.resolve(repoA),
-      'UI session should start from CLI target'
-    );
+    assert.strictEqual(String(sessionA.payload.session.target || ''), '', 'UI session should allow unbound startup without target');
+    assert.strictEqual(String(sessionA.payload.target_status.reason || ''), 'target_not_set');
 
     const stateA = await requestJson(baseUrl, 'GET', '/api/state');
     assert.strictEqual(stateA.status, 200);
-    assert.strictEqual(stateA.payload.target, path.resolve(repoA));
+    assert.strictEqual(stateA.payload.target, '');
+    assert.strictEqual(stateA.payload.target_required, true, 'state endpoint should mark target as required when not selected');
     assert.strictEqual(typeof stateA.payload.engine_version, 'string');
     assert.strictEqual(typeof stateA.payload.schema, 'object');
     assert.strictEqual(typeof stateA.payload.ui_metadata, 'object');
+    assert.deepStrictEqual(stateA.payload.changes, []);
+
+    const doctorWithoutTarget = await requestJson(baseUrl, 'POST', '/api/doctor', {});
+    assert.strictEqual(doctorWithoutTarget.status, 400, 'target-bound actions should fail fast when no target is selected');
+    assert.strictEqual(doctorWithoutTarget.payload.error, 'target_not_set');
 
     const sessionB = await requestJson(baseUrl, 'POST', '/api/session', {
       target: repoB,
@@ -188,6 +190,18 @@ async function run() {
     assert.strictEqual(saveConfig.payload.ok, true);
     const savedConfig = yaml.parse(fs.readFileSync(path.join(repoB, '.baseline', 'config.yaml'), 'utf8'));
     assert.strictEqual(savedConfig.updates.auto_pr, false, 'config write should persist UI edits');
+
+    const clearTarget = await requestJson(baseUrl, 'POST', '/api/session', {
+      target: '',
+    });
+    assert.strictEqual(clearTarget.status, 200);
+    assert.strictEqual(String(clearTarget.payload.session.target || ''), '');
+    assert.strictEqual(String(clearTarget.payload.target_status.reason || ''), 'target_not_set');
+
+    const stateAfterClear = await requestJson(baseUrl, 'GET', '/api/state');
+    assert.strictEqual(stateAfterClear.status, 200);
+    assert.strictEqual(stateAfterClear.payload.target_required, true);
+    assert.strictEqual(String(stateAfterClear.payload.target || ''), '');
 
     const badJson = await requestRaw(baseUrl, 'POST', '/api/session', '{');
     assert.strictEqual(badJson.status, 400, 'invalid JSON body should return HTTP 400');

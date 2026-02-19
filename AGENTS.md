@@ -161,17 +161,17 @@ When working on frontend UI/UX:
   - Flag form (safe with modern npm): `npm run baseline:install -- --to <path> --mode overlay --dry-run`
 - Baseline Engine v2.2 (settings-driven, capability-aware):
   - `npm run baseline:init -- --target <target-path>`
-  - `npm run baseline:ui -- --target <target-path>`
+  - `npm run baseline:ui` (no target required at startup; set/clear target in UI)
   - `npm run baseline:diff -- --target <target-path>`
   - `npm run baseline:apply -- --target <target-path>`
   - `npm run baseline:upgrade -- --target <target-path>`
   - `npm run baseline:doctor -- --target <target-path>`
 - `npm run baseline:verify -- --target <target-path>`
 - UI-first operation mode is mandatory for interactive usage:
-  - Start once with `npm run baseline:ui -- --target <target-path>`.
-  - After startup, run lifecycle actions from UI only (`init`, `diff`, `doctor`, `verify`, `upgrade`, `apply`, capability refresh, config save, target/profile switch).
+  - Start once with `npm run baseline:ui`.
+  - After startup, run lifecycle actions from UI only (`init`, `diff`, `doctor`, `verify`, `upgrade`, `apply`, capability refresh, config save, target/profile set/clear).
 - UI flow E2E selftest coverage is mandatory in engine gates:
-  - `scripts/tooling/baseline-control.ui-e2e.selftest.js` validates URL/session target selection, settings save, full action-button lifecycle, and UI error-surface behavior through browser-flow logic (no CLI command invocation for lifecycle operations).
+  - `scripts/tooling/baseline-control.ui-e2e.selftest.js` validates unbound startup (no target), target set/clear, action blocking/unblocking by target validity, settings save, full action-button lifecycle, and UI error-surface behavior through browser-flow logic (no CLI command invocation for lifecycle operations).
 
 ## Baseline Engine v2.2 (Must)
 
