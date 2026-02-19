@@ -20,6 +20,7 @@ jobs:
         with:
           fetch-depth: 1
           ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
 
       - name: Open backport PR (backport/* -> integration) for hotfix merges
         uses: actions/github-script@v8

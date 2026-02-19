@@ -21,6 +21,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: true
 
       - name: Switch to evidence branch (if present)
         shell: bash
@@ -56,4 +57,3 @@ jobs:
           else
             echo "No evidence changes to commit."
           fi
-

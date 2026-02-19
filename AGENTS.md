@@ -172,6 +172,7 @@ When working on frontend UI/UX:
   - `policy.require_github_app=true` enforces capability requirements as hard failures.
 - CI lane control must remain classifier-driven via generated `config/ci/baseline-change-profiles.json` and `scripts/ops/ci/change-classifier.js` (no per-repo hardcoded lane logic).
 - Workflow action references must be settings-driven (`ci.action_refs`) so pinning policy can be centrally controlled.
+- Baseline GitHub workflows must follow checkout credential SSOT in `config/policy/workflow-security.json`: `actions/checkout` must set `persist-credentials` explicitly, default `false`, with explicit allowlisted write flows only.
 - UI explanation + capability-label SSOT is `config/schema/baseline-ui-metadata.json`, governed by `config/schema/baseline-ui-metadata.schema.json`; runtime and CI must validate metadata structure, section references, and capability keys.
 - If `security.require_pinned_action_refs=true`, generated workflow action refs must be full SHA pins and doctor must fail otherwise.
 - Deployment OIDC behavior must be settings-driven (`deployments.oidc`) with secure defaults and no hardcoded cloud vendor assumptions.

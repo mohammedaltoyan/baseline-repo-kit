@@ -27,3 +27,14 @@ Required checks must run on GitHub Merge Queue (`merge_group`) if you enable it.
 - `CodeQL` runs on `merge_group` when enabled
 
 If you make security checks required, verify they emit check-runs for both `pull_request` and `merge_group`.
+
+## Workflow token hardening
+
+- Workflow checkout credential policy SSOT: `config/policy/workflow-security.json`.
+- Policy baseline:
+  - every `actions/checkout` step must declare `with.persist-credentials` explicitly.
+  - default is `persist-credentials: false` (least privilege).
+  - only explicit allowlisted write workflows may use `persist-credentials: true` (for controlled commit/push flows).
+- Enforcement:
+  - `npm run lint:workflow-security`
+  - included in `npm test` guardrails.

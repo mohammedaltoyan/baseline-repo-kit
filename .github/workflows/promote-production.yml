@@ -55,6 +55,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Resolve promotion request (auth + ref)
         id: req
@@ -422,4 +424,3 @@ jobs:
                 `- Surfaces: \`${surfaces.join(', ')}\`\n` +
                 `- Ref: \`${'${{ needs.prepare.outputs.deploy_ref }}'}\``,
             });
-
