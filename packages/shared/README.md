@@ -1,9 +1,11 @@
-# Shared Package (Template)
+# Shared Package
 
-Use this package for cross-cutting shared code (types, utilities, configuration, contract helpers).
+Shared cross-app SSOT modules live here.
+
+Current SSOT:
+- `app-stack-contract.js` - canonical backend/frontend runtime configuration parsing, API contract shape, and settings explanation catalog.
 
 Rules:
 - No secrets.
 - Keep APIs stable and versioned via changes (no breaking churn).
 - Avoid app-specific branching; keep behavior data-driven/config-driven.
-

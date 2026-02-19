@@ -5,7 +5,7 @@ Reusable, project-agnostic baseline: planning system + docs templates + repo gua
 ## What this repo provides
 
 - `AGENTS.md` operating rules (zero hardcoding, zero redundancy, SSOT).
-- `apps/` + `packages/` monorepo scaffolding (backend + frontend + shared code).
+- `apps/` + `packages/` monorepo scaffolding (backend + frontend + shared contract SSOT).
 - `docs/` templates (plans, runbooks, checklists, testing evidence).
 - `scripts/` small reusable automation (plans + lint gates).
 - `config/` safe env templates and lint/policy config (including branch policy SSOT).
@@ -15,7 +15,21 @@ Reusable, project-agnostic baseline: planning system + docs templates + repo gua
 - Release PR automation: one-button workflow to open/refresh `dev` -> `main` as a bot for strict production releases (`.github/workflows/release-pr-bot.yml`).
 - `tooling/apps/baseline-engine/` settings-driven baseline engine (v2.2).
 - `apps/baseline-control/` web-first control panel for dynamic baseline settings.
+- `apps/backend/` + `apps/frontend/` integrated generic runtime template using a shared contract endpoint and settings-explanation metadata.
 - Root policy templates: `.editorconfig`, `CONTRIBUTING.md`, `SECURITY.md`.
+
+## Generic App Stack (Backend + Frontend + API)
+
+The baseline now includes an integrated generic app stack suitable for immediate adoption and extension:
+
+- Shared contract/config SSOT: `packages/shared/app-stack-contract.js`
+- Backend API runtime: `apps/backend/`
+- Frontend runtime + dev server: `apps/frontend/`
+
+Commands:
+- Start backend: `npm run start:backend`
+- Start frontend: `npm run start:frontend`
+- Run app-stack tests: `npm run test:apps`
 
 ## Baseline Engine (v2.2)
 

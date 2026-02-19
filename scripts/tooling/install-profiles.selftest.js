@@ -40,7 +40,7 @@ function run() {
 
   // Deny filters.
   const filters = compileProfileFilters(policy.profiles.enterprise);
-  assert.strictEqual(profileAllowsPath('apps/frontend/README.md', filters), false);
+  assert.strictEqual(profileAllowsPath('apps/frontend/app.js', filters), false);
   assert.strictEqual(profileAllowsPath('docs/README.md', filters), true);
 
   // Invalid regex rules are ignored (installer must remain resilient).
@@ -74,4 +74,3 @@ function run() {
 if (require.main === module) run();
 
 module.exports = { run };
-
