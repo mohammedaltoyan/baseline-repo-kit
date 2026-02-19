@@ -9,6 +9,7 @@ const {
   deriveModuleCapabilityRequirements,
   getPath,
   loadEffectiveSettingRules,
+  matchesRuleCondition,
 } = require('../../tooling/apps/baseline-engine/lib/policy/effective-settings');
 
 function run() {
@@ -34,6 +35,8 @@ function run() {
     assert.strictEqual(typeof getPath(config, path) !== 'undefined', true, `rule path must exist in config: ${path}`);
     assert.strictEqual(capabilitySet.has(capability), true, `rule capability must be known: ${capability}`);
     assert.strictEqual(moduleSet.has(moduleId), true, `rule module must exist: ${moduleId}`);
+    assert.strictEqual(rule.when && typeof rule.when === 'object', true, `rule when predicate required: ${id}`);
+    assert.strictEqual(Boolean(String(rule.when.operator || '').trim()), true, `rule when.operator required: ${id}`);
   }
 
   const requiresWhenEnabled = deriveModuleCapabilityRequirements({
@@ -58,6 +61,27 @@ function run() {
     requiresWhenDisabled,
     ['rulesets'],
     'core-ci capability requirements should drop merge_queue when trigger is disabled'
+  );
+
+  assert.strictEqual(
+    matchesRuleCondition({ operator: 'equals', value: true }, true),
+    true,
+    'equals condition should match strict value equality'
+  );
+  assert.strictEqual(
+    matchesRuleCondition({ operator: 'not_equals', value: true }, false),
+    true,
+    'not_equals condition should invert strict value equality'
+  );
+  assert.strictEqual(
+    matchesRuleCondition({ operator: 'in', values: ['dev', 'staging'] }, 'dev'),
+    true,
+    'in condition should match any listed value'
+  );
+  assert.strictEqual(
+    matchesRuleCondition({ operator: 'not_in', values: ['prod', 'qa'] }, 'dev'),
+    true,
+    'not_in condition should exclude listed values'
   );
 
   console.log('[baseline-engine:effective-rules-selftest] OK');
