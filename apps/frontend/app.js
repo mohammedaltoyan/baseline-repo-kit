@@ -13,6 +13,7 @@
     contract: null,
     health: null,
     meta: null,
+    openapi: null,
   };
 
   function $(id) {
@@ -109,13 +110,15 @@
       state.contract = snapshot.contract;
       state.health = snapshot.health;
       state.meta = snapshot.meta;
+      state.openapi = snapshot.openapi;
 
       renderRuntimeSummary(snapshot.runtime);
       renderSettingsTable(snapshot.meta);
       setSnapshot('contractData', snapshot.contract);
       setSnapshot('healthData', snapshot.health);
       setSnapshot('metaData', snapshot.meta);
-      setStatus('ok', 'Connected. Contract, health, and metadata loaded.');
+      setSnapshot('openapiData', snapshot.openapi);
+      setStatus('ok', 'Connected. Contract, OpenAPI, health, and metadata loaded.');
     } catch (error) {
       setStatus('error', error.message || String(error));
     }

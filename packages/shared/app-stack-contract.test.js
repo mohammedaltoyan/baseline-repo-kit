@@ -4,8 +4,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  OPENAPI_VERSION,
   buildApiPaths,
   buildAppStackContract,
+  buildOpenApiDocument,
   buildRuntimeSettingsCatalog,
   normalizeApiBasePath,
   resolveBackendConfig,
@@ -48,6 +50,7 @@ test('resolveFrontendConfig derives backend URL when host is explicit', () => {
 test('buildApiPaths and contract generation are aligned', () => {
   const endpoints = buildApiPaths('/api/v9');
   assert.equal(endpoints.contract, '/api/v9/contract');
+  assert.equal(endpoints.openapi, '/api/v9/openapi.json');
   assert.equal(endpoints.meta, '/api/v9/meta');
   assert.equal(endpoints.echo, '/api/v9/echo');
 
@@ -59,7 +62,25 @@ test('buildApiPaths and contract generation are aligned', () => {
     },
   });
   assert.equal(contract.endpoints.contract, '/api/v9/contract');
+  assert.equal(contract.standards.openapi_endpoint, '/api/v9/openapi.json');
   assert.equal(contract.runtime.backend.environment, 'test');
+});
+
+test('buildOpenApiDocument is generated from shared endpoint SSOT', () => {
+  const doc = buildOpenApiDocument({
+    backendConfig: {
+      serviceName: 'contract-api',
+      apiBasePath: '/api/v3',
+      publicBaseUrl: 'https://api.example.internal/',
+      environment: 'test',
+    },
+  });
+
+  assert.equal(doc.openapi, OPENAPI_VERSION);
+  assert.equal(doc.servers[0].url, 'https://api.example.internal');
+  assert.ok(doc.paths['/api/v3/openapi.json']);
+  assert.ok(doc.paths['/api/v3/echo']);
+  assert.ok(doc.components.schemas.ProblemDetails);
 });
 
 test('runtime settings catalog returns explanatory metadata rows', () => {
@@ -77,6 +98,6 @@ test('runtime settings catalog returns explanatory metadata rows', () => {
   });
 
   assert.ok(Array.isArray(rows));
-  assert.ok(rows.length >= 6);
+  assert.ok(rows.length >= 7);
   assert.ok(rows.every((row) => row.key && row.env_var && row.what_this_controls && row.why_it_matters));
 });

@@ -41,6 +41,7 @@ test('loadSnapshot resolves contract and dependent endpoints', async () => {
   const healthPath = '/api/health';
   const metaPath = '/api/v4/meta';
   const echoPath = '/api/v4/echo';
+  const openapiPath = '/api/v4/openapi.json';
 
   const mockFetch = async (url) => {
     calls.push(url);
@@ -50,6 +51,7 @@ test('loadSnapshot resolves contract and dependent endpoints', async () => {
           health: healthPath,
           meta: metaPath,
           echo: echoPath,
+          openapi: openapiPath,
         },
       });
     }
@@ -58,6 +60,9 @@ test('loadSnapshot resolves contract and dependent endpoints', async () => {
     }
     if (url === `${backendBaseUrl}${metaPath}`) {
       return createJsonResponse(url, 200, { settings_catalog: [] });
+    }
+    if (url === `${backendBaseUrl}${openapiPath}`) {
+      return createJsonResponse(url, 200, { openapi: '3.1.1' });
     }
     return createJsonResponse(url, 404, { error: { code: 'not_found', message: 'missing' } });
   };
@@ -70,17 +75,21 @@ test('loadSnapshot resolves contract and dependent endpoints', async () => {
   assert.equal(snapshot.contract.endpoints.echo, echoPath);
   assert.equal(snapshot.health.status, 'ok');
   assert.ok(Array.isArray(snapshot.meta.settings_catalog));
+  assert.equal(snapshot.openapi.openapi, '3.1.1');
   assert.deepEqual(calls, [
     `${backendBaseUrl}${contractPath}`,
     `${backendBaseUrl}${healthPath}`,
     `${backendBaseUrl}${metaPath}`,
+    `${backendBaseUrl}${openapiPath}`,
   ]);
 });
 
 test('httpJson throws rich errors for non-success responses', async () => {
   const mockFetch = async (url) =>
     createJsonResponse(url, 403, {
-      error: { code: 'origin_not_allowed', message: 'Origin is not allowed by CORS policy' },
+      code: 'origin_not_allowed',
+      title: 'Origin is not allowed by CORS policy',
+      status: 403,
     });
 
   await assert.rejects(

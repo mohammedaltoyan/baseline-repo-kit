@@ -67,8 +67,16 @@ test('contract and metadata endpoints resolve from api base path', async (t) => 
   const contractRes = await fetch(`${baseUrl}/api/runtime/contract`);
   assert.equal(contractRes.status, 200);
   const contract = await readJson(contractRes);
+  assert.equal(contract.standards.error_format, 'rfc9457_problem_details');
   assert.equal(contract.endpoints.meta, '/api/runtime/meta');
   assert.equal(contract.endpoints.echo, '/api/runtime/echo');
+  assert.equal(contract.endpoints.openapi, '/api/runtime/openapi.json');
+
+  const openapiRes = await fetch(`${baseUrl}${contract.endpoints.openapi}`);
+  assert.equal(openapiRes.status, 200);
+  const openapi = await readJson(openapiRes);
+  assert.equal(openapi.openapi, '3.1.1');
+  assert.ok(openapi.paths[contract.endpoints.echo]);
 
   const metaRes = await fetch(`${baseUrl}${contract.endpoints.meta}`);
   assert.equal(metaRes.status, 200);
@@ -86,8 +94,10 @@ test('POST echo rejects invalid json and enforces payload limits', async (t) => 
     body: '{"broken"',
   });
   assert.equal(invalid.status, 400);
+  assert.match(String(invalid.headers.get('content-type') || ''), /application\/problem\+json/i);
   const invalidPayload = await readJson(invalid);
-  assert.equal(invalidPayload.error.code, 'invalid_json');
+  assert.equal(invalidPayload.code, 'invalid_json');
+  assert.equal(invalidPayload.status, 400);
 
   const tooLarge = await fetch(`${baseUrl}/api/v1/echo`, {
     method: 'POST',
@@ -96,7 +106,8 @@ test('POST echo rejects invalid json and enforces payload limits', async (t) => 
   });
   assert.equal(tooLarge.status, 413);
   const tooLargePayload = await readJson(tooLarge);
-  assert.equal(tooLargePayload.error.code, 'payload_too_large');
+  assert.equal(tooLargePayload.code, 'payload_too_large');
+  assert.equal(tooLargePayload.status, 413);
 });
 
 test('CORS policy allows configured origins and blocks unknown origins', async (t) => {
@@ -124,6 +135,7 @@ test('CORS policy allows configured origins and blocks unknown origins', async (
     headers: { origin: 'https://blocked.example' },
   });
   assert.equal(disallowed.status, 403);
+  assert.match(String(disallowed.headers.get('content-type') || ''), /application\/problem\+json/i);
   const payload = await readJson(disallowed);
-  assert.equal(payload.error.code, 'origin_not_allowed');
+  assert.equal(payload.code, 'origin_not_allowed');
 });

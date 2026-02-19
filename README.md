@@ -25,6 +25,7 @@ The baseline now includes an integrated generic app stack suitable for immediate
 - Shared contract/config SSOT: `packages/shared/app-stack-contract.js`
 - Backend API runtime: `apps/backend/`
 - Frontend runtime + dev server: `apps/frontend/`
+- Backend contract standards: OpenAPI 3.1 endpoint + RFC 9457 problem-details errors.
 
 Commands:
 - Start backend: `npm run start:backend`

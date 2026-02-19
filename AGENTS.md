@@ -139,7 +139,8 @@ When working on frontend UI/UX:
   - Backend runtime: `apps/backend/`
   - Frontend runtime: `apps/frontend/`
 - Backend and frontend must not duplicate contract/config parsing logic; both must consume shared helpers from `packages/shared/`.
-- Frontend endpoint wiring must be contract-discovered (`/api/v1/contract`) and metadata-driven (`/api/v1/meta`) rather than hardcoded route tables.
+- Frontend endpoint wiring must be contract-discovered (`/api/v1/contract`), OpenAPI-discovered (`/api/v1/openapi.json`), and metadata-driven (`/api/v1/meta`) rather than hardcoded route tables.
+- Backend API errors should use RFC 9457 problem-details payloads (`application/problem+json`) with stable machine-readable codes.
 - Any new cross-app runtime setting must be added once in the shared contract module and surfaced in metadata catalog for UI explanations.
 
 ## Build, Test, and Development Commands (Baseline)

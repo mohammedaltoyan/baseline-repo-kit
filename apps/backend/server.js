@@ -4,6 +4,7 @@ const http = require('http');
 const crypto = require('crypto');
 const {
   buildAppStackContract,
+  buildOpenApiDocument,
   buildRuntimeSettingsCatalog,
   resolveBackendConfig,
   resolveFrontendConfig,
@@ -155,6 +156,27 @@ function sendJson(res, { status, payload, requestId }) {
   res.end(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
+function sendProblem(res, { status, payload, requestId }) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/problem+json; charset=utf-8');
+  if (requestId) res.setHeader('X-Request-Id', requestId);
+  res.end(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function buildProblemDetails({ code, status, title, detail, pathname, requestId, details }) {
+  const type = `urn:baseline:problem:${code || 'internal_error'}`;
+  return {
+    type,
+    title,
+    status,
+    detail,
+    instance: pathname,
+    code: code || 'internal_error',
+    request_id: requestId,
+    details: details && typeof details === 'object' ? details : undefined,
+  };
+}
+
 function createLogger(baseLogger) {
   const sink = baseLogger && typeof baseLogger.info === 'function' ? baseLogger : console;
   return {
@@ -173,6 +195,7 @@ function createLogger(baseLogger) {
 
 function createRequestHandler({ backendConfig, frontendConfig, logger, startedAtMs, now }) {
   const contract = buildAppStackContract({ backendConfig });
+  const openapiDocument = buildOpenApiDocument({ backendConfig });
   const settingsCatalog = buildRuntimeSettingsCatalog({ backendConfig, frontendConfig });
 
   return async function requestHandler(req, res) {
@@ -230,6 +253,15 @@ function createRequestHandler({ backendConfig, frontendConfig, logger, startedAt
         return;
       }
 
+      if (method === 'GET' && pathname === contract.endpoints.openapi) {
+        sendJson(res, {
+          status: 200,
+          requestId,
+          payload: openapiDocument,
+        });
+        return;
+      }
+
       if (method === 'GET' && pathname === contract.endpoints.meta) {
         sendJson(res, {
           status: 200,
@@ -241,8 +273,9 @@ function createRequestHandler({ backendConfig, frontendConfig, logger, startedAt
             settings_catalog: settingsCatalog,
             features: {
               cors: true,
-              typed_json_errors: true,
+              rfc9457_problem_details: true,
               contract_endpoint: true,
+              openapi_endpoint: true,
             },
           },
         });
@@ -270,9 +303,11 @@ function createRequestHandler({ backendConfig, frontendConfig, logger, startedAt
     } catch (error) {
       const status = Number(error && error.status) || 500;
       const code = String(error && error.code || 'internal_error');
-      const message = status >= 500
+      const safeMessage = status >= 500
         ? 'Unexpected server error'
         : String(error && error.message || 'Request failed');
+      const title = status >= 500 ? 'Internal Server Error' : safeMessage;
+      const detail = status >= 500 ? 'An unexpected error occurred while processing the request.' : safeMessage;
 
       if (status >= 500) {
         logger.error('request_failed', {
@@ -284,17 +319,18 @@ function createRequestHandler({ backendConfig, frontendConfig, logger, startedAt
         });
       }
 
-      sendJson(res, {
+      sendProblem(res, {
         status,
         requestId,
-        payload: {
-          error: {
-            code,
-            message,
-            status,
-            details: error && error.details ? error.details : undefined,
-          },
-        },
+        payload: buildProblemDetails({
+          code,
+          status,
+          title,
+          detail,
+          pathname,
+          requestId,
+          details: error && error.details ? error.details : undefined,
+        }),
       });
     } finally {
       logger.info('request_completed', {

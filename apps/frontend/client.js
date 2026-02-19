@@ -83,6 +83,12 @@
       if (code && message) return `${code}: ${message}`;
       return message || code;
     }
+    const problemCode = String(payload.code || '').trim();
+    const problemTitle = String(payload.title || '').trim();
+    const problemDetail = String(payload.detail || '').trim();
+    if (problemCode && problemTitle) return `${problemCode}: ${problemTitle}`;
+    if (problemDetail) return problemDetail;
+    if (problemTitle) return problemTitle;
     return '';
   }
 
@@ -129,13 +135,14 @@
     const endpoints = contract && contract.endpoints && typeof contract.endpoints === 'object'
       ? contract.endpoints
       : {};
-    if (!endpoints.health || !endpoints.meta || !endpoints.echo) {
-      throw new Error('Contract is missing required endpoints (health/meta/echo)');
+    if (!endpoints.health || !endpoints.meta || !endpoints.echo || !endpoints.openapi) {
+      throw new Error('Contract is missing required endpoints (health/meta/echo/openapi)');
     }
 
-    const [health, meta] = await Promise.all([
+    const [health, meta, openapi] = await Promise.all([
       httpJson(fetchFn, joinUrl(runtime.backendBaseUrl, endpoints.health), { timeoutMs: runtime.requestTimeoutMs }),
       httpJson(fetchFn, joinUrl(runtime.backendBaseUrl, endpoints.meta), { timeoutMs: runtime.requestTimeoutMs }),
+      httpJson(fetchFn, joinUrl(runtime.backendBaseUrl, endpoints.openapi), { timeoutMs: runtime.requestTimeoutMs }),
     ]);
 
     return {
@@ -143,6 +150,7 @@
       contract,
       health,
       meta,
+      openapi,
     };
   }
 
