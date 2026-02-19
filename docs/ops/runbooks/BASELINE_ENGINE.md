@@ -20,7 +20,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - `.baseline/capabilities/github.json` - capability probe snapshot.
 - `.baseline/internal/base-content.json` - baseline merge base for `three_way` strategy.
 - `.baseline/snapshots/*.json` - rollback snapshots created before upgrades.
-- `config/policy/baseline-resolution-log.json` - effective governance/capability decision log emitted from config SSOT.
+- `config/policy/baseline-resolution-log.json` - effective governance/capability decision log emitted from config SSOT (team thresholds, branch-role checks, deployment enforcement mode, capability matrix, GitHub App rationale).
 
 ## Schema SSOT Validation
 
@@ -69,6 +69,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - Capability requirements are dynamically resolved from settings (for example, `merge_queue` is only required when merge-queue triggers are enabled).
 - Branching preset modes are normalized from `branching.topology` (`two_branch|three_branch|trunk`); only `custom` topology preserves manual branch graphs.
 - Deployment approval rows are normalized from the `{environment x component}` matrix on every load/apply, while preserving explicit per-row overrides.
+- Governance insight rows are generated from one SSOT path (`buildInsights`) and reused by doctor output, UI summaries, and resolution log artifacts (no duplicated policy calculators per surface).
 
 ## CI/CD generation
 
@@ -116,6 +117,7 @@ UI rendering behavior:
 - Settings are rendered from effective config leaf paths (including nested keys).
 - Explanations come from `config/schema/baseline-ui-metadata.json` with nearest-parent inheritance when a leaf has no exact metadata key.
 - Capability labels for each setting are also resolved from `config/schema/baseline-ui-metadata.json` (`fields.<path>.capability_key`) so capability gating is metadata-driven instead of hardcoded in UI runtime.
+- Effective governance panel renders dynamic reviewer-threshold rows, branch policy coverage, deployment approval enforcement mode, and GitHub App status/reason directly from the same engine insight payload used for policy logs.
 - Metadata quality is linted in CI to ensure explanation coverage remains complete as new settings are introduced.
 
 ## Compatibility
@@ -128,3 +130,5 @@ Legacy `baseline:install` and `baseline:bootstrap` remain available and can dele
 - [GitHub Merge Queue documentation](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)
 - [GitHub reusable workflows documentation](https://docs.github.com/en/actions/using-workflows/reusing-workflows)
 - [GitHub deployment environments documentation](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)
+- [GitHub required reviewers for deployments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#required-reviewers)
+- [GitHub custom deployment protection rules](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#deployment-protection-rules)

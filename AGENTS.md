@@ -176,6 +176,7 @@ When working on frontend UI/UX:
   - Only `branching.topology=custom` may persist user-defined branch graphs.
   - `deployments.approval_matrix` must be normalized to the `{environment x component}` cartesian matrix while preserving explicit row overrides.
 - Decision logging is mandatory: emit effective governance/capability decisions to `config/policy/baseline-resolution-log.json` so matrix/threshold/topology behavior is explainable from SSOT artifacts.
+- Governance matrix SSOT is mandatory: reviewer thresholds, branch-role required checks, deployment approval enforcement mode, and GitHub App status/reason must be computed once in `tooling/apps/baseline-engine/lib/insights.js` and consumed by doctor/UI/log outputs (no duplicated derivation logic).
 - CI lane control must remain classifier-driven via generated `config/ci/baseline-change-profiles.json` and `scripts/ops/ci/change-classifier.js` (no per-repo hardcoded lane logic).
 - Workflow action references must be settings-driven (`ci.action_refs`) so pinning policy can be centrally controlled.
 - Baseline GitHub workflows must follow checkout credential SSOT in `config/policy/workflow-security.json`: `actions/checkout` must set `persist-credentials` explicitly, default `false`, with explicit allowlisted write flows only.

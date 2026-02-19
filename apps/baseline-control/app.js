@@ -163,17 +163,43 @@ function parseTypedValue(raw, currentValue) {
   return String(raw || '');
 }
 
+function formatRoleCounts(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  return `admin=${Number(source.admin || 0)}, maintain=${Number(source.maintain || 0)}, write=${Number(source.write || 0)}`;
+}
+
+function renderThresholdRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return '<div>Threshold matrix unavailable.</div>';
+  return list.map((row) => {
+    const policy = row && row.policy && typeof row.policy === 'object' ? row.policy : {};
+    return [
+      '<div>',
+      `<strong>${row.applies ? '* ' : ''}${row.label || row.bucket || 'bucket'}</strong> (${row.maintainer_range || '?'})`,
+      `: approvals=${Number(policy.required_non_author_approvals || 0)}, strict_ci=${policy.require_strict_ci ? 'yes' : 'no'}, codeowners=${policy.require_codeowners ? 'yes' : 'no'}`,
+      '</div>',
+    ].join('');
+  }).join('');
+}
+
+function renderBreakdownRows(rows, key) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return '<div>None</div>';
+  return list.map((row) => {
+    const name = String(row && row[key] || '?');
+    const totalRows = Number(row && row.total_rows || 0);
+    const approvalRows = Number(row && row.approval_required_rows || 0);
+    const maxApprovers = Number(row && row.max_min_approvers || 0);
+    return `<div><strong>${name}</strong>: rows=${totalRows}, approvals=${approvalRows}, max_approvers=${maxApprovers}</div>`;
+  }).join('');
+}
+
 function renderRepoSummary() {
   const payload = state.payload || {};
+  const insights = payload.insights && typeof payload.insights === 'object' ? payload.insights : {};
+  const capability = insights.capability && typeof insights.capability === 'object' ? insights.capability : {};
   const repo = payload.capabilities && payload.capabilities.repository ? payload.capabilities.repository : {};
-  const maintainerCount = payload.capabilities && payload.capabilities.collaborators
-    ? payload.capabilities.collaborators.maintainer_count
-    : 0;
   const auth = payload.capabilities && payload.capabilities.auth ? payload.capabilities.auth : {};
-  const permissions = payload.capabilities && payload.capabilities.repository
-    ? payload.capabilities.repository.permissions || {}
-    : {};
-  const scopeCount = Array.isArray(auth.token_scopes) ? auth.token_scopes.length : 0;
   const githubApp = payload.capabilities && payload.capabilities.runtime && payload.capabilities.runtime.github_app
     ? payload.capabilities.runtime.github_app
     : {};
@@ -182,11 +208,14 @@ function renderRepoSummary() {
   $('repoSummary').innerHTML = [
     `<div><strong>Target:</strong> ${payload.target || '<unknown>'}</div>`,
     `<div><strong>Repository:</strong> ${repo.owner || '?'} / ${repo.repo || '?'}</div>`,
-    `<div><strong>Owner type:</strong> ${repo.owner_type || 'unknown'}</div>`,
-    `<div><strong>Viewer:</strong> ${auth.viewer_login || 'unknown'}</div>`,
-    `<div><strong>Repo admin:</strong> ${permissions.admin ? 'yes' : 'no'}</div>`,
-    `<div><strong>Token scopes:</strong> ${scopeCount}</div>`,
-    `<div><strong>Maintainers:</strong> ${maintainerCount}</div>`,
+    `<div><strong>Owner type:</strong> ${capability.owner_type || repo.owner_type || 'unknown'}</div>`,
+    `<div><strong>Visibility:</strong> ${capability.repository_visibility || (repo.private ? 'private' : 'public_or_unknown')}</div>`,
+    `<div><strong>Viewer:</strong> ${capability.viewer_login || auth.viewer_login || 'unknown'}</div>`,
+    `<div><strong>Repo admin:</strong> ${capability.repo_admin ? 'yes' : 'no'}</div>`,
+    `<div><strong>Token source:</strong> ${capability.token_source || auth.token_source || 'unknown'}</div>`,
+    `<div><strong>Token scopes:</strong> ${Number(capability.token_scope_count || 0)}</div>`,
+    `<div><strong>Maintainers:</strong> ${Number(capability.maintainer_count || 0)}</div>`,
+    `<div><strong>Maintainer roles:</strong> ${formatRoleCounts(capability.role_counts)}</div>`,
     `<div><strong>GitHub App required:</strong> ${githubApp.effective_required ? 'yes' : 'no'}</div>`,
     `<div><strong>Warnings:</strong> ${warnings.length}</div>`,
     `<div><strong>Engine:</strong> ${payload.engine_version || '2.2.0'}</div>`,
@@ -198,6 +227,7 @@ function renderGovernanceSummary() {
   const insights = payload.insights && typeof payload.insights === 'object' ? payload.insights : {};
   const reviewer = insights.reviewer && typeof insights.reviewer === 'object' ? insights.reviewer : {};
   const reviewerPolicy = reviewer.policy && typeof reviewer.policy === 'object' ? reviewer.policy : {};
+  const reviewerRows = Array.isArray(reviewer.threshold_rows) ? reviewer.threshold_rows : [];
   const branching = insights.branching && typeof insights.branching === 'object' ? insights.branching : {};
   const deployments = insights.deployments && typeof insights.deployments === 'object' ? insights.deployments : {};
   const matrix = deployments.matrix && typeof deployments.matrix === 'object' ? deployments.matrix : {};
@@ -208,15 +238,25 @@ function renderGovernanceSummary() {
     : `issues (missing=${Array.isArray(matrix.missing_rows) ? matrix.missing_rows.length : 0}, stale=${Array.isArray(matrix.stale_rows) ? matrix.stale_rows.length : 0}, duplicate=${Array.isArray(matrix.duplicate_row_keys) ? matrix.duplicate_row_keys.length : 0})`;
 
   $('governanceSummary').innerHTML = [
+    `<div><strong>Maintainer count observed:</strong> ${Number(reviewer.maintainer_count || 0)}</div>`,
     `<div><strong>Reviewer bucket:</strong> ${reviewer.active_bucket || 'unknown'}</div>`,
+    `<div><strong>Reviewer reason:</strong> ${reviewer.active_reason || 'n/a'}</div>`,
     `<div><strong>Required approvals:</strong> ${typeof reviewerPolicy.required_non_author_approvals === 'number' ? reviewerPolicy.required_non_author_approvals : 0}</div>`,
     `<div><strong>Strict CI required:</strong> ${reviewerPolicy.require_strict_ci ? 'yes' : 'no'}</div>`,
     `<div><strong>CODEOWNERS required:</strong> ${reviewerPolicy.require_codeowners ? 'yes' : 'no'}</div>`,
+    `<div><strong>Reviewer threshold matrix:</strong></div>${renderThresholdRows(reviewerRows)}`,
     `<div><strong>Branch topology:</strong> ${branching.topology || 'unknown'} (${branching.source || 'unknown'})</div>`,
     `<div><strong>Branch count:</strong> ${typeof branching.branch_count === 'number' ? branching.branch_count : 0}</div>`,
+    `<div><strong>Protected branches:</strong> ${typeof branching.protected_count === 'number' ? branching.protected_count : 0}</div>`,
+    `<div><strong>Branch roles:</strong> ${Object.keys(branching.role_counts || {}).length ? formatValue(branching.role_counts) : 'none'}</div>`,
     `<div><strong>Deployment matrix:</strong> ${matrixHealth}</div>`,
     `<div><strong>Matrix rows:</strong> ${typeof matrix.actual_rows === 'number' ? matrix.actual_rows : 0} / ${typeof matrix.expected_rows === 'number' ? matrix.expected_rows : 0}</div>`,
-    `<div><strong>GitHub App effective requirement:</strong> ${githubApp.effective_required ? 'required' : 'not required'}</div>`,
+    `<div><strong>Approval-required rows:</strong> ${Number(deployments.approval_required_rows || 0)}</div>`,
+    `<div><strong>Approval enforcement mode:</strong> ${deployments.enforcement && deployments.enforcement.mode ? deployments.enforcement.mode : 'unknown'} (${deployments.enforcement && deployments.enforcement.reason ? deployments.enforcement.reason : 'unknown'})</div>`,
+    `<div><strong>Rows by environment:</strong></div>${renderBreakdownRows(deployments.rows_by_environment, 'environment')}`,
+    `<div><strong>Rows by component:</strong></div>${renderBreakdownRows(deployments.rows_by_component, 'component')}`,
+    `<div><strong>GitHub App status:</strong> ${githubApp.status || (githubApp.effective_required ? 'required' : 'not_required')}</div>`,
+    `<div><strong>GitHub App effective requirement:</strong> ${githubApp.effective_required ? 'required' : 'not required'} (${githubApp.reason || 'unknown'})</div>`,
   ].join('');
 }
 
