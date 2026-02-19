@@ -7,13 +7,15 @@
 ## Backend
 - Framework: Node.js built-in HTTP server (no vendor lock-in)
 - API contract: shared SSOT in `packages/shared/app-stack-contract.js`
+- API specification: OpenAPI 3.1 generated from shared contract SSOT
+- Error envelope: RFC 9457 problem-details (`application/problem+json`)
 - Database (if any): not coupled in baseline (project-owned)
 - Storage (if any): not coupled in baseline (project-owned)
 - Background jobs (if any): project-owned extension (not hardcoded in baseline)
 
 ## Frontend
 - Web: static HTML/CSS/JS served by Node.js (`apps/frontend/dev-server.js`)
-- API integration: dynamic contract discovery (`/api/v1/contract`) + metadata/settings catalog (`/api/v1/meta`)
+- API integration: dynamic contract discovery (`/api/v1/contract`) + OpenAPI discovery (`/api/v1/openapi.json`) + metadata/settings catalog (`/api/v1/meta`)
 - Mobile: not provided in baseline
 
 ## CI/CD
