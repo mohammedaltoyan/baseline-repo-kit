@@ -3,6 +3,7 @@
 
 const assert = require('assert');
 const {
+  isPlanFile,
   looksLikeActionsPrCreationPermissionError,
   looksLikeExistingPrValidationError,
   shouldSkipAutoPrForNoChanges,
@@ -55,6 +56,21 @@ function run() {
     shouldSkipAutoPrForNoChanges(['docs/ops/plans/PLAN-202602-autopr-no-diff-skip.md']),
     false,
     'expected changed branches to continue Auto-PR inference path'
+  );
+  assert.strictEqual(
+    isPlanFile('docs/ops/plans/PLAN-202602-config-normalization.md'),
+    true,
+    'expected canonical active plan path to be recognized'
+  );
+  assert.strictEqual(
+    isPlanFile('docs/ops/plans/archive/PLAN-202602-config-normalization.md'),
+    true,
+    'expected archived canonical plan path to be recognized for archive lifecycle commits'
+  );
+  assert.strictEqual(
+    isPlanFile('docs/ops/plans/README.md'),
+    false,
+    'expected non-plan docs path to be ignored by plan inference'
   );
 
   console.log('[auto-pr-open:selftest] OK');
