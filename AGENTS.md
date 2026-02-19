@@ -175,6 +175,7 @@ When working on frontend UI/UX:
 - UI explanation + capability-label SSOT is `config/schema/baseline-ui-metadata.json`, governed by `config/schema/baseline-ui-metadata.schema.json`; runtime and CI must validate metadata structure, section references, and capability keys.
 - If `security.require_pinned_action_refs=true`, generated workflow action refs must be full SHA pins and doctor must fail otherwise.
 - Deployment OIDC behavior must be settings-driven (`deployments.oidc`) with secure defaults and no hardcoded cloud vendor assumptions.
+- For generated GitHub Actions workflows, if a job defines `permissions`, include every required scope there (for OIDC: `id-token: write`) because job-level `permissions` override workflow-level defaults.
 - Backward compatibility default: new modules/features are opt-in unless an explicit migration enables them.
 
 ## Profiles (Baseline Install/Bootstrap)
