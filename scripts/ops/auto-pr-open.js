@@ -114,7 +114,7 @@ function loadIntegrationBranch() {
 
 function isPlanFile(relPosix) {
   const rel = toString(relPosix).replace(/\\/g, '/');
-  return /^docs\/ops\/plans\/PLAN-\d{6}-[A-Za-z0-9_.-]+\.md$/.test(rel);
+  return /^docs\/ops\/plans\/(?:archive\/)?PLAN-\d{6}-[A-Za-z0-9_.-]+\.md$/.test(rel);
 }
 
 function listChangedFiles({ baseRef }) {
@@ -339,7 +339,7 @@ async function main() {
   if (!planId) {
     die(
       'Unable to infer Plan id. Fix:\n' +
-      '- Update a plan file under docs/ops/plans/ in this branch, or\n' +
+      '- Update a plan file under docs/ops/plans/ (or docs/ops/plans/archive/) in this branch, or\n' +
       '- Set AUTOPR_PLAN=PLAN-YYYYMM-<slug> via workflow input/env.'
     );
   }
@@ -408,6 +408,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  isPlanFile,
   looksLikeActionsPrCreationPermissionError,
   looksLikeExistingPrValidationError,
   shouldSkipAutoPrForNoChanges,

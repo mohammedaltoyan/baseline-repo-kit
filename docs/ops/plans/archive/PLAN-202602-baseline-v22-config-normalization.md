@@ -2,7 +2,7 @@
 plan_id: PLAN-202602-baseline-v22-config-normalization
 title: Baseline v2.2 config normalization for topology and approval matrix
 owner: @owner
-status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
+status: done # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
 current_step: S99
 updated: 2026-02-19
 priority: P1 # P0|P1|P2|P3
@@ -12,8 +12,8 @@ links:
 ---
 
 At-a-Glance
-- Now: S99 - Final gate/closeout after PR evidence
-- Next: archive after merge
+- Now: done
+- Next: archive
 - Blockers: none
 - ETA: 2026-02-19
 
@@ -36,14 +36,14 @@ Objectives Gate (must pass before testing)
 - [x] S98 - Objectives Gate - SIMPLE, best practice, SCALABLE, and DYNAMIC with ZERO REDUNDANCY and ZERO HARD CODING; configuration-driven where applicable; SSOT; least-privilege security (RLS/policies if supported) (manual check with Objectives Evidence)
 
 Testing Gate (required to mark plan done)
-- [ ] S99 - Tests Gate - All required suites passing; change-aware check (code changes require matching test artifacts). Include evidence for unit + integration/E2E; perf/load marked N/A if not applicable.
+- [x] S99 - Tests Gate - All required suites passing; change-aware check (code changes require matching test artifacts). Include evidence for unit + integration/E2E; perf/load marked N/A if not applicable.
 
 Decisions & Notes
 - 2026-02-19 - Confirmed and fixed two settings-drift defects: topology preset changes did not rematerialize branch graphs, and deployment matrices could drift from environment/component rows.
 - 2026-02-19 - Introduced centralized normalization in engine policy layer and ensured normalized config is persisted (no read-only drift).
 - 2026-02-19 - Added shared insights model powering UI/doctor and canonical `baseline-resolution-log.json` for explainable decision SSOT.
 - 2026-02-19 - Added/updated regression tests to lock topology and matrix normalization behavior plus insights output.
-- PR: pending
-- CI Evidence: pending (local validation complete: `npm test`, `npm run test:deep`)
-- Objectives Evidence: Dynamic behavior is now settings-driven and centralized (single normalization path, no duplicated ad-hoc branch/matrix fixes), with SSOT decision output emitted in `config/policy/baseline-resolution-log.json`.
-
+- PR: https://github.com/mohammedaltoyan/baseline-repo-kit/pull/63
+- CI Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/22177553331
+- Cloud Evidence: https://github.com/mohammedaltoyan/baseline-repo-kit/actions/runs/22177588167
+- Objectives Evidence: auto-verified at 2026-02-19T10:16:50Z (commit f32b8ca) - behavior is settings-driven via centralized normalization, matrix/topology drift is removed, and decision SSOT is emitted in `config/policy/baseline-resolution-log.json`.
