@@ -17,6 +17,7 @@ Core dynamic engine for baseline repository installation, policy generation, cap
 - Settings-driven generation only (no hardcoded repo behavior).
 - JSON Schema SSOT validation at runtime (`config/schema/baseline-config.schema.json`).
 - UI metadata schema SSOT validation at runtime (`config/schema/baseline-ui-metadata.schema.json`).
+- Locked-decision SSOT gate (`config/policy/baseline-v22-contract.json`) enforced via `npm run lint:contract`.
 - Capability-aware with explicit fallback warnings.
 - Dynamic topology/matrix normalization (preset topologies and deployment approval matrix rows stay consistent with settings).
 - Effective decision logging to `config/policy/baseline-resolution-log.json`.
