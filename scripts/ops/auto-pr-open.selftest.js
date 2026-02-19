@@ -5,6 +5,7 @@ const assert = require('assert');
 const {
   looksLikeActionsPrCreationPermissionError,
   looksLikeExistingPrValidationError,
+  shouldSkipAutoPrForNoChanges,
   selectAuthToken,
 } = require('./auto-pr-open');
 
@@ -44,6 +45,16 @@ function run() {
     looksLikeExistingPrValidationError('GitHub API 422 POST /repos/acme/repo/pulls: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"invalid","message":"head invalid"}]}'),
     false,
     'expected unrelated 422 validation errors to remain fatal'
+  );
+  assert.strictEqual(
+    shouldSkipAutoPrForNoChanges([]),
+    true,
+    'expected no-diff pushes to skip Auto-PR opening'
+  );
+  assert.strictEqual(
+    shouldSkipAutoPrForNoChanges(['docs/ops/plans/PLAN-202602-autopr-no-diff-skip.md']),
+    false,
+    'expected changed branches to continue Auto-PR inference path'
   );
 
   console.log('[auto-pr-open:selftest] OK');

@@ -137,6 +137,11 @@ function listChangedFiles({ baseRef }) {
     .filter(Boolean);
 }
 
+function shouldSkipAutoPrForNoChanges(files) {
+  const list = Array.isArray(files) ? files : [];
+  return list.length === 0;
+}
+
 function normalizePlanStatus(statusRaw) {
   const v = toString(statusRaw).split('#')[0].trim().toLowerCase();
   if (!v) return '';
@@ -310,6 +315,10 @@ async function main() {
   }
 
   const changedFiles = listChangedFiles({ baseRef: base });
+  if (shouldSkipAutoPrForNoChanges(changedFiles)) {
+    info(`Skip: no changed files detected relative to ${base}.`);
+    return;
+  }
   const planOverride = toString(process.env.AUTOPR_PLAN);
   const stepOverride = toString(process.env.AUTOPR_STEP).toUpperCase();
 
@@ -401,5 +410,6 @@ if (require.main === module) {
 module.exports = {
   looksLikeActionsPrCreationPermissionError,
   looksLikeExistingPrValidationError,
+  shouldSkipAutoPrForNoChanges,
   selectAuthToken,
 };
