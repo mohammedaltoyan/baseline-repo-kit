@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://baseline-kit.local/schema/effective-settings-rules.schema.json",
+  "title": "Baseline Effective Settings Rules",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "rules"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/effectiveRule"
+      }
+    }
+  },
+  "definitions": {
+    "effectiveRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "capability",
+        "module",
+        "when_configured_equals",
+        "effective_value",
+        "reason",
+        "detail_template",
+        "remediation"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capability": {
+          "type": "string",
+          "minLength": 1
+        },
+        "module": {
+          "type": "string",
+          "minLength": 1
+        },
+        "when_configured_equals": {
+          "type": "boolean"
+        },
+        "effective_value": {},
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detail_template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "remediation": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

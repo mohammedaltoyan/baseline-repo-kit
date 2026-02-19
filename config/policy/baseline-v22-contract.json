@@ -4,8 +4,10 @@
     "tooling/apps/baseline-engine/cli.js",
     "tooling/apps/baseline-engine/modules",
     "config/schema/baseline-config.schema.json",
+    "config/schema/effective-settings-rules.schema.json",
     "config/schema/baseline-ui-metadata.schema.json",
     "config/schema/baseline-ui-metadata.json",
+    "config/policy/effective-settings-rules.json",
     "apps/baseline-control/index.html",
     "apps/baseline-control/app.js",
     "scripts/tooling/migrations/2.2.0/index.js"

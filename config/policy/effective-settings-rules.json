@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "core_ci_merge_queue_trigger",
+      "path": "ci.full_lane_triggers.merge_queue",
+      "capability": "merge_queue",
+      "module": "core-ci",
+      "when_configured_equals": true,
+      "effective_value": false,
+      "reason": "capability_auto_degrade",
+      "detail_template": "{capability} capability is {capability_state} ({capability_reason})",
+      "remediation": "Disable merge queue trigger or enable merge queue support in repository rulesets."
+    }
+  ]
+}

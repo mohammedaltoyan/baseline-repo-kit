@@ -3,9 +3,22 @@
 
 const assert = require('assert');
 const { defaultConfig } = require('../../tooling/apps/baseline-engine/lib/config');
-const { buildEffectiveConfig } = require('../../tooling/apps/baseline-engine/lib/policy/effective-settings');
+const {
+  buildEffectiveConfig,
+  loadEffectiveSettingRules,
+} = require('../../tooling/apps/baseline-engine/lib/policy/effective-settings');
 
 function run() {
+  const rules = loadEffectiveSettingRules();
+  assert.strictEqual(Number(rules.version), 1);
+  assert.strictEqual(Array.isArray(rules.rules), true);
+  assert.strictEqual(rules.rules.length >= 1, true);
+  assert.strictEqual(
+    rules.rules.some((rule) => String(rule.path) === 'ci.full_lane_triggers.merge_queue'),
+    true,
+    'rules SSOT should include merge queue trigger override'
+  );
+
   const config = defaultConfig({
     maintainersCount: 2,
     components: [{ id: 'application', name: 'application', path: 'apps', enabled: true }],
@@ -41,6 +54,7 @@ function run() {
     },
   });
   assert.strictEqual(degraded.config.ci.full_lane_triggers.merge_queue, false);
+  assert.strictEqual(degraded.rules_version, 1);
   assert.strictEqual(degraded.override_count, 1);
   assert.strictEqual(degraded.by_path['ci.full_lane_triggers.merge_queue'].source, 'core-ci');
   assert.strictEqual(
