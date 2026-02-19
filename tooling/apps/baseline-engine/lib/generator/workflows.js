@@ -7,6 +7,14 @@ function yamlList(values, indent) {
     .join('\n');
 }
 
+function yamlMap(values, indent) {
+  const prefix = ' '.repeat(indent || 0);
+  return Object.entries(values || {})
+    .filter(([, value]) => value != null && String(value).trim() !== '')
+    .map(([key, value]) => `${prefix}${key}: ${String(value)}`)
+    .join('\n');
+}
+
 function quoteYaml(value) {
   const text = String(value == null ? '' : value);
   return `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
@@ -192,6 +200,14 @@ function generateDeployWorkflow(config) {
   const oidc = deployments.oidc && typeof deployments.oidc === 'object' ? deployments.oidc : {};
   const oidcEnabled = !!oidc.enabled;
   const audience = String(oidc.audience || '').trim();
+  const workflowPermissions = {
+    contents: 'read',
+    ...(oidcEnabled ? { 'id-token': 'write' } : {}),
+  };
+  const deployJobPermissions = {
+    contents: 'read',
+    ...(oidcEnabled ? { 'id-token': 'write' } : {}),
+  };
 
   return `name: Baseline Deploy
 
@@ -210,15 +226,14 @@ ${yamlList(options, 10)}
         type: string
 
 permissions:
-  contents: read
-${oidcEnabled ? '  id-token: write' : ''}
+${yamlMap(workflowPermissions, 2)}
 
 jobs:
   deploy:
     name: baseline-deploy
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+${yamlMap(deployJobPermissions, 6)}
     environment: \${{ github.event.inputs.environment }}
     concurrency:
       group: baseline-deploy-\${{ github.event.inputs.environment }}-\${{ github.event.inputs.component }}

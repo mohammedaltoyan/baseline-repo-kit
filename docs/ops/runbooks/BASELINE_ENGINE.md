@@ -71,6 +71,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 
 - `deployments.oidc.enabled=true` adds OIDC-oriented behavior to deploy workflow generation.
 - `deployments.oidc.audience` is passed through settings for provider-specific audience checks.
+- When OIDC is enabled, generated deploy workflow must include `id-token: write` in both workflow-level and deploy job-level permissions, because job-level permissions override the workflow defaults in GitHub Actions.
 - Use OIDC mode for cloud federation and short-lived credentials rather than static long-lived secrets.
 
 ## Upgrade flow
