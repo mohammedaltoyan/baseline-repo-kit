@@ -5,6 +5,7 @@ const {
   generateNodeRunWorkflow,
   generatePrGateWorkflow,
 } = require('../../../lib/generator/workflows');
+const { buildEffectiveConfig } = require('../../../lib/policy/effective-settings');
 
 function stableJson(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
@@ -31,24 +32,22 @@ module.exports = {
         : {},
     };
   },
-  generate({ config, evaluation }) {
+  generate({ config, capabilities, evaluation }) {
     const ci = config && config.ci && typeof config.ci === 'object' ? config.ci : {};
     const fullLaneTriggers = ci.full_lane_triggers && typeof ci.full_lane_triggers === 'object'
       ? ci.full_lane_triggers
       : {};
-    const missingCapabilities = new Set((evaluation && Array.isArray(evaluation.missing) ? evaluation.missing : [])
-      .map((entry) => String(entry && entry.capability || '').trim())
-      .filter(Boolean));
-    const degradedMergeQueue = missingCapabilities.has('merge_queue');
     const degraded = !!(evaluation && evaluation.degraded);
-    const effectiveConfig = JSON.parse(JSON.stringify(config || {}));
-    effectiveConfig.ci = effectiveConfig.ci && typeof effectiveConfig.ci === 'object' ? effectiveConfig.ci : {};
-    effectiveConfig.ci.full_lane_triggers = effectiveConfig.ci.full_lane_triggers && typeof effectiveConfig.ci.full_lane_triggers === 'object'
-      ? effectiveConfig.ci.full_lane_triggers
-      : {};
-    if (degradedMergeQueue) {
-      effectiveConfig.ci.full_lane_triggers.merge_queue = false;
-    }
+    const effective = buildEffectiveConfig({
+      config,
+      capabilities,
+      moduleEvaluation: {
+        modules: [evaluation],
+      },
+    });
+    const effectiveConfig = effective.config;
+    const effectiveOverride = effective.by_path['ci.full_lane_triggers.merge_queue'] || null;
+    const degradedMergeQueue = !!effectiveOverride;
 
     return [
       {
@@ -64,6 +63,7 @@ module.exports = {
             merge_queue: degradedMergeQueue ? false : fullLaneTriggers.merge_queue !== false,
           },
           degraded,
+          effective_overrides: effective.overrides,
           degraded_reasons: (evaluation && Array.isArray(evaluation.missing) ? evaluation.missing : []).map((entry) => ({
             capability: entry.capability,
             reason: entry.reason,

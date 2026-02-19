@@ -94,6 +94,7 @@ function run() {
   assert.strictEqual(Array.isArray(healthy.deployments.rows_by_environment), true);
   assert.strictEqual(healthy.github_app.effective_required, true);
   assert.strictEqual(healthy.github_app.status, 'required');
+  assert.strictEqual(healthy.effective_settings.override_count, 0);
 
   const drifted = JSON.parse(JSON.stringify(config));
   drifted.deployments.approval_matrix = drifted.deployments.approval_matrix.slice(0, 1);
@@ -112,6 +113,33 @@ function run() {
     unhealthy.deployments.approval_required_rows
   );
   assert.strictEqual(unhealthy.deployments.enforcement.entitlement_state, 'plan_dependent');
+
+  const mergeQueueUnsupportedCapabilities = JSON.parse(JSON.stringify(capabilities));
+  mergeQueueUnsupportedCapabilities.capabilities.merge_queue = {
+    supported: false,
+    state: 'unsupported',
+    reason: 'not_available',
+  };
+  const mergeQueueModuleEvaluation = JSON.parse(JSON.stringify(moduleEvaluation));
+  mergeQueueModuleEvaluation.modules[0].id = 'core-ci';
+  mergeQueueModuleEvaluation.modules[0].missing = [
+    {
+      capability: 'merge_queue',
+      reason: 'not_available',
+      remediation: 'Enable merge queue in repository rulesets.',
+    },
+  ];
+  const degraded = buildInsights({
+    config,
+    capabilities: mergeQueueUnsupportedCapabilities,
+    moduleEvaluation: mergeQueueModuleEvaluation,
+  });
+  assert.strictEqual(degraded.effective_settings.override_count, 1);
+  assert.strictEqual(degraded.effective_settings.config.ci.full_lane_triggers.merge_queue, false);
+  assert.strictEqual(
+    degraded.effective_settings.by_path['ci.full_lane_triggers.merge_queue'].remediation,
+    'Enable merge queue in repository rulesets.'
+  );
 
   console.log('[baseline-engine:insights-selftest] OK');
 }

@@ -71,6 +71,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - Deployment approval rows are normalized from the `{environment x component}` matrix on every load/apply, while preserving explicit per-row overrides.
 - Governance insight rows are generated from one SSOT path (`buildInsights`) and reused by doctor output, UI summaries, and resolution log artifacts (no duplicated policy calculators per surface).
 - Owner-type and repo-visibility entitlement advisories are generated centrally (for example, merge queue and deployment protection feature expectations) and surfaced as non-blocking guidance alongside runtime API probe results.
+- Effective-settings overrides are generated from one SSOT path (`lib/policy/effective-settings.js`) and reused by module generation, insights, and UI so configured values vs runtime-effective values cannot drift.
 
 ## CI/CD generation
 
@@ -107,6 +108,7 @@ The UI surfaces per setting:
 - what it controls
 - why it matters
 - default behavior
+- configured value
 - effective value
 - tradeoffs
 - prerequisites
@@ -118,6 +120,7 @@ UI rendering behavior:
 - Settings are rendered from effective config leaf paths (including nested keys).
 - Explanations come from `config/schema/baseline-ui-metadata.json` with nearest-parent inheritance when a leaf has no exact metadata key.
 - Capability labels for each setting are also resolved from `config/schema/baseline-ui-metadata.json` (`fields.<path>.capability_key`) so capability gating is metadata-driven instead of hardcoded in UI runtime.
+- Configured vs effective values are shown per field; capability-driven auto-degrades include explicit reason/remediation (for example merge-queue trigger override when unsupported).
 - Effective governance panel renders dynamic reviewer-threshold rows, branch policy coverage, deployment approval enforcement mode, and GitHub App status/reason directly from the same engine insight payload used for policy logs.
 - Metadata quality is linted in CI to ensure explanation coverage remains complete as new settings are introduced.
 

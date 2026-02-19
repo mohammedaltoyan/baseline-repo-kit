@@ -116,6 +116,17 @@ function run() {
   const apply = runEngine(['apply', '--target', repo, '--direct'], process.cwd());
   assert.strictEqual(apply.command, 'apply');
   assert.ok(Array.isArray(apply.warnings));
+  const ciProfile = JSON.parse(fs.readFileSync(path.join(repo, 'config', 'ci', 'baseline-change-profiles.json'), 'utf8'));
+  assert.strictEqual(
+    ciProfile.full_lane_triggers.merge_queue,
+    false,
+    'effective settings should auto-disable merge queue trigger when unsupported'
+  );
+  assert.strictEqual(
+    Array.isArray(ciProfile.effective_overrides),
+    true,
+    'generated CI profile should record effective override decisions'
+  );
 
   const configRaw2 = fs.readFileSync(configPath, 'utf8');
   fs.writeFileSync(
