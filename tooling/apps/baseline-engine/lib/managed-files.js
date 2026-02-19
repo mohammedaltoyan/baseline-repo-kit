@@ -8,6 +8,7 @@ const {
   MANAGED_FILES_FILE,
   STATE_FILE,
 } = require('./constants');
+const { buildInsights } = require('./insights');
 const { sha256 } = require('./util/fs');
 const { mergeManagedContent } = require('./merge');
 
@@ -104,6 +105,11 @@ function buildGeneratedArtifacts({ config, capabilities, state, modules, moduleE
   const moduleMeta = new Map((Array.isArray(modules) ? modules : []).map((entry) => [entry.id, entry]));
   const activeModules = evaluated.filter((entry) => entry.enabled && !entry.skipped);
   const degradedModules = activeModules.filter((entry) => entry.degraded);
+  const insights = buildInsights({
+    config,
+    capabilities,
+    moduleEvaluation,
+  });
 
   const artifacts = [];
 
@@ -163,6 +169,19 @@ function buildGeneratedArtifacts({ config, capabilities, state, modules, moduleE
         effective_required: false,
         reason: 'unknown',
       },
+    }),
+  });
+
+  artifacts.push({
+    path: 'config/policy/baseline-resolution-log.json',
+    owner: 'engine-core',
+    strategy: 'replace',
+    content: stableJson({
+      version: 1,
+      engine_version: ENGINE_VERSION,
+      generated_at: generationStamp,
+      decisions: insights,
+      warnings: (capabilities && Array.isArray(capabilities.warnings)) ? capabilities.warnings : [],
     }),
   });
 

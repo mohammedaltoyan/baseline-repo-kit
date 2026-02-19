@@ -193,6 +193,33 @@ function renderRepoSummary() {
   ].join('');
 }
 
+function renderGovernanceSummary() {
+  const payload = state.payload || {};
+  const insights = payload.insights && typeof payload.insights === 'object' ? payload.insights : {};
+  const reviewer = insights.reviewer && typeof insights.reviewer === 'object' ? insights.reviewer : {};
+  const reviewerPolicy = reviewer.policy && typeof reviewer.policy === 'object' ? reviewer.policy : {};
+  const branching = insights.branching && typeof insights.branching === 'object' ? insights.branching : {};
+  const deployments = insights.deployments && typeof insights.deployments === 'object' ? insights.deployments : {};
+  const matrix = deployments.matrix && typeof deployments.matrix === 'object' ? deployments.matrix : {};
+  const githubApp = insights.github_app && typeof insights.github_app === 'object' ? insights.github_app : {};
+
+  const matrixHealth = matrix.healthy
+    ? 'healthy'
+    : `issues (missing=${Array.isArray(matrix.missing_rows) ? matrix.missing_rows.length : 0}, stale=${Array.isArray(matrix.stale_rows) ? matrix.stale_rows.length : 0}, duplicate=${Array.isArray(matrix.duplicate_row_keys) ? matrix.duplicate_row_keys.length : 0})`;
+
+  $('governanceSummary').innerHTML = [
+    `<div><strong>Reviewer bucket:</strong> ${reviewer.active_bucket || 'unknown'}</div>`,
+    `<div><strong>Required approvals:</strong> ${typeof reviewerPolicy.required_non_author_approvals === 'number' ? reviewerPolicy.required_non_author_approvals : 0}</div>`,
+    `<div><strong>Strict CI required:</strong> ${reviewerPolicy.require_strict_ci ? 'yes' : 'no'}</div>`,
+    `<div><strong>CODEOWNERS required:</strong> ${reviewerPolicy.require_codeowners ? 'yes' : 'no'}</div>`,
+    `<div><strong>Branch topology:</strong> ${branching.topology || 'unknown'} (${branching.source || 'unknown'})</div>`,
+    `<div><strong>Branch count:</strong> ${typeof branching.branch_count === 'number' ? branching.branch_count : 0}</div>`,
+    `<div><strong>Deployment matrix:</strong> ${matrixHealth}</div>`,
+    `<div><strong>Matrix rows:</strong> ${typeof matrix.actual_rows === 'number' ? matrix.actual_rows : 0} / ${typeof matrix.expected_rows === 'number' ? matrix.expected_rows : 0}</div>`,
+    `<div><strong>GitHub App effective requirement:</strong> ${githubApp.effective_required ? 'required' : 'not required'}</div>`,
+  ].join('');
+}
+
 function renderCapabilities() {
   const capabilities = state.payload && state.payload.capabilities && state.payload.capabilities.capabilities
     ? state.payload.capabilities.capabilities
@@ -349,6 +376,7 @@ async function loadState() {
   state.config = JSON.parse(JSON.stringify(state.payload.config || {}));
   state.dirty = false;
   renderRepoSummary();
+  renderGovernanceSummary();
   renderCapabilities();
   renderSettings();
   logOutput({ status: 'ready', target: state.payload.target, change_count: state.payload.changes.length });

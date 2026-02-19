@@ -170,6 +170,11 @@ When working on frontend UI/UX:
   - Required capabilities must be settings-aware (only enforce capabilities for enabled behaviors).
   - Unsupported capabilities auto-degrade and warn.
   - `policy.require_github_app=true` enforces capability requirements as hard failures.
+- Dynamic normalization is mandatory:
+  - For `branching.topology` values `two_branch|three_branch|trunk`, `branching.branches` must be regenerated from the preset graph (no drift between preset selection and branch graph).
+  - Only `branching.topology=custom` may persist user-defined branch graphs.
+  - `deployments.approval_matrix` must be normalized to the `{environment x component}` cartesian matrix while preserving explicit row overrides.
+- Decision logging is mandatory: emit effective governance/capability decisions to `config/policy/baseline-resolution-log.json` so matrix/threshold/topology behavior is explainable from SSOT artifacts.
 - CI lane control must remain classifier-driven via generated `config/ci/baseline-change-profiles.json` and `scripts/ops/ci/change-classifier.js` (no per-repo hardcoded lane logic).
 - Workflow action references must be settings-driven (`ci.action_refs`) so pinning policy can be centrally controlled.
 - Baseline GitHub workflows must follow checkout credential SSOT in `config/policy/workflow-security.json`: `actions/checkout` must set `persist-credentials` explicitly, default `false`, with explicit allowlisted write flows only.
