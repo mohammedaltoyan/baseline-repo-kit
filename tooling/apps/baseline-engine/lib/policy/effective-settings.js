@@ -1,6 +1,7 @@
 'use strict';
 
 const Ajv = require('ajv');
+const { isDeepStrictEqual } = require('util');
 const { CAPABILITY_KEYS } = require('../capabilities/github');
 const {
   EFFECTIVE_SETTINGS_RULES_FILE,
@@ -98,14 +99,34 @@ function getRulesValidator() {
   return rulesValidatorCache;
 }
 
+function normalizeRuleWhen(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const operator = String(source.operator || 'equals').trim() || 'equals';
+  if (operator === 'in' || operator === 'not_in') {
+    return {
+      operator,
+      values: Array.isArray(source.values) ? source.values.map(cloneJson) : [],
+    };
+  }
+  return {
+    operator,
+    value: cloneJson(source.value),
+  };
+}
+
 function normalizeRule(rule) {
   const source = rule && typeof rule === 'object' ? rule : {};
+  const hasWhen = source.when && typeof source.when === 'object' && !Array.isArray(source.when);
   return {
     id: String(source.id || '').trim(),
     path: String(source.path || '').trim(),
     capability: String(source.capability || '').trim(),
     module: String(source.module || '').trim(),
-    when_configured_equals: !!source.when_configured_equals,
+    when: normalizeRuleWhen(
+      hasWhen
+        ? source.when
+        : { operator: 'equals', value: source.when_configured_equals }
+    ),
     effective_value: source.effective_value,
     reason: String(source.reason || 'capability_auto_degrade').trim() || 'capability_auto_degrade',
     detail_template: String(source.detail_template || '').trim()
@@ -176,6 +197,23 @@ function renderDetail(template, context) {
     .replace(/\{capability_reason\}/g, String(source.capability_reason || 'unknown'));
 }
 
+function matchesRuleCondition(condition, configured) {
+  const when = condition && typeof condition === 'object' ? condition : {};
+  const operator = String(when.operator || 'equals').trim();
+  if (operator === 'not_equals') {
+    return !isDeepStrictEqual(configured, when.value);
+  }
+  if (operator === 'in') {
+    const values = Array.isArray(when.values) ? when.values : [];
+    return values.some((entry) => isDeepStrictEqual(configured, entry));
+  }
+  if (operator === 'not_in') {
+    const values = Array.isArray(when.values) ? when.values : [];
+    return !values.some((entry) => isDeepStrictEqual(configured, entry));
+  }
+  return isDeepStrictEqual(configured, when.value);
+}
+
 function deriveModuleCapabilityRequirements({ moduleId, config, baseRequires }) {
   const targetModuleId = String(moduleId || '').trim();
   const sourceConfig = config && typeof config === 'object' ? config : {};
@@ -199,7 +237,7 @@ function deriveModuleCapabilityRequirements({ moduleId, config, baseRequires }) 
   for (const rule of ruleset.rules) {
     if (String(rule && rule.module || '') !== targetModuleId) continue;
     const configured = getPath(sourceConfig, rule.path);
-    if (configured === rule.when_configured_equals) {
+    if (matchesRuleCondition(rule.when, configured)) {
       addRequirement(rule.capability);
     }
   }
@@ -215,7 +253,7 @@ function buildEffectiveConfig({ config, capabilities, moduleEvaluation }) {
 
   for (const rule of ruleset.rules) {
     const configured = getPath(sourceConfig, rule.path);
-    if (configured !== rule.when_configured_equals) continue;
+    if (!matchesRuleCondition(rule.when, configured)) continue;
 
     const capability = getCapability(capabilities, rule.capability);
     const capabilitySupported = !!(capability && capability.supported === true);
@@ -261,6 +299,7 @@ module.exports = {
   buildEffectiveConfig,
   deriveModuleCapabilityRequirements,
   getPath,
+  matchesRuleCondition,
   loadEffectiveSettingRules,
   setPath,
 };

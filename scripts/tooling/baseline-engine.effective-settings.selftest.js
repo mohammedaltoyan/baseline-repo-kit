@@ -18,6 +18,15 @@ function run() {
     true,
     'rules SSOT should include merge queue trigger override'
   );
+  assert.strictEqual(
+    rules.rules.some(
+      (rule) => String(rule.path) === 'ci.full_lane_triggers.merge_queue'
+        && rule.when
+        && String(rule.when.operator) === 'equals'
+    ),
+    true,
+    'merge queue trigger rule should use predicate condition format'
+  );
 
   const config = defaultConfig({
     maintainersCount: 2,

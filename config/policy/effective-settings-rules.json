@@ -6,7 +6,10 @@
       "path": "ci.full_lane_triggers.merge_queue",
       "capability": "merge_queue",
       "module": "core-ci",
-      "when_configured_equals": true,
+      "when": {
+        "operator": "equals",
+        "value": true
+      },
       "effective_value": false,
       "reason": "capability_auto_degrade",
       "detail_template": "{capability} capability is {capability_state} ({capability_reason})",
