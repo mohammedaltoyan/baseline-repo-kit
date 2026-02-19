@@ -31,6 +31,9 @@ Commands:
 - Start backend: `npm run start:backend`
 - Start frontend: `npm run start:frontend`
 - Run app-stack tests: `npm run test:apps`
+- Generate UI visual UAT checklist/report: `npm run test:ui:walkthrough`
+- Live GitHub provisioning matrix validation (preview): `npm run test:github:live`
+- Live GitHub provisioning matrix validation (execute): `npm run test:github:live -- --execute`
 
 ## Baseline Engine (v2.2)
 

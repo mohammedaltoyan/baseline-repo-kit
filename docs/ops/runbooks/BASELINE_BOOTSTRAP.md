@@ -55,6 +55,12 @@ Dry-run preview (no writes):
 
 - `npm run baseline:bootstrap -- -- --to <target-path> --dry-run --github`
 
+Live entitlement-matrix verification (user + org owner scenarios):
+
+- Preview-only (no remote changes): `npm run test:github:live`
+- Execute live validation (ephemeral repos, auto-cleanup): `npm run test:github:live -- --execute`
+- Runbook: `docs/ops/testing/GITHUB_LIVE_PROVISIONING_VALIDATION.md`
+
 ## Non-destructive guarantees
 
 - Never deletes files in the target repo.
