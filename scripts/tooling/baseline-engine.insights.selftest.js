@@ -75,6 +75,16 @@ function run() {
     healthy.capability_matrix.some((row) => row.capability === 'rulesets' && row.remediation.includes('Enable rulesets')),
     true
   );
+  assert.strictEqual(healthy.entitlements.owner_type, 'Organization');
+  assert.strictEqual(healthy.entitlements.repository_visibility, 'private');
+  assert.strictEqual(
+    healthy.entitlements.by_feature.custom_deployment_protection_rules.state,
+    'plan_dependent'
+  );
+  assert.strictEqual(
+    healthy.capability_matrix.some((row) => row.capability === 'custom_deployment_protection_rules'),
+    true
+  );
   assert.strictEqual(healthy.branching.source, 'topology_preset');
   assert.strictEqual(healthy.branching.protected_count > 0, true);
   assert.strictEqual(Array.isArray(healthy.branching.branch_role_policies), true);
@@ -101,6 +111,7 @@ function run() {
     unhealthy.deployments.advisory_rows,
     unhealthy.deployments.approval_required_rows
   );
+  assert.strictEqual(unhealthy.deployments.enforcement.entitlement_state, 'plan_dependent');
 
   console.log('[baseline-engine:insights-selftest] OK');
 }

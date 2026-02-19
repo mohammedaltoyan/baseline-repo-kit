@@ -1,6 +1,7 @@
 'use strict';
 
 const { deriveBranchRolePolicies } = require('./policy/branching');
+const { evaluateGithubEntitlements } = require('./policy/entitlements');
 const { deriveRequiredChecksByRole } = require('./policy/required-checks');
 const { computeAdaptiveReviewThresholds, resolveActiveReviewPolicy } = require('./policy/reviewers');
 
@@ -238,7 +239,7 @@ function summarizeMatrixRows(rows, keyField) {
     }));
 }
 
-function deploymentInsights(config, capabilities) {
+function deploymentInsights(config, capabilities, entitlements) {
   const deployments = config && config.deployments && typeof config.deployments === 'object'
     ? config.deployments
     : {};
@@ -256,6 +257,12 @@ function deploymentInsights(config, capabilities) {
   const enforcementReason = environmentsCapability
     ? String(environmentsCapability.reason || environmentsCapability.state || 'unknown')
     : 'capability_unavailable';
+  const entitlementRequiredReviewers = entitlements
+    && entitlements.by_feature
+    && entitlements.by_feature.environment_required_reviewers
+    && typeof entitlements.by_feature.environment_required_reviewers === 'object'
+    ? entitlements.by_feature.environment_required_reviewers
+    : null;
   const approvalRequiredRows = rows.filter((row) => !!(row && row.approval_required)).length;
 
   return {
@@ -269,6 +276,7 @@ function deploymentInsights(config, capabilities) {
       mode: enforcementMode,
       reason: enforcementReason,
       capability_state: environmentsCapability ? String(environmentsCapability.state || 'unknown') : 'unknown',
+      entitlement_state: entitlementRequiredReviewers ? String(entitlementRequiredReviewers.state || 'unknown') : 'unknown',
     },
     rows_by_environment: summarizeMatrixRows(rows, 'environment'),
     rows_by_component: summarizeMatrixRows(rows, 'component'),
@@ -299,8 +307,42 @@ function buildCapabilityMatrix(capabilities, moduleEvaluation) {
         state: String(cap.state || 'unknown'),
         reason: String(cap.reason || 'unknown'),
         remediation: remediation.get(String(capability)) || '',
+        source: 'runtime_probe',
       };
     });
+}
+
+function mergeCapabilityMatrixWithEntitlements(capabilityMatrix, entitlements) {
+  const rows = Array.isArray(capabilityMatrix) ? capabilityMatrix.map((entry) => ({ ...entry })) : [];
+  const map = new Map(rows.map((entry) => [String(entry && entry.capability || ''), entry]));
+  const features = entitlements && Array.isArray(entitlements.features) ? entitlements.features : [];
+
+  for (const feature of features) {
+    const capability = String(feature && feature.feature || '').trim();
+    if (!capability) continue;
+    const existing = map.get(capability);
+    if (existing) {
+      existing.entitlement_state = String(feature.state || 'unknown');
+      existing.entitlement_reason = String(feature.reason || 'unknown');
+      existing.docs_url = String(feature.docs_url || '');
+      if (!existing.remediation) existing.remediation = String(feature.remediation || '');
+      continue;
+    }
+    rows.push({
+      capability,
+      supported: null,
+      state: String(feature.state || 'unknown'),
+      reason: String(feature.reason || 'unknown'),
+      remediation: String(feature.remediation || ''),
+      source: 'entitlement_advisory',
+      docs_url: String(feature.docs_url || ''),
+      entitlement_state: String(feature.state || 'unknown'),
+      entitlement_reason: String(feature.reason || 'unknown'),
+    });
+  }
+
+  rows.sort((a, b) => String(a && a.capability || '').localeCompare(String(b && b.capability || '')));
+  return rows;
 }
 
 function githubAppInsights(moduleEvaluation) {
@@ -349,15 +391,23 @@ function capabilitySummary(capabilities) {
 }
 
 function buildInsights({ config, capabilities, moduleEvaluation }) {
+  const capability = capabilitySummary(capabilities);
+  const entitlements = evaluateGithubEntitlements({
+    ownerType: capability.owner_type,
+    repositoryPrivate: capability.repository_private,
+  });
   const reviewer = reviewerInsights(config, capabilities);
   const branch = branchInsights(config, reviewer.policy);
-  const deployments = deploymentInsights(config, capabilities);
-  const capability = capabilitySummary(capabilities);
+  const deployments = deploymentInsights(config, capabilities, entitlements);
   const githubApp = githubAppInsights(moduleEvaluation);
-  const capabilityMatrix = buildCapabilityMatrix(capabilities, moduleEvaluation);
+  const capabilityMatrix = mergeCapabilityMatrixWithEntitlements(
+    buildCapabilityMatrix(capabilities, moduleEvaluation),
+    entitlements
+  );
 
   return {
     capability,
+    entitlements,
     capability_matrix: capabilityMatrix,
     reviewer,
     branching: branch,

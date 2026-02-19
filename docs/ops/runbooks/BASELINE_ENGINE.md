@@ -70,6 +70,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 - Branching preset modes are normalized from `branching.topology` (`two_branch|three_branch|trunk`); only `custom` topology preserves manual branch graphs.
 - Deployment approval rows are normalized from the `{environment x component}` matrix on every load/apply, while preserving explicit per-row overrides.
 - Governance insight rows are generated from one SSOT path (`buildInsights`) and reused by doctor output, UI summaries, and resolution log artifacts (no duplicated policy calculators per surface).
+- Owner-type and repo-visibility entitlement advisories are generated centrally (for example, merge queue and deployment protection feature expectations) and surfaced as non-blocking guidance alongside runtime API probe results.
 
 ## CI/CD generation
 
