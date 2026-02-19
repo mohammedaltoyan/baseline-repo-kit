@@ -104,6 +104,7 @@ Planning discipline:
 - Keep evidence plan-scoped (S99): record what ran and what passed (CI links and/or artifact paths).
 - For workflow/orchestration changes, include integration/E2E scenarios that exercise the configuration-driven paths.
 - For security/permissions changes, include explicit allow/deny tests.
+- For GitHub bootstrap/provisioning capability changes, run live matrix verification (`npm run test:github:live -- --execute`) against at least one user-owned and one org-owned scenario when org access exists.
 
 ## Frontend UI/UX Screenshot Iteration (If Applicable; Must When Doing UI Work)
 
@@ -113,6 +114,7 @@ When working on frontend UI/UX:
 - Analyze screenshots for usability, accessibility, responsiveness, consistency, and clarity (no redundant UI patterns; no hard-coded environment assumptions).
 - Provide concrete, actionable iteration notes per screen/state, and re-review updated screenshots until complete.
 - Record UI verification evidence in the plan (S99) and/or PR (screenshots, short videos, notes) in the target repo (do not commit project-specific evidence into this baseline kit).
+- Use `npm run test:ui:walkthrough` to generate a repeatable screenshot checklist and precheck report before/while collecting UI evidence.
 
 ## Database Change Policy (If Applicable; Must When Using a DB)
 
@@ -151,6 +153,8 @@ When working on frontend UI/UX:
 - `npm run start:backend` runs the generic backend API runtime.
 - `npm run start:frontend` runs the generic frontend runtime server.
 - `npm run test:apps` runs integrated app-stack suites.
+- `npm run test:ui:walkthrough` runs app-stack prechecks and generates manual screenshot walkthrough artifacts.
+- `npm run test:github:live` previews GitHub owner-type entitlement matrix validation (`--execute` for live ephemeral provisioning validation).
 - One-button new repo setup (recommended): `npm run baseline:bootstrap -- -- --to <target-path> [--github]` (installs baseline, inits git/branches, optional GitHub provisioning, optional tests).
 - Optional installer to overlay this kit onto another repo:
   - Safe positional form: `npm run baseline:install -- <target-path> [overlay|init] [overwrite] [dry-run] [verbose]`

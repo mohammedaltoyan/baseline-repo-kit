@@ -2485,7 +2485,9 @@ async function main() {
         info(`GitHub repo exists: ${owner}/${repo}`);
       }
 
-      const cloneUrl = repoData ? toString(repoData.ssh_url || repoData.clone_url || '') : '';
+      // Prefer HTTPS clone URLs for automation reliability in token-only environments.
+      // SSH remains a fallback when clone_url is unavailable.
+      const cloneUrl = repoData ? toString(repoData.clone_url || repoData.ssh_url || '') : '';
       await gitEnsureRemoteOrigin({ cwd: targetRoot, desired: { host: actualHost, owner, repo }, candidateUrl: cloneUrl, dryRun: args.dryRun });
 
       // Ensure remote branches exist (avoid pushing protected branches when already present).
