@@ -11,6 +11,7 @@ const {
   detectCodeownersSelfReviewDeadlock,
   deriveRequiredCheckContexts,
   ensureCodeownersFile,
+  isRulesetEntitlementUnsupported,
   loadBootstrapPolicy,
   normalizeCodeownerHandles,
   normalizeEnvironmentReviewerSpecs,
@@ -34,6 +35,15 @@ function run() {
   assert.deepStrictEqual(
     parseRemoteRepoSlug('ssh://git@github.com/acme/example.git'),
     { host: 'github.com', owner: 'acme', repo: 'example' }
+  );
+
+  assert.strictEqual(
+    isRulesetEntitlementUnsupported('gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)'),
+    true
+  );
+  assert.strictEqual(
+    isRulesetEntitlementUnsupported('gh: Not Found (HTTP 404)'),
+    false
   );
 
   // Policy template tokens and reviewer normalization.

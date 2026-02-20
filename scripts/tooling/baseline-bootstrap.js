@@ -2095,6 +2095,12 @@ function resolveRepoVariablePolicyValue(raw, { owner, personalLogin }) {
   return resolvePolicyTemplateToken(raw, { owner, personalLogin });
 }
 
+function isRulesetEntitlementUnsupported(message) {
+  const msg = toString(message);
+  if (!msg) return false;
+  return /Upgrade\s+to\s+GitHub\s+Pro\b/i.test(msg) || /make\s+this\s+repository\s+public\b/i.test(msg);
+}
+
 async function ghApplyPolicyRepoVariables({ cwd, owner, repo, host, policy, personalLogin, dryRun }) {
   const map = policy && policy.github && policy.github.repo_variables;
   if (!map || typeof map !== 'object') return;
@@ -2192,14 +2198,12 @@ async function ghUpsertRuleset({ cwd, host, owner, repo, desired, dryRun }) {
       res = await upsert(stripped);
       if (res.code === 0) return;
     }
-    if (/Upgrade\s+to\s+GitHub\s+Pro\b/i.test(msg) || /make\s+this\s+repository\s+public\b/i.test(msg)) {
-      throw new Error(
-        `Failed to ${method} ruleset ${name}: ${msg}\n` +
-        'Hint: Rulesets/branch protection may be restricted on private personal repos. Options:\n' +
-        '- Make the repository public, or\n' +
-        '- Upgrade your GitHub plan / use an organization repo with the required plan.\n' +
-        'After fixing, re-run: npm run baseline:bootstrap -- -- --to <target> --mode overlay --overwrite --github'
+    if (isRulesetEntitlementUnsupported(msg)) {
+      warn(
+        `Ruleset ${name} not applied due to repository entitlement limits. ` +
+        'Continuing with degraded governance mode. Remediation: make repo public, upgrade plan, or use an organization repo.'
       );
+      return;
     }
     throw new Error(`Failed to ${method} ruleset ${name}: ${msg}`);
   }
@@ -3017,6 +3021,7 @@ module.exports = {
   parseArgs,
   parseRemoteRepoSlug,
   parseWorkflowChecks,
+  isRulesetEntitlementUnsupported,
   resolveGitIdentityFromSources,
   resolvePolicyTemplateToken,
 };

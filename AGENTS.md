@@ -103,6 +103,7 @@ Planning discipline:
 - Selftests must be hermetic across baseline install/bootstrap contexts (do not rely on repo-specific canonical plans or local-only fixtures unless they are created/cleaned up by the test itself).
 - Keep evidence plan-scoped (S99): record what ran and what passed (CI links and/or artifact paths).
 - For workflow/orchestration changes, include integration/E2E scenarios that exercise the configuration-driven paths.
+- For `baseline:bootstrap --github` changes, include live owner-matrix validation evidence (at least user-owned + organization-owned scenarios) and document entitlement degradations explicitly.
 - For security/permissions changes, include explicit allow/deny tests.
 - For GitHub bootstrap/provisioning capability changes, run live matrix verification (`npm run test:github:live -- --execute`) against at least one user-owned and one org-owned scenario when org access exists.
 

@@ -108,6 +108,7 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
 - Merge Queue:
   - Recommended by policy for integration branch by default.
   - Bootstrap attempts to configure it via rulesets when supported; when unsupported (plan/org dependent), enable manually in the GitHub UI.
+  - If rulesets are entitlement-limited (for example private user-owned repo without required plan), bootstrap degrades to warning mode and continues provisioning other controls.
 - Repo variables set:
   - `BACKPORT_ENABLED` (default: `0`; enable only when hotfix prefixes are configured)
   - `SECURITY_ENABLED` (default: `0`)
