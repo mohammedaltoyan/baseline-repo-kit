@@ -10,6 +10,7 @@ async function runVerify(args) {
 
   const payload = {
     command: 'verify',
+    target: doctor.target || diff.target || '',
     doctor_ok: true,
     pending_changes: diff.change_count,
     conflict_count: diff.conflict_count || 0,

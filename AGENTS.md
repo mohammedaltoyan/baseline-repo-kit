@@ -103,6 +103,7 @@ Planning discipline:
 - Selftests must be hermetic across baseline install/bootstrap contexts (do not rely on repo-specific canonical plans or local-only fixtures unless they are created/cleaned up by the test itself).
 - Keep evidence plan-scoped (S99): record what ran and what passed (CI links and/or artifact paths).
 - For workflow/orchestration changes, include integration/E2E scenarios that exercise the configuration-driven paths.
+- For `baseline:bootstrap --github` changes, include live owner-matrix validation evidence (at least user-owned + organization-owned scenarios) and document entitlement degradations explicitly.
 - For security/permissions changes, include explicit allow/deny tests.
 - For GitHub bootstrap/provisioning capability changes, run live matrix verification (`npm run test:github:live -- --execute`) against at least one user-owned and one org-owned scenario when org access exists.
 
@@ -156,17 +157,23 @@ When working on frontend UI/UX:
 - `npm run test:ui:walkthrough` runs app-stack prechecks and generates manual screenshot walkthrough artifacts.
 - `npm run test:github:live` previews GitHub owner-type entitlement matrix validation (`--execute` for live ephemeral provisioning validation).
 - One-button new repo setup (recommended): `npm run baseline:bootstrap -- -- --to <target-path> [--github]` (installs baseline, inits git/branches, optional GitHub provisioning, optional tests).
+  - Initial bootstrap commit identity is configurable via `--git-user-name` / `--git-user-email` (or env `BASELINE_GIT_USER_NAME` / `BASELINE_GIT_USER_EMAIL`); if missing, bootstrap falls back to a default bot identity and emits a warning.
 - Optional installer to overlay this kit onto another repo:
   - Safe positional form: `npm run baseline:install -- <target-path> [overlay|init] [overwrite] [dry-run] [verbose]`
   - Flag form (safe with modern npm): `npm run baseline:install -- --to <path> --mode overlay --dry-run`
 - Baseline Engine v2.2 (settings-driven, capability-aware):
   - `npm run baseline:init -- --target <target-path>`
-  - `npm run baseline:ui -- --target <target-path>`
+  - `npm run baseline:ui` (no target required at startup; set/clear target in UI)
   - `npm run baseline:diff -- --target <target-path>`
   - `npm run baseline:apply -- --target <target-path>`
   - `npm run baseline:upgrade -- --target <target-path>`
   - `npm run baseline:doctor -- --target <target-path>`
-  - `npm run baseline:verify -- --target <target-path>`
+- `npm run baseline:verify -- --target <target-path>`
+- UI-first operation mode is mandatory for interactive usage:
+  - Start once with `npm run baseline:ui`.
+  - After startup, run lifecycle actions from UI only (`init`, `diff`, `doctor`, `verify`, `upgrade`, `apply`, capability refresh, config save, target/profile set/clear).
+- UI flow E2E selftest coverage is mandatory in engine gates:
+  - `scripts/tooling/baseline-control.ui-e2e.selftest.js` validates unbound startup (no target), target set/clear, invalid-target handling (`target_exists_but_not_directory`, `target_not_writable`), action blocking/unblocking by target validity, settings save, full action-button lifecycle, and UI error-surface behavior through browser-flow logic (no CLI command invocation for lifecycle operations).
 
 ## Baseline Engine v2.2 (Must)
 
@@ -204,6 +211,7 @@ When working on frontend UI/UX:
 - Workflow action references must be settings-driven (`ci.action_refs`) so pinning policy can be centrally controlled.
 - Baseline GitHub workflows must follow checkout credential SSOT in `config/policy/workflow-security.json`: `actions/checkout` must set `persist-credentials` explicitly, default `false`, with explicit allowlisted write flows only.
 - UI explanation + capability-label SSOT is `config/schema/baseline-ui-metadata.json`, governed by `config/schema/baseline-ui-metadata.schema.json`; runtime and CI must validate metadata structure, section references, and capability keys.
+- UI control-plane API is contracted in engine runtime (`tooling/apps/baseline-engine/lib/commands/ui.js`) and must include lifecycle endpoints (`/api/init|diff|doctor|verify|upgrade|apply`), settings/session endpoints (`/api/config`, `/api/session`), and discovery/state endpoints (`/api/operations`, `/api/state`, `/api/refresh-capabilities`) with explicit error signaling for invalid JSON (`400`) and oversized payloads (`413`).
 - If `security.require_pinned_action_refs=true`, generated workflow action refs must be full SHA pins and doctor must fail otherwise.
 - Deployment OIDC behavior must be settings-driven (`deployments.oidc`) with secure defaults and no hardcoded cloud vendor assumptions.
 - For generated GitHub Actions workflows, if a job defines `permissions`, include every required scope there (for OIDC: `id-token: write`) because job-level `permissions` override workflow-level defaults.

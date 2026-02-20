@@ -5,7 +5,7 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 ## Commands
 
 - `npm run baseline:init -- --target <target-path>`
-- `npm run baseline:ui -- --target <target-path>`
+- `npm run baseline:ui` (no target required at startup; choose target in UI session controls)
 - `npm run baseline:diff -- --target <target-path>`
 - `npm run baseline:apply -- --target <target-path>`
 - `npm run baseline:upgrade -- --target <target-path>`
@@ -105,7 +105,33 @@ The baseline engine is the dynamic control plane for setup, policy generation, c
 
 ## UI
 
-Run `npm run baseline:ui` and open `http://0.0.0.0:4173` (or configured host/port).
+Run `npm run baseline:ui` once, then operate fully from UI.
+No additional CLI command is required after the UI starts.
+
+Default URL: `http://127.0.0.1:4173` (or configured host/port).
+
+UI API endpoints:
+- `GET /api/session` - returns current target/profile and target path health.
+- `POST /api/session` - sets or clears target/profile for all subsequent operations.
+- `GET /api/operations` - returns operation catalog (used by UI as runtime source of action metadata).
+- `GET /api/state` - returns schema + metadata + config + effective config + capabilities + insights; if no target is selected it returns `target_required=true` and guidance; if target is invalid it returns `target_invalid=true` with explicit reason (for example `target_exists_but_not_directory`, `target_not_writable`).
+- `POST /api/refresh-capabilities` - forces capability re-probe and returns refreshed state.
+- `POST /api/init` - initialize baseline files in current target.
+- `POST /api/diff` - preview managed-file diff.
+- `POST /api/doctor` - run diagnostics.
+- `POST /api/verify` - run verification.
+- `POST /api/config` - persist normalized settings from UI.
+- `POST /api/upgrade` - run migrations/upgrades.
+- `POST /api/apply` - apply managed changes (PR-first unless direct override selected).
+
+UI lifecycle test coverage:
+- `node scripts/tooling/baseline-control.ui-e2e.selftest.js` verifies UI-only flow end-to-end:
+  - UI boot from URL data endpoints (including unbound startup with no selected target)
+  - target/profile selection and target clearing from UI session controls
+  - target-bound action blocking/unblocking based on target validity (including non-directory and non-writable target states)
+  - settings edit + auto-save behavior
+  - action buttons (`init`, `diff`, `doctor`, `verify`, `upgrade`, `apply`, capability refresh)
+  - output-panel error rendering when API actions fail
 
 The UI surfaces per setting:
 - what it controls

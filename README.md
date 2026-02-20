@@ -43,6 +43,7 @@ Use the engine when you need fully dynamic, capability-aware setup and upgrades:
    - `npm run baseline:init -- --target <target-path>`
 2. Launch web UI:
    - `npm run baseline:ui -- --target <target-path>`
+   - After startup, use only the UI for `init`, `diff`, `doctor`, `verify`, `upgrade`, `apply`, target/profile switching, and capability refresh.
 3. Preview generated changes:
    - `npm run baseline:diff -- --target <target-path>`
 4. Apply generated changes (PR-first by default):
@@ -76,6 +77,7 @@ From this baseline repo:
 1. Bootstrap a new/existing repo (recommended):
    - Local-only: `npm run baseline:bootstrap -- -- --to <target-path>`
    - Local-only (profile): `npm run baseline:bootstrap -- -- --to <target-path> --profile enterprise`
+   - Local-only (explicit commit identity): `npm run baseline:bootstrap -- -- --to <target-path> --git-user-name "Baseline Bot" --git-user-email "baseline-bot@example.com"`
    - With GitHub provisioning: `npm run baseline:bootstrap -- -- --to <target-path> --github`
    - With explicit code owners: `npm run baseline:bootstrap -- -- --to <target-path> --github --codeowners 'owner-login,org/platform-team'`
    - Active repo (protected branches): `npm run baseline:bootstrap -- -- --to <target-path> --mode overlay --overwrite --github --adopt`

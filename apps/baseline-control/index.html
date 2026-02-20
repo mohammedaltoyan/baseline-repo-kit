@@ -14,14 +14,44 @@
 
     <main class="layout">
       <aside class="panel left">
-        <h2>Actions</h2>
+        <h2>Workspace</h2>
+        <div class="controlGroup">
+          <label for="targetInput">Target repository path (set in UI after startup)</label>
+          <input id="targetInput" type="text" placeholder="/absolute/or/relative/target/path" />
+          <label for="profileInput">Install profile (optional)</label>
+          <input id="profileInput" type="text" placeholder="standard" />
+          <div class="actions inline">
+            <button id="setTargetBtn">Set Target</button>
+            <button id="clearTargetBtn">Clear Target</button>
+            <button id="refreshCapsBtn">Refresh Capabilities</button>
+          </div>
+        </div>
+
+        <h3>Execution Options</h3>
+        <div class="controlGroup">
+          <label class="checkboxRow"><input id="dryRunToggle" type="checkbox" /> Dry run (no file writes)</label>
+          <label class="checkboxRow"><input id="applyDirectToggle" type="checkbox" /> Direct apply (bypass PR-first)</label>
+          <label for="upgradeVersionInput">Upgrade target version</label>
+          <input id="upgradeVersionInput" type="text" placeholder="2.2.0" />
+        </div>
+
+        <h3>Actions</h3>
         <div class="actions">
+          <button id="initBtn">Initialize</button>
           <button id="refreshBtn">Refresh</button>
           <button id="saveBtn">Save Settings</button>
           <button id="diffBtn">Preview Diff</button>
           <button id="doctorBtn">Run Doctor</button>
+          <button id="verifyBtn">Run Verify</button>
+          <button id="upgradeBtn">Run Upgrade</button>
           <button id="applyBtn">Apply</button>
         </div>
+
+        <h3>Operation Catalog</h3>
+        <div id="operationsCatalog" class="summary"></div>
+
+        <h3>Session</h3>
+        <div id="sessionSummary" class="summary"></div>
 
         <h3>Repository</h3>
         <div id="repoSummary" class="summary"></div>
@@ -41,6 +71,7 @@
 
       <aside class="panel right">
         <h2>Output</h2>
+        <p class="hint">All lifecycle operations are available here. No terminal command is required after starting this UI.</p>
         <pre id="output"></pre>
       </aside>
     </main>

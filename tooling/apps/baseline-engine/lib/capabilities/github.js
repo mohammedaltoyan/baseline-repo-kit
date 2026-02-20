@@ -41,11 +41,12 @@ function parseOriginRemote(value) {
   return { owner: '', repo: '' };
 }
 
-function detectRepositorySlug() {
+function detectRepositorySlug(targetRoot) {
   const fromEnv = normalizeRepoSlug(process.env.GITHUB_REPOSITORY);
   if (fromEnv.owner && fromEnv.repo) return fromEnv;
 
   const remote = spawnSync('git', ['remote', 'get-url', 'origin'], {
+    cwd: targetRoot || process.cwd(),
     encoding: 'utf8',
     timeout: 2000,
   });
@@ -155,9 +156,8 @@ function roleFromPermissions(permissions) {
 }
 
 async function detectGithubCapabilities({ targetRoot }) {
-  void targetRoot;
   const detectedAt = new Date().toISOString();
-  const repo = detectRepositorySlug();
+  const repo = detectRepositorySlug(targetRoot);
   const tokenInfo = resolveToken();
 
   const base = {
