@@ -140,6 +140,7 @@ Defaults live in `config/policy/bootstrap-policy.json` and can be changed in the
     - `DEPLOY_RECEIPTS_PREFIX` (default: `docs/ops/evidence/deploy`)
   - Optional enforcement:
     - `ENV_ISOLATION_LINT_ENABLED` (default: `1`; auth token resolution uses `ENV_ISOLATION_TOKEN` then workflow `GITHUB_TOKEN`)
+    - `ENV_ISOLATION_LINT_AUTHZ_MODE` (default: `warn`; set `strict` to fail closed when API authz prevents environment key reads)
 - Labels:
   - Baseline label definitions SSOT: `config/policy/github-labels.json`
   - Bootstrap ensures labels exist when `github.labels.enabled=true` (default; non-destructive).

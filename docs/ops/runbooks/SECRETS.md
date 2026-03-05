@@ -27,7 +27,7 @@ When using the baseline deploy flows:
 - Secrets/vars must live only in the **surface+tier** deploy environment that uses them (example: `application-staging`).
 - Approval environments (example: `staging-approval`, `production-approval-*`) must not contain deploy secrets.
 
-## Optional: Environment Isolation Lint (Fail-Closed When Enabled)
+## Optional: Environment Isolation Lint (Capability-Aware)
 
 This baseline ships an optional lint that verifies environment secret/var **names** are placed only where allowed:
 - Script: `scripts/ops/env-isolation-lint.js`
@@ -35,12 +35,19 @@ This baseline ships an optional lint that verifies environment secret/var **name
 
 How to enable/operate:
 1) Keep repo var: `ENV_ISOLATION_LINT_ENABLED=1` (baseline default).
-2) Optionally add repo secret: `ENV_ISOLATION_TOKEN` (recommended for explicit, least-privilege API auth).
-3) Ensure workflow token permissions include `actions: read` so `GITHUB_TOKEN` can serve as fallback.
-4) Configure allowlists in `config/deploy/deploy-surfaces.json` per surface:
+2) Set authz handling mode via repo var: `ENV_ISOLATION_LINT_AUTHZ_MODE`:
+   - `warn` (default): authz-denied API reads degrade to warnings with remediation.
+   - `strict`: authz-denied API reads fail the check.
+3) Optionally add repo secret: `ENV_ISOLATION_TOKEN` (recommended for explicit, least-privilege API auth).
+4) Ensure workflow token permissions include `actions: read` so `GITHUB_TOKEN` can serve as fallback.
+5) Configure allowlists in `config/deploy/deploy-surfaces.json` per surface:
    - `allowed_secret_keys[]`
    - `allowed_var_keys[]`
 
 Behavior:
 - When disabled (`ENV_ISOLATION_LINT_ENABLED=0`): the workflow exits quickly and passes (not recommended for hardened repos).
-- When enabled and the token is missing or the API cannot be queried: the workflow fails (fail-closed).
+- When enabled and unexpected keys are detected: the workflow fails (fail-closed).
+- When enabled and authz-denied API reads occur:
+  - `ENV_ISOLATION_LINT_AUTHZ_MODE=warn` logs explicit warnings + remediation and passes.
+  - `ENV_ISOLATION_LINT_AUTHZ_MODE=strict` fails the workflow.
+- When enabled and no API token is available: the workflow fails.

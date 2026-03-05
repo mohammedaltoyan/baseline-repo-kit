@@ -234,6 +234,11 @@ function run() {
     'expected ENV_ISOLATION_LINT_ENABLED repo variable default to 1 in bootstrap policy'
   );
   assert.strictEqual(
+    String(policy.github && policy.github.repo_variables && policy.github.repo_variables.ENV_ISOLATION_LINT_AUTHZ_MODE || ''),
+    'warn',
+    'expected ENV_ISOLATION_LINT_AUTHZ_MODE repo variable default to warn in bootstrap policy'
+  );
+  assert.strictEqual(
     String(policy.github && policy.github.workflow_permissions && policy.github.workflow_permissions.default_workflow_permissions || ''),
     'read',
     'expected workflow_permissions.default_workflow_permissions to default to read in bootstrap policy'

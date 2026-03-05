@@ -84,6 +84,7 @@
       "DEPLOY_RECEIPTS_BRANCH": "ops/evidence",
       "DEPLOY_RECEIPTS_PREFIX": "docs/ops/evidence/deploy",
       "ENV_ISOLATION_LINT_ENABLED": "1",
+      "ENV_ISOLATION_LINT_AUTHZ_MODE": "warn",
       "DEPLOY_ENV_MAP_JSON": "{\"application\":{\"staging\":\"application-staging\",\"production\":\"application-production\"},\"docs\":{\"staging\":\"docs-staging\",\"production\":\"docs-production\"},\"api-ingress\":{\"staging\":\"api-ingress-staging\",\"production\":\"api-ingress-production\"}}"
     },
     "labels": {
