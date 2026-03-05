@@ -54,6 +54,7 @@ If your system has multiple override scopes (multi-tenant, multi-client, multi-s
 - Prefer short-lived branches:
   - Open PRs early (phase-scoped) and merge as soon as green + reviewed.
   - Avoid stacking unrelated changes in a single branch; use multiple branches/worktrees instead.
+  - When retiring stale refs that contain unique history but no desired code delta, preserve reachability via history-only closure merges (for example `-s ours`) through a PR before deleting refs.
 - If you use `git worktree` (recommended for parallel work):
   - One worktree per branch/PR to prevent cross-branch contamination.
   - Strict isolation: work only within your assigned worktree. Do not modify, interfere with, or depend on files in other worktrees. Synchronize changes only through the approved branching/PR merge process.
