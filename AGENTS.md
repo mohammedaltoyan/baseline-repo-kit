@@ -252,8 +252,8 @@ Fallback (when registry is missing):
 
 Isolation lint (API-based):
 - Script: `scripts/ops/env-isolation-lint.js`
-- Workflow: `.github/workflows/env-isolation-lint.yml` (required check; fail-closed when enabled)
-- Hardened default: `ENV_ISOLATION_LINT_ENABLED=1`; auth token resolution order is `ENV_ISOLATION_TOKEN` then `GITHUB_TOKEN` (workflow needs `actions: read`). If no usable token exists, lint fails closed.
+- Workflow: `.github/workflows/env-isolation-lint.yml` (required check; unexpected key findings fail-closed)
+- Hardened default: `ENV_ISOLATION_LINT_ENABLED=1`; auth token resolution order is `ENV_ISOLATION_TOKEN` then `GITHUB_TOKEN` (workflow needs `actions: read`). Authorization-denied API reads degrade to explicit warnings by default (`ENV_ISOLATION_LINT_AUTHZ_MODE=warn`); set `strict` to fail closed on authz errors.
 
 ## Code Owner Review Automation (Baseline)
 
