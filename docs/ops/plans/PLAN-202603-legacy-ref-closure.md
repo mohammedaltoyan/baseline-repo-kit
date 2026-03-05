@@ -3,8 +3,8 @@ plan_id: PLAN-202603-legacy-ref-closure
 title: Legacy ref closure without archive tags
 owner: @codex
 status: in_progress # draft|queued|in_progress|blocked|on_hold|done|canceled|superseded
-current_step: S00
-updated: 2026-03-05
+current_step: S01
+updated: 2026-03-06
 priority: P2 # P0|P1|P2|P3
 target_window: 2026-03 # required for queued
 links:
@@ -12,13 +12,13 @@ links:
 ---
 
 At-a-Glance
-- Now: S00 - Plan preflight (scope + guardrails; no execution yet)
-- Next: S01 - Scope/guardrails locked
+- Now: S01 - Scope/guardrails locked
+- Next: S02 - Requirements captured
 - Blockers: <none or short>
 - ETA: <date>
 
 Checklist
-- [ ] S00 - Plan preflight complete (scope drafted; risks/dependencies noted; no execution yet)
+- [x] S00 - Plan preflight complete (scope drafted; risks/dependencies noted; no execution yet)
 - [ ] S01 - Scope/guardrails locked; focus set
 - [ ] S02 - Requirements captured (include PR slicing plan: phase map + mergeable increments; feature flags if needed)
 - [ ] S03 - Design validation (flows, failure messaging, CI behavior; overrides explicitly defined or none)
@@ -42,6 +42,5 @@ Decisions & Notes
 - PR: <link(s) to PR(s) if applicable>
 - CI Evidence: <CI run URL(s) for S99>
 - Objectives Evidence: <short attestation and/or links to proof>
-
 
 
